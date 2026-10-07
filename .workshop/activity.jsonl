@@ -13,3 +13,28 @@
 {"timestamp": "2026-10-07T09:26:33Z", "type": "task_completed", "taskId": "task-0-2", "summary": "Supabase-Clients (Browser, Server, Admin), Proxy für Sitzungscookies und Umgebungsvariablen eingerichtet."}
 {"timestamp": "2026-10-07T09:26:33Z", "type": "task_ready", "taskId": "task-1-1", "summary": "Task task-1-1 ist startbar."}
 {"timestamp": "2026-10-07T09:26:33Z", "type": "task_ready", "taskId": "task-4-1", "summary": "Task task-4-1 ist startbar."}
+{"timestamp": "2026-10-07T09:34:47Z", "type": "task_started", "taskId": "task-1-1", "summary": "Enums und Stammdaten-Tabellen als Supabase-Migrationen begonnen."}
+{"timestamp": "2026-10-07T09:39:20Z", "type": "verification_passed", "taskId": "task-1-1", "summary": "Migrationen angewendet; pgTAP 29/29, db lint, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T09:39:20Z", "type": "task_completed", "taskId": "task-1-1", "summary": "Alle Enums sowie profiles, settings, service_rates und employee_availability mit CHECK-Constraints und aktivierter RLS angelegt."}
+{"timestamp": "2026-10-07T09:39:20Z", "type": "task_ready", "taskId": "task-1-2", "summary": "Task task-1-2 ist startbar."}
+{"timestamp": "2026-10-07T09:45:04Z", "type": "task_started", "taskId": "task-1-2", "summary": "Migration für requests und request_events begonnen."}
+{"timestamp": "2026-10-07T09:47:43Z", "type": "verification_passed", "taskId": "task-1-2", "summary": "pgTAP 53/53, Nebenläufigkeitstest der Nummernvergabe, db lint, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T09:47:43Z", "type": "task_completed", "taskId": "task-1-2", "summary": "requests mit atomarer Nummernvergabe RIS-JJJJ-NNNNN und source_event_key-Idempotenz sowie append-only request_events angelegt."}
+{"timestamp": "2026-10-07T09:47:43Z", "type": "task_ready", "taskId": "task-1-3", "summary": "Task task-1-3 ist startbar."}
+{"timestamp": "2026-10-07T09:47:43Z", "type": "task_ready", "taskId": "task-1-4", "summary": "Task task-1-4 ist startbar."}
+{"timestamp": "2026-10-07T09:52:18Z", "type": "task_started", "taskId": "task-1-3", "summary": "Migration für messages, automation_runs und attachments begonnen."}
+{"timestamp": "2026-10-07T09:54:28Z", "type": "verification_passed", "taskId": "task-1-3", "summary": "pgTAP 83/83, db lint, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T09:54:28Z", "type": "task_completed", "taskId": "task-1-3", "summary": "messages, automation_runs und attachments mit CHECK-Constraints und Elternprüfung angelegt."}
+{"timestamp": "2026-10-07T09:57:29Z", "type": "task_started", "taskId": "task-1-4", "summary": "Migration für visits, work_entries, invoices und invoice_items begonnen."}
+{"timestamp": "2026-10-07T10:01:17Z", "type": "verification_passed", "taskId": "task-1-4", "summary": "pgTAP 114/114, Nebenläufigkeitstest der Buchungen, db lint, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T10:01:17Z", "type": "task_completed", "taskId": "task-1-4", "summary": "visits mit Überschneidungsschutz, work_entries, invoices und invoice_items angelegt; ausstehende Fremdschlüssel als Gleiche-Anfrage-Paare ergänzt."}
+{"timestamp": "2026-10-07T10:01:17Z", "type": "task_ready", "taskId": "task-1-5", "summary": "Task task-1-5 ist startbar."}
+{"timestamp": "2026-10-07T10:05:02Z", "type": "task_started", "taskId": "task-1-5", "summary": "RLS-Richtlinien, Hilfsfunktionen und privater Storage begonnen."}
+{"timestamp": "2026-10-07T10:09:21Z", "type": "verification_passed", "taskId": "task-1-5", "summary": "pgTAP 156/156 inkl. 42 RLS-Tests, REST-API-Prüfung mit echtem Login, db lint, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T10:09:21Z", "type": "task_completed", "taskId": "task-1-5", "summary": "RLS-Leserichtlinien, Hilfsfunktionen im Schema private, Schutz von Rolle/Aktivstatus, technician_busy_intervals und privater Storage-Bucket angelegt."}
+{"timestamp": "2026-10-07T10:09:21Z", "type": "task_ready", "taskId": "task-2-1", "summary": "Task task-2-1 ist startbar."}
+{"timestamp": "2026-10-07T10:09:21Z", "type": "task_ready", "taskId": "task-2-2", "summary": "Task task-2-2 ist startbar."}
+{"timestamp": "2026-10-07T10:09:21Z", "type": "task_ready", "taskId": "task-3-1", "summary": "Task task-3-1 ist startbar."}
+{"timestamp": "2026-10-07T10:12:38Z", "type": "task_started", "taskId": "task-2-1", "summary": "Kontrollierte Operationen für Erstbearbeitung, Zuweisung und Fristen begonnen."}
+{"timestamp": "2026-10-07T10:17:47Z", "type": "verification_passed", "taskId": "task-2-1", "summary": "pgTAP 201/201, REST-API-Prüfung, db lint, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T10:17:47Z", "type": "task_completed", "taskId": "task-2-1", "summary": "RPCs für Dispatcher-Zuweisung, Prüfung/Korrektur, Abschluss, Wiedereröffnung, Ablehnung, Stornierung und Friständerung mit Versionsprüfung und atomarem Audit angelegt."}

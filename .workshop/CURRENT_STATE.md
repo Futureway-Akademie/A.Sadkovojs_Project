@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 3,85 % (Gewicht 4 von 104).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 25,00 % (Gewicht 26 von 104).
 
 ## Aktive Phase
 
-Phase 0 (Grundlage) ist abgeschlossen. Nächste Phasen: Phase 1 (Datenbankschema) und Phase 4 (Dashboard-Grundgerüst).
+Phase 2: Kontrollierte Operationen (`phase-2`).
 
 ## Aktive Aufgabe
 
@@ -14,11 +14,12 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-0-2`: Supabase-Clients (Browser, Server, Admin), Proxy für Sitzungscookies und Umgebungsvariablen; Verbindung zum lokalen Supabase-Stack geprüft; lint, typecheck und build erfolgreich.
+`task-2-1`: RPCs `assign_dispatcher`, `mark_needs_review`, `mark_awaiting_customer`, `resume_analysis`, `correct_analysis`, `complete_intake`, `reopen_intake`, `reject_request`, `cancel_request`, `change_deadline` mit Rollen-/Zugriffs-/Versionsprüfung (Fehlercodes 42501, RW409, RW422) und atomarem Audit; Erstabschluss-Snapshot per Trigger unveränderlich. pgTAP 201/201, REST-API-Prüfung, lint, typecheck und build erfolgreich.
 
 ## Bereite nächste Aufgaben
 
-- `task-1-1`: Enums und Stammdaten-Tabellen.
+- `task-2-2`: Einsatzplanung und Einsatzstatus.
+- `task-3-1`: Bootstrap der Demo-Nutzer.
 - `task-4-1`: Routenstruktur, Anmeldung und Navigation.
 
 ## Blockiert
@@ -34,6 +35,13 @@ Nichts.
 - Entwicklung gegen lokales Supabase (`supabase start`); Schemaänderungen nur als Migrationen unter `supabase/migrations/`, spätere Übernahme in die Cloud per `supabase db push`.
 - `proxy.ts` erneuert nur die Sitzung (nur `/dashboard`, `/login`, `/auth/*`); Zugriffsschutz im Dashboard-Layout und über RLS.
 
+- Alle Enums der Spezifikation entstehen in einer eigenen Migration; Tabellen aktivieren RLS sofort (Deny-by-default), Richtlinien folgen in task-1-5.
+- SQL-Tests mit pgTAP unter `supabase/tests/database/`, Ausführung `supabase test db`.
+- Anfragenummern vergibt ausschließlich die Datenbank (Trigger), das Jahr folgt `created_at` in `settings.timezone`; `request_events` ist per Trigger append-only.
+- Zugehörigkeit zur selben Anfrage wird über `UNIQUE (id, request_id)` und zusammengesetzte Fremdschlüssel garantiert; Überschneidungen aktiver Einsätze verhindert ein Exclusion Constraint (`btree_gist`).
+- RLS gewährt nur Lesen; Schreiben ausschließlich über kontrollierte `security definer`-Operationen (Phase 2). Neue Tabellen müssen RLS aktivieren und Standardrechte von `anon`/`authenticated` entziehen.
+- Kontrollierte Operationen: `security definer`-RPCs mit `expected_version`; Fehlercodes `42501` (Berechtigung), `RW409` (Versionskonflikt), `RW422` (Zustand/Eingabe). Siehe `docs/database.md`.
+
 ## Bekannte Probleme
 
 - Kein Supabase-Cloud-Projekt verknüpft; für das spätere Deployment nötig (`supabase login`, `supabase link`).
@@ -41,4 +49,4 @@ Nichts.
 
 ## Empfohlener nächster Schritt
 
-`task-1-1` (Enums und Stammdaten-Tabellen) starten; damit beginnt das Datenbankschema, auf dem die meisten weiteren Tasks aufbauen.
+`task-2-2` (Einsatzplanung und Einsatzstatus) starten und Phase 2 fortsetzen.

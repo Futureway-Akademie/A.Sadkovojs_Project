@@ -20,6 +20,6 @@
 
 Der Proxy schützt keine Routen. Zugriffskontrolle erfolgt im Dashboard-Layout (task-4-1) und in der Datenbank (RLS).
 
-Entwicklung gegen den lokalen Supabase-Stack (`supabase start`, Docker). Schemaänderungen ausschließlich als Migrationen unter `supabase/migrations/`. Verbindungsprüfung: `npm run supabase:check`.
+Entwicklung gegen den lokalen Supabase-Stack (`supabase start`, Docker). Schemaänderungen ausschließlich als Migrationen unter `supabase/migrations/`. Verbindungsprüfung: `npm run supabase:check`. Tabellen, Enums und Nullability: [database.md](database.md).
 
 Details werden mit den jeweiligen Tasks ergänzt.

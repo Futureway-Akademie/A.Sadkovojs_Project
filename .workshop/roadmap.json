@@ -83,7 +83,7 @@
       "description": "13 Kerntabellen als versionierte SQL-Migrationen inklusive Constraints, Indizes und RLS.",
       "order": 2,
       "weight": 17,
-      "status": "ready",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-1-1",
@@ -91,7 +91,7 @@
           "description": "Enums sowie profiles, settings, service_rates und employee_availability mit CHECK-Constraints.",
           "order": 1,
           "weight": 3,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-0-2"
           ],
@@ -101,13 +101,20 @@
             "Nullability dokumentiert",
             "Migration lässt sich anwenden"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T09:34:47Z",
+          "completedAt": "2026-10-07T09:39:20Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migrationen 20261007093447_enums und 20261007093448_master_data per supabase db reset angewendet. pgTAP: 29/29 Tests bestanden (Struktur, RLS aktiv, FK restrict auf auth.users, Singleton settings, Wertebereiche, CHECK-Constraints je Verfügbarkeitsart). supabase db lint ohne Befunde. lint, typecheck und build erfolgreich. Nullability in docs/database.md dokumentiert.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T09:39:20Z"
           }
         },
         {
@@ -116,7 +123,7 @@
           "description": "requests mit atomarer Nummernvergabe RIS-JJJJ-NNNNN, source_event_key-Idempotenz und append-only request_events.",
           "order": 2,
           "weight": 3,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-1-1"
           ],
@@ -127,13 +134,21 @@
             "request_events nicht durch normale Clients änderbar oder löschbar",
             "Indizes auf Zuweisungen, Status und Zeitstempel"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T09:45:04Z",
+          "completedAt": "2026-10-07T09:47:43Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007100000_requests_and_events per supabase db reset angewendet. pgTAP: 53/53 Tests bestanden (davon 24 für requests/request_events: Nummernvergabe je Jahr in Europe/Berlin, Überschreiben von Client-Nummern, source_event_key UNIQUE, Unveränderlichkeit, Versionierung, statusabhängige Pflichtfelder, append-only Ereignisse). Nebenläufigkeit: 40 parallele Inserts ergaben 40 eindeutige, lückenlose Nummern. supabase db lint ohne Befunde; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "40 parallele psql-Inserts",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T09:47:43Z"
           }
         },
         {
@@ -142,7 +157,7 @@
           "description": "messages, automation_runs und attachments mit konsistenten CHECK-Constraints und Eltern-Prüfung.",
           "order": 3,
           "weight": 3,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-1-2"
           ],
@@ -152,13 +167,20 @@
             "operation_key UNIQUE in automation_runs",
             "attachments verlangen mindestens eine Elternreferenz derselben Anfrage"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T09:52:18Z",
+          "completedAt": "2026-10-07T09:54:28Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007110000_messages_automation_attachments per supabase db reset angewendet. pgTAP: 83/83 Tests bestanden (davon 30 neu: Richtungs-/Status-/Zeitstempel-CHECKs, UNIQUE (mailbox_key, gmail_message_id), operation_key UNIQUE, Endzustände und Entscheidungen von automation_runs, Elternprüfung der Anhänge). supabase db lint ohne Befunde; lint, typecheck und build erfolgreich. Prüfung von visit_id/invoice_id der Anhänge folgt mit task-1-4.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T09:54:28Z"
           }
         },
         {
@@ -167,7 +189,7 @@
           "description": "visits mit Überschneidungsschutz, work_entries, invoices und invoice_items.",
           "order": 4,
           "weight": 3,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-1-2"
           ],
@@ -178,13 +200,21 @@
             "invoice_items.work_entry_id UNIQUE",
             "Rechnung pro Anfrage UNIQUE"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T09:57:29Z",
+          "completedAt": "2026-10-07T10:01:17Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007120000_visits_work_invoices per supabase db reset angewendet. pgTAP: 114/114 Tests bestanden (davon 31 neu: scheduled_end > scheduled_start, Überschneidungsschutz nur für reservierende Status scheduled/in_progress, halboffene Intervalle, Gleiche-Anfrage-Garantie per zusammengesetzten Fremdschlüsseln, Art/Einheit/Status der Arbeitspositionen, eine Rechnung je Anfrage, Ausstellungsdaten, work_entry_id UNIQUE, Rundungsregel). Nebenläufigkeit: 10 parallele Buchungen desselben Zeitfensters, genau 1 erfolgreich. supabase db lint ohne Befunde; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "10 parallele psql-Buchungen",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T10:01:17Z"
           }
         },
         {
@@ -193,7 +223,7 @@
           "description": "RLS-Policies für alle Tabellen, Hilfsfunktionen für Rolle/Aktivstatus und private Storage-Policies.",
           "order": 5,
           "weight": 5,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-1-3",
             "task-1-4"
@@ -206,13 +236,21 @@
             "Anonyme Nutzer lesen keine Geschäftsdaten",
             "Privater Bucket mit Policies nach Elternzugriff und Sichtbarkeit"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T10:05:02Z",
+          "completedAt": "2026-10-07T10:09:21Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007130000_rls_and_storage per supabase db reset angewendet. pgTAP: 156/156 Tests bestanden (davon 42 RLS-Tests mit simulierten JWT-Claims für anon, Admin, Manager, deaktivierten Manager, zwei Dispatcher, zwei Techniker: RLS auf 13 Tabellen, Rolle/is_active nicht änderbar inkl. Trigger, Techniker nur zugewiesene und historische Daten, Dispatcher sehen fremde Techniker nur als belegte Intervalle, anon ohne Zugriff, privater Bucket mit Download nach Elternzugriff und Sichtbarkeit). Direkter REST-API-Test mit echtem Login: anon 42501, Techniker kann Rolle nicht ändern und keine Anfrage anlegen. supabase db lint ohne Befunde; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "REST-API-Prüfung mit supabase-js (anon und Techniker-Login)",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T10:09:21Z"
           }
         }
       ]
@@ -223,7 +261,7 @@
       "description": "Serverseitige RPC-Funktionen für alle Statuswechsel mit Audit in derselben Transaktion.",
       "order": 3,
       "weight": 21,
-      "status": "planned",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "task-2-1",
@@ -231,7 +269,7 @@
           "description": "RPCs für Dispatcher-Zuweisung, Prüfung/Korrektur, Abschluss, Wiedereröffnung, Ablehnung, Stornierung und Friständerung.",
           "order": 1,
           "weight": 5,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-1-5"
           ],
@@ -242,13 +280,21 @@
             "Versionsprüfung über requests.version",
             "Jede Änderung erzeugt ein Audit-Ereignis atomar"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T10:12:38Z",
+          "completedAt": "2026-10-07T10:17:47Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007140000_intake_operations per supabase db reset angewendet. pgTAP: 201/201 Tests bestanden (davon 45 neu: Berechtigungen anon/Techniker/fremder Dispatcher, Versionskonflikt RW409, Übergänge laut Abschnitt 6 inkl. Wiedereröffnung, einmaliger Erstabschluss-Snapshot auch gegen direkte Updates, Grund bei Ablehnung/Stornierung/Wiedereröffnung, Stornierung offener Einsätze, Korrektur automatischer Ergebnisse, Fristverstoß bei Verschiebung, Neuzuweisung mit sofortigem Zugriffsentzug, Audit-Ereignis je Änderung). REST-API-Prüfung mit echtem Dispatcher-Login: anon 42501, veraltete Version RW409, Abschluss mit Ereignissen. supabase db lint ohne Befunde; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "REST-API-Prüfung mit supabase-js (anon und Dispatcher-Login)",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T10:17:47Z"
           }
         },
         {
@@ -257,7 +303,7 @@
           "description": "RPCs für Planen, Umplanen, Starten, Warten auf Teile, Abschliessen und Stornieren von Einsätzen mit Serialisierung pro Techniker.",
           "order": 2,
           "weight": 5,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-1-5"
           ],
@@ -363,7 +409,7 @@
       "description": "Reproduzierbare Demo-Nutzer, rund 600 Anfragen und Prüf-Fixtures.",
       "order": 4,
       "weight": 9,
-      "status": "planned",
+      "status": "ready",
       "tasks": [
         {
           "id": "task-3-1",
@@ -371,7 +417,7 @@
           "description": "Skript legt 1 Admin, 1 Manager, 3 Dispatcher und 3 Techniker über die Supabase Admin API an; Passwörter aus lokalen Umgebungsvariablen.",
           "order": 1,
           "weight": 2,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-1-5"
           ],
