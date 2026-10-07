@@ -1,0 +1,39 @@
+/* RheinWerk — element defaults. Tokens only, no literals.
+ * Set lang="de" on <html>: German hyphenation depends on it. */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--rw-surface-page);
+  color: var(--rw-text-primary);
+  font-family: var(--rw-font-body);
+  font-size: var(--rw-type-body-size);
+  line-height: var(--rw-type-body-leading);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4, p, ul, ol, figure, dl, dd, fieldset { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+fieldset { border: 0; padding: 0; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+a { color: var(--rw-text-link); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--rw-text-link-hover); }
+:focus-visible {
+  outline: var(--rw-focus-ring-width) solid var(--rw-focus-ring-color);
+  outline-offset: var(--rw-focus-ring-offset);
+}
+::selection { background: var(--rw-color-lime-500); color: var(--rw-color-navy-950); }
+p, li { text-wrap: pretty; }
+
+@keyframes rw-spin { to { transform: rotate(360deg); } }
+@keyframes rw-pulse { 0%, 100% { opacity: 0.28; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

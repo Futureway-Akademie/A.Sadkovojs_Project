@@ -1,12 +1,11 @@
 {
   "schemaVersion": 1,
-  "projectId": null,
-  "name": null,
-  "status": "not_initialized",
+  "projectId": "rheinwerk-service-dashboard",
+  "name": "RheinWerk Service-Dashboard",
+  "status": "active",
   "workshopType": null,
   "owner": null,
-  "description": null,
-  "createdAt": null,
-  "updatedAt": null
+  "description": "Geschützter Mitarbeiterbereich /dashboard in der bestehenden RheinWerk-Website (Next.js 16, Supabase) für Erstbearbeitung, Einsatzplanung, Arbeitserfassung, Rechnungen und Analytik eines fiktiven Industrieservice-Unternehmens. Demonstrationsprojekt mit Demodaten; n8n und Gmail werden in einer späteren Stufe angebunden.",
+  "createdAt": "2026-10-07T08:39:55Z",
+  "updatedAt": "2026-10-07T09:26:33Z"
 }
-

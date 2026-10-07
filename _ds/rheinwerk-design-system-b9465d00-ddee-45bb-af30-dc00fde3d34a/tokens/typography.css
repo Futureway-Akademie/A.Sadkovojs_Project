@@ -1,0 +1,77 @@
+/* RheinWerk — typography tokens.
+ * Manrope: display and headings. Inter: body and UI.
+ * IBM Plex Mono: verifiable facts only — machine numbers, reference codes,
+ * SLA numbers, prices, timestamps, postal codes. Never headings or atmosphere. */
+:root {
+  --rw-font-display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --rw-font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --rw-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --rw-font-weight-regular: 400;
+  --rw-font-weight-medium: 500;
+  --rw-font-weight-semibold: 600;
+  --rw-font-weight-bold: 700;
+
+  /* Fluid steps are split into min / fluid / max parts so the size tokens hold
+   * no bare comma-separated list. Computed values are unchanged. */
+  --rw-type-display-min: 2.75rem;
+  --rw-type-display-fluid: calc(1.6rem + 5vw);
+  --rw-type-display-max: 4.5rem;
+  --rw-type-h1-min: 2.375rem;
+  --rw-type-h1-fluid: calc(1.6rem + 3.4vw);
+  --rw-type-h1-max: 3.5rem;
+  --rw-type-h2-min: 2rem;
+  --rw-type-h2-fluid: calc(1.6rem + 1.8vw);
+  --rw-type-h2-max: 2.5rem;
+  --rw-type-h3-min: 1.5rem;
+  --rw-type-h3-fluid: calc(1.35rem + 0.7vw);
+  --rw-type-h3-max: 1.75rem;
+  --rw-type-body-l-min: 1.125rem;
+  --rw-type-body-l-fluid: calc(1.05rem + 0.35vw);
+  --rw-type-body-l-max: 1.25rem;
+
+  /* role: size / line-height / weight / tracking  (fluid desktop↔mobile) */
+  --rw-type-display-size: clamp(var(--rw-type-display-min), var(--rw-type-display-fluid), var(--rw-type-display-max));      /* 44 → 72 */
+  --rw-type-display-leading: 1.06;
+  --rw-type-display-tracking: -0.022em;
+  --rw-type-display-weight: 700;
+
+  --rw-type-h1-size: clamp(var(--rw-type-h1-min), var(--rw-type-h1-fluid), var(--rw-type-h1-max));        /* 38 → 56 */
+  --rw-type-h1-leading: 1.1;
+  --rw-type-h1-tracking: -0.018em;
+  --rw-type-h1-weight: 700;
+
+  --rw-type-h2-size: clamp(var(--rw-type-h2-min), var(--rw-type-h2-fluid), var(--rw-type-h2-max));            /* 32 → 40 */
+  --rw-type-h2-leading: 1.2;
+  --rw-type-h2-tracking: -0.012em;
+  --rw-type-h2-weight: 700;
+
+  --rw-type-h3-size: clamp(var(--rw-type-h3-min), var(--rw-type-h3-fluid), var(--rw-type-h3-max));        /* 24 → 28 */
+  --rw-type-h3-leading: 1.28;
+  --rw-type-h3-tracking: -0.006em;
+  --rw-type-h3-weight: 600;
+
+  --rw-type-body-l-size: clamp(var(--rw-type-body-l-min), var(--rw-type-body-l-fluid), var(--rw-type-body-l-max)); /* 18 → 20 */
+  --rw-type-body-l-leading: 1.5;
+  --rw-type-body-l-weight: 400;
+
+  --rw-type-body-size: 1rem;                                          /* 16/26 */
+  --rw-type-body-leading: 1.625;
+  --rw-type-body-weight: 400;
+
+  --rw-type-small-size: 0.875rem;                                     /* 14/20 */
+  --rw-type-small-leading: 1.43;
+
+  --rw-type-label-size: 0.8125rem;                                    /* 13/18 */
+  --rw-type-label-leading: 1.385;
+  --rw-type-label-weight: 600;
+  --rw-type-label-tracking: 0.01em;
+
+  --rw-type-mono-size: 0.8125rem;
+  --rw-type-mono-leading: 1.385;
+  --rw-type-mono-weight: 500;
+  --rw-type-mono-tracking: 0.01em;
+
+  --rw-measure-text: 720px;
+  --rw-measure-min: 45ch;
+}

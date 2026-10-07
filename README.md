@@ -1,4 +1,12 @@
-# Futureway Workshop Repository Template
+# RheinWerk Industrieservice – Website und Service-Dashboard
+
+Next.js-16-Website der RheinWerk Industrieservice mit geplantem Mitarbeiterbereich unter `/dashboard`. Projektstand, Roadmap und Fortschritt stehen unter `.workshop/`.
+
+- Website: Start, Prüfungen, Umgebungsvariablen und Make-Vertrag in [docs/website.md](docs/website.md)
+- Architektur: [docs/architecture.md](docs/architecture.md)
+- Entscheidungen: [docs/decisions.md](docs/decisions.md)
+
+## Futureway Workshop Repository
 
 Dieses Repository ist das technologie- und KI-anbieterunabhängige Master-Template für einen geführten Futureway-Workshop. Die konkrete Projektidee wird erst nach dem Klonen in einem daraus erzeugten Teilnehmer-Repository definiert.
 

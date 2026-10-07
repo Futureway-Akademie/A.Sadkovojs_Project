@@ -1,0 +1,15 @@
+{"timestamp":"2026-10-07T08:39:55Z","type":"project_initialized","summary":"Projekt RheinWerk Service-Dashboard nach Bestätigung der Projektstruktur initialisiert."}
+{"timestamp":"2026-10-07T08:39:55Z","type":"roadmap_created","summary":"Roadmap v1 mit 10 Phasen und 30 Tasks (Gesamtgewicht 104) angelegt."}
+{"timestamp":"2026-10-07T08:39:55Z","type":"decision_recorded","summary":"Website-Code wird aus dem Export in dieses Repository übernommen; Dashboard entsteht unter /dashboard im selben Next.js-Projekt."}
+{"timestamp":"2026-10-07T08:39:55Z","type":"decision_recorded","summary":"Markenname RheinWerk statt Rheinberg aus der Spezifikation, da Website und Designsystem RheinWerk verwenden."}
+{"timestamp":"2026-10-07T08:39:55Z","type":"decision_recorded","summary":"Bestehender Formularpfad zu Make bleibt unverändert; n8n-Vertrag wird nur dokumentiert."}
+{"timestamp":"2026-10-07T08:39:55Z","type":"task_ready","taskId":"task-0-1","summary":"Task task-0-1 ist startbar (keine Abhängigkeiten)."}
+{"timestamp":"2026-10-07T08:52:38Z","type":"task_started","taskId":"task-0-1","summary":"Übernahme der Website ohne Git-Historie begonnen."}
+{"timestamp": "2026-10-07T08:54:32Z", "type": "verification_passed", "taskId": "task-0-1", "summary": "lint, typecheck, build und Smoke-Test des Produktionsservers erfolgreich."}
+{"timestamp": "2026-10-07T08:54:32Z", "type": "task_completed", "taskId": "task-0-1", "summary": "Website ohne Git-Historie übernommen (Quelle Commit 39d9936)."}
+{"timestamp": "2026-10-07T08:54:32Z", "type": "task_ready", "taskId": "task-0-2", "summary": "Task task-0-2 ist startbar."}
+{"timestamp": "2026-10-07T09:24:32Z", "type": "task_started", "taskId": "task-0-2", "summary": "Supabase-Integration mit lokalem Supabase-Stack (CLI, Docker) begonnen."}
+{"timestamp": "2026-10-07T09:26:33Z", "type": "verification_passed", "taskId": "task-0-2", "summary": "Supabase-Verbindung (lokal), Proxy-Smoke-Test, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T09:26:33Z", "type": "task_completed", "taskId": "task-0-2", "summary": "Supabase-Clients (Browser, Server, Admin), Proxy für Sitzungscookies und Umgebungsvariablen eingerichtet."}
+{"timestamp": "2026-10-07T09:26:33Z", "type": "task_ready", "taskId": "task-1-1", "summary": "Task task-1-1 ist startbar."}
+{"timestamp": "2026-10-07T09:26:33Z", "type": "task_ready", "taskId": "task-4-1", "summary": "Task task-4-1 ist startbar."}

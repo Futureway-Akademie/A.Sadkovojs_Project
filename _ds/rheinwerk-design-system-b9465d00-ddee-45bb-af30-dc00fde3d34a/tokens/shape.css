@@ -1,0 +1,19 @@
+/* RheinWerk — radius, border width and elevation.
+ * Radius stops at 8 px; radius-full is reserved for status chips.
+ * Shadows are navy-tinted, four levels, no coloured glow. */
+:root {
+  --rw-border-width-1: 1px;
+  --rw-border-width-1-5: 1.5px;
+  --rw-border-width-2: 2px;
+
+  --rw-radius-0: 0px;        /* rules, dividers, full-bleed blocks */
+  --rw-radius-sm: 4px;       /* form controls */
+  --rw-radius-md: 6px;       /* cards */
+  --rw-radius-lg: 8px;       /* large cards, panels */
+  --rw-radius-full: 999px;   /* status chips ONLY */
+
+  --rw-shadow-none: none;
+  --rw-shadow-sm: 0 1px 2px rgba(11, 31, 51, 0.06), 0 1px 1px rgba(11, 31, 51, 0.04);
+  --rw-shadow-md: 0 2px 4px rgba(11, 31, 51, 0.06), 0 6px 12px rgba(11, 31, 51, 0.06);
+  --rw-shadow-lg: 0 4px 8px rgba(11, 31, 51, 0.07), 0 16px 32px rgba(11, 31, 51, 0.08);
+}

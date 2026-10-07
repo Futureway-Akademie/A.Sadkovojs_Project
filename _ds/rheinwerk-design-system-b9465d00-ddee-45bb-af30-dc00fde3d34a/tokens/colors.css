@@ -1,0 +1,114 @@
+/* RheinWerk — colour tokens. Values are copied verbatim from tokens.css / tokens.json
+ * and may not be altered. Light mode only; navy is a compositional block, not a theme.
+ * Contrast values in comments are measured (WCAG 2.x relative luminance). */
+:root {
+  /* ============ CORE ============ */
+  --rw-color-navy-950: #0B1F33;   /* 16.12:1 on warm-white */
+  --rw-color-navy-900: #12293F;   /* raised surface on navy */
+  --rw-color-navy-800: #1A3550;   /* hover on navy surfaces */
+  --rw-color-navy-700: #24425F;   /* border on navy */
+
+  --rw-color-blue-800: #123A5A;   /* interactive hover */
+  --rw-color-blue-700: #174A72;   /* brand · 8.98:1 on warm-white */
+  --rw-color-blue-600: #1C5A89;
+  --rw-color-blue-500: #2F80C9;   /* NON-TEXT · 4.16:1 white, 4.02:1 navy-950 */
+  --rw-color-blue-300: #8FC2EF;   /* link on navy · 8.85:1 on navy-950 */
+  --rw-color-blue-100: #DCE9F5;
+  --rw-color-blue-050: #EDF3FA;
+
+  --rw-color-lime-700: #8FAE24;   /* CTA active */
+  --rw-color-lime-600: #A3C42F;   /* CTA hover */
+  --rw-color-lime-500: #B7D83D;   /* CTA · 10.26:1 with navy-950 text */
+  --rw-color-lime-100: #EEF5D0;
+
+  --rw-color-steel-700: #526574;  /* 5.84:1 on warm-white */
+  --rw-color-steel-600: #63737F;
+  --rw-color-steel-500: #7A8B99;  /* 3.39:1 — UI boundaries, not text */
+  --rw-color-steel-300: #B9C3CB;  /* decorative only · 1.73:1 */
+  --rw-color-steel-200: #D5DCE2;
+  --rw-color-steel-100: #E5EAEE;
+
+  --rw-color-mist-100: #F2F5F7;
+  --rw-color-warm-white: #FCFBF7;
+  --rw-color-white: #FFFFFF;
+
+  /* ============ SEMANTIC ============ */
+  --rw-color-danger-800: #A32C24;
+  --rw-color-danger-700: #C43B31;      /* 5.23:1 on white */
+  --rw-color-danger-surface: #FBEDEC;
+  --rw-color-danger-border: #E9B3AE;
+
+  --rw-color-warning-900: #8F4B07;     /* text on warning-surface */
+  --rw-color-warning-800: #B45F09;     /* 4.58:1 on white */
+  --rw-color-warning-surface: #FDF3E5;
+  --rw-color-warning-border: #EFCB98;
+
+  --rw-color-success-800: #1D5B3D;
+  --rw-color-success-700: #26734D;     /* 5.77:1 on white */
+  --rw-color-success-surface: #EAF3EE;
+  --rw-color-success-border: #A8CDB8;
+
+  --rw-color-info-800: #174A72;        /* 8.98:1 on warm-white */
+  --rw-color-info-surface: #EDF3FA;
+  --rw-color-info-border: #A9C8E4;
+
+  /* ============ SURFACE ============ */
+  --rw-surface-page: var(--rw-color-mist-100);
+  --rw-surface-default: var(--rw-color-warm-white);
+  --rw-surface-raised: var(--rw-color-white);
+  --rw-surface-sunken: var(--rw-color-steel-100);
+  --rw-surface-inverse: var(--rw-color-navy-950);
+  --rw-surface-inverse-raised: var(--rw-color-navy-900);
+  --rw-surface-brand: var(--rw-color-blue-700);
+  --rw-surface-disabled: var(--rw-color-steel-100);
+
+  /* ============ TEXT ============ */
+  --rw-text-primary: var(--rw-color-navy-950);
+  --rw-text-secondary: var(--rw-color-steel-700);
+  --rw-text-brand: var(--rw-color-blue-700);
+  --rw-text-disabled: var(--rw-color-steel-500);
+  --rw-text-on-dark: var(--rw-color-white);
+  --rw-text-on-dark-secondary: var(--rw-color-steel-300);  /* 9.33:1 on navy-950 */
+  --rw-text-on-lime: var(--rw-color-navy-950);
+  --rw-text-link: var(--rw-color-blue-700);
+  --rw-text-link-hover: var(--rw-color-blue-800);
+  --rw-text-link-on-dark: var(--rw-color-blue-300);
+
+  /* ============ BORDER ============
+   * subtle  = decorative dividers only (fails 3:1 — never the sole boundary cue)
+   * default = form controls, meaningful card outlines (3.39:1) */
+  --rw-border-subtle: var(--rw-color-steel-200);
+  --rw-border-default: var(--rw-color-steel-500);
+  --rw-border-strong: var(--rw-color-steel-700);
+  --rw-border-brand: var(--rw-color-blue-700);
+  --rw-border-on-dark: var(--rw-color-navy-700);
+  --rw-border-on-dark-strong: var(--rw-color-steel-300);
+
+  /* ============ INTERACTIVE STATES ============ */
+  --rw-action-primary-bg: var(--rw-color-lime-500);
+  --rw-action-primary-bg-hover: var(--rw-color-lime-600);
+  --rw-action-primary-bg-active: var(--rw-color-lime-700);
+  --rw-action-primary-fg: var(--rw-color-navy-950);
+
+  --rw-action-secondary-bg: transparent;
+  --rw-action-secondary-bg-hover: var(--rw-color-blue-050);
+  --rw-action-secondary-bg-active: var(--rw-color-blue-100);
+  --rw-action-secondary-fg: var(--rw-color-blue-700);
+  --rw-action-secondary-border: var(--rw-color-blue-700);
+
+  --rw-action-tertiary-fg: var(--rw-color-blue-700);
+  --rw-action-tertiary-bg-hover: var(--rw-color-blue-050);
+
+  --rw-action-destructive-bg: var(--rw-color-danger-700);
+  --rw-action-destructive-bg-hover: var(--rw-color-danger-800);
+  --rw-action-destructive-fg: var(--rw-color-white);
+
+  --rw-action-disabled-bg: var(--rw-color-steel-100);
+  --rw-action-disabled-fg: var(--rw-color-steel-500);
+  --rw-action-disabled-border: var(--rw-color-steel-300);
+
+  /* Single ring token — verified on light (4.16:1 on white) and navy (4.02:1) */
+  --rw-focus-ring-color: var(--rw-color-blue-500);
+  --rw-focus-ring-width: 2px;
+  --rw-focus-ring-offset: 2px;
+}

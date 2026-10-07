@@ -1,0 +1,29 @@
+/* RheinWerk — spacing and layout tokens. Base 4 px.
+ * Section rhythm is owned by section wrappers only; components never set outer margin. */
+:root {
+  --rw-space-4: 4px;
+  --rw-space-8: 8px;
+  --rw-space-12: 12px;
+  --rw-space-16: 16px;
+  --rw-space-24: 24px;
+  --rw-space-32: 32px;
+  --rw-space-48: 48px;
+  --rw-space-64: 64px;
+  --rw-space-96: 96px;
+  --rw-space-128: 128px;
+
+  --rw-section-spacing-sm: 48px;
+  --rw-section-spacing-md: 72px;
+  --rw-section-spacing-lg: 96px;
+  --rw-section-spacing-xl: 128px;
+
+  --rw-container-max: 1280px;
+  --rw-gutter-mobile: 24px;
+  --rw-gutter-tablet: 40px;
+  --rw-gutter-desktop: 64px;
+  --rw-grid-columns-mobile: 4;   /* @kind other */
+  --rw-grid-columns-tablet: 8;   /* @kind other */
+  --rw-grid-columns-desktop: 12; /* @kind other */
+  --rw-grid-gap: 24px;
+  --rw-touch-target-min: 44px;
+}

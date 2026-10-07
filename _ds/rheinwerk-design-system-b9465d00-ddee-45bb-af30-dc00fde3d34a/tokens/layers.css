@@ -1,0 +1,17 @@
+/* RheinWerk — stacking order and breakpoint reference values. */
+:root {
+  --rw-z-base: 0; /* @kind other */
+  --rw-z-sticky-header: 100; /* @kind other */
+  --rw-z-sticky-action-bar: 200; /* @kind other */
+  --rw-z-dropdown: 300; /* @kind other */
+  --rw-z-assistant: 400; /* @kind other */
+  --rw-z-drawer: 500; /* @kind other */
+  --rw-z-modal: 600; /* @kind other */
+  --rw-z-toast: 700; /* @kind other */
+
+  --rw-bp-sm: 640px;
+  --rw-bp-md: 768px;
+  --rw-bp-lg: 1024px;
+  --rw-bp-xl: 1280px;
+  --rw-bp-2xl: 1440px;
+}

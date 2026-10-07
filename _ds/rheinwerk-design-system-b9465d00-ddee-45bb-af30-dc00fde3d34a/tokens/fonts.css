@@ -1,0 +1,6 @@
+/* RheinWerk fonts — Manrope (display), Inter (body/UI), IBM Plex Mono (facts).
+ * No proprietary fonts. The source project loads all three from Google Fonts
+ * (HANDOFF.md §2 uses next/font/google with the same families and weights),
+ * so no binaries ship with this system and no @font-face rule is hand-written.
+ * Weights: Manrope 500/600/700/800 · Inter 400/500/600/700 · IBM Plex Mono 400/500/600 */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");

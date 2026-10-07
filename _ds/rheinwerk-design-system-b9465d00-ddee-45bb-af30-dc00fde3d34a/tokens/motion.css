@@ -1,0 +1,20 @@
+/* RheinWerk — motion tokens.
+ * Reduced motion is handled once, here: the duration tokens collapse to 0 ms
+ * and every component inherits the reduced variant without its own media query. */
+:root {
+  --rw-duration-instant: 0ms; /* @kind other */
+  --rw-duration-fast: 160ms; /* @kind other */
+  --rw-duration-base: 200ms; /* @kind other */
+  --rw-duration-slow: 240ms; /* @kind other */
+  --rw-ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1); /* @kind other */
+  --rw-ease-out: cubic-bezier(0, 0, 0.2, 1); /* @kind other */
+  --rw-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rw-duration-fast: 0ms; /* @kind other */
+    --rw-duration-base: 0ms; /* @kind other */
+    --rw-duration-slow: 0ms; /* @kind other */
+  }
+}

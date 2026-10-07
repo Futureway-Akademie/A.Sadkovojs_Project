@@ -22,3 +22,19 @@ Desktop.ini
 !.vscode/extensions.json
 !.vscode/settings.json
 
+
+# Next.js / Node
+node_modules
+.next
+out
+.vercel
+*.log
+*.tsbuildinfo
+.thumbnail
+
+# Lokale Referenzdateien der Website (nicht versioniert)
+/uploads/
+/public/reference/
+/RheinWerk Website.dc.html
+/support.js
+/karte.html

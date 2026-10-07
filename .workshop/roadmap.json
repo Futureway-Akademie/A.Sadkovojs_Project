@@ -1,7 +1,885 @@
 {
   "schemaVersion": 1,
-  "roadmapVersion": 0,
-  "status": "not_initialized",
-  "phases": []
+  "roadmapVersion": 1,
+  "status": "active",
+  "phases": [
+    {
+      "id": "phase-0",
+      "title": "Grundlage",
+      "description": "Website-Code übernehmen und Supabase-Anbindung vorbereiten.",
+      "order": 1,
+      "weight": 4,
+      "status": "completed",
+      "tasks": [
+        {
+          "id": "task-0-1",
+          "title": "Website in das Workshop-Repository übernehmen",
+          "description": "Bestehende RheinWerk-Website (Next.js 16, React 19, Tailwind 4) aus 05_Export ohne .git, node_modules, .next, Referenzdateien und Geheimnisse übernehmen.",
+          "order": 1,
+          "weight": 2,
+          "status": "completed",
+          "dependsOn": [],
+          "definitionOfDone": [
+            "Website-Code liegt im Repository-Root",
+            "Keine .env.local, node_modules, .next oder Build-Artefakte versioniert",
+            "npm install, npm run lint, npm run typecheck und npm run build laufen erfolgreich",
+            "Formularpfad zu Make unverändert",
+            "Spezialisierungsdateien STACK, CONSTRAINTS und QUALITY_GATE beschreiben den tatsächlichen Stack"
+          ],
+          "startedAt": "2026-10-07T08:52:38Z",
+          "completedAt": "2026-10-07T08:54:32Z",
+          "verification": {
+            "status": "passed",
+            "checkedAt": "2026-10-07T08:54:32Z",
+            "commands": [
+              "npm ci",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "cmp aller übernommenen Dateien mit der Quelle",
+              "npx next start + curl auf /, /serviceanfrage, /leistungen/inspektion, /gibtsnicht",
+              "curl -X POST /api/service-request mit leerem JSON"
+            ],
+            "summary": "47 versionierte Website-Dateien (Quelle FuzzCube/rheinwerk-industrieservice, Commit 39d9936) sowie app/favicon.ico und app/icon.svg ohne Git-Historie übernommen; alle Dateien byte-identisch zur Quelle. Nicht übernommen: .git, node_modules, .next, .env.local, Referenzdateien. lint, typecheck und build fehlerfrei. Produktionsserver lieferte 200 für Startseite, Serviceanfrage und Leistungsseite, 404 für unbekannte Route; /api/service-request antwortet auf leeres JSON mit status invalid. Weiterleitung an Make nicht live getestet, da kein MAKE_WEBHOOK_URL gesetzt; Code unverändert. README, AGENTS.md, CLAUDE.md und .gitignore zusammengeführt, Website-Doku nach docs/website.md, Spezialisierungsdateien gefüllt. Hinweis: npm-Postinstall von unrs-resolver wurde von npm allowScripts nicht ausgeführt; lint lief dennoch fehlerfrei."
+          }
+        },
+        {
+          "id": "task-0-2",
+          "title": "Supabase-Clients, Proxy und Umgebungsvariablen",
+          "description": "Supabase SSR-Integration mit getrennten Browser-/Server-Clients, Next.js-16-Proxy für Cookies und .env.example mit leeren Variablennamen.",
+          "order": 2,
+          "weight": 2,
+          "status": "completed",
+          "dependsOn": [
+            "task-0-1"
+          ],
+          "definitionOfDone": [
+            "@supabase/ssr und @supabase/supabase-js installiert und versionsgeprüft",
+            "Getrennte Browser-, Server- und Admin-Clients; Admin-Key nur serverseitig",
+            "Proxy aktualisiert die Session-Cookies",
+            ".env.example enthält nur Namen ohne Werte",
+            "Verbindung zu einem Supabase-Projekt geprüft oder als nicht verifiziert dokumentiert"
+          ],
+          "startedAt": "2026-10-07T09:24:32Z",
+          "completedAt": "2026-10-07T09:26:33Z",
+          "verification": {
+            "status": "passed",
+            "summary": "Pakete installiert (@supabase/ssr 0.12.7, @supabase/supabase-js 2.117.2). Verbindung zum lokalen Supabase-Stack geprüft: Auth-Health HTTP 200, Admin-API OK. Proxy-Smoke-Test: ungültiges Auth-Cookie auf /dashboard wird gelöscht, Antwort mit Cache-Control private/no-store; Website (/, /leistungen) HTTP 200; /api/service-request validiert unverändert. lint, typecheck und build erfolgreich. Nicht geprüft: Anmeldung mit echtem Nutzer (folgt in task-4-1) und Cloud-Projekt (noch nicht verknüpft).",
+            "commands": [
+              "npm run supabase:check",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "curl-Smoke-Test gegen npm run start"
+            ],
+            "checkedAt": "2026-10-07T09:26:33Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-1",
+      "title": "Datenbankschema",
+      "description": "13 Kerntabellen als versionierte SQL-Migrationen inklusive Constraints, Indizes und RLS.",
+      "order": 2,
+      "weight": 17,
+      "status": "ready",
+      "tasks": [
+        {
+          "id": "task-1-1",
+          "title": "Enums und Stammdaten-Tabellen",
+          "description": "Enums sowie profiles, settings, service_rates und employee_availability mit CHECK-Constraints.",
+          "order": 1,
+          "weight": 3,
+          "status": "ready",
+          "dependsOn": [
+            "task-0-2"
+          ],
+          "definitionOfDone": [
+            "Migration erstellt profiles (FK auf auth.users mit restriktivem Löschen), settings (Singleton), service_rates, employee_availability",
+            "CHECK-Constraints je Verfügbarkeitsart und Wertebereiche umgesetzt",
+            "Nullability dokumentiert",
+            "Migration lässt sich anwenden"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-1-2",
+          "title": "Anfragen und Audit-Ereignisse",
+          "description": "requests mit atomarer Nummernvergabe RIS-JJJJ-NNNNN, source_event_key-Idempotenz und append-only request_events.",
+          "order": 2,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-1"
+          ],
+          "definitionOfDone": [
+            "requests mit allen Feldern laut Vertrag",
+            "Anfragenummer atomar in der Datenbank vergeben",
+            "source_event_key UNIQUE",
+            "request_events nicht durch normale Clients änderbar oder löschbar",
+            "Indizes auf Zuweisungen, Status und Zeitstempel"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-1-3",
+          "title": "Nachrichten, Automatisierungsläufe, Anhänge",
+          "description": "messages, automation_runs und attachments mit konsistenten CHECK-Constraints und Eltern-Prüfung.",
+          "order": 3,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-2"
+          ],
+          "definitionOfDone": [
+            "Richtungs-/Status-/Zeitstempel-CHECKs für messages",
+            "UNIQUE (mailbox_key, gmail_message_id)",
+            "operation_key UNIQUE in automation_runs",
+            "attachments verlangen mindestens eine Elternreferenz derselben Anfrage"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-1-4",
+          "title": "Einsätze, Arbeitspositionen und Rechnungen",
+          "description": "visits mit Überschneidungsschutz, work_entries, invoices und invoice_items.",
+          "order": 4,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-2"
+          ],
+          "definitionOfDone": [
+            "scheduled_end > scheduled_start",
+            "Aktive Einsätze eines Technikers überlappen nicht (Datenbankgarantie)",
+            "Reservierende Einsatzstatus definiert und dokumentiert",
+            "invoice_items.work_entry_id UNIQUE",
+            "Rechnung pro Anfrage UNIQUE"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-1-5",
+          "title": "Row Level Security und privater Storage",
+          "description": "RLS-Policies für alle Tabellen, Hilfsfunktionen für Rolle/Aktivstatus und private Storage-Policies.",
+          "order": 5,
+          "weight": 5,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-3",
+            "task-1-4"
+          ],
+          "definitionOfDone": [
+            "RLS auf allen 13 Tabellen aktiv",
+            "Rolle und is_active nicht durch Nutzer selbst änderbar",
+            "Techniker sehen nur zugewiesene und historische technische Daten",
+            "Dispatcher sehen fremde Techniker nur als belegte Intervalle",
+            "Anonyme Nutzer lesen keine Geschäftsdaten",
+            "Privater Bucket mit Policies nach Elternzugriff und Sichtbarkeit"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "title": "Kontrollierte Operationen",
+      "description": "Serverseitige RPC-Funktionen für alle Statuswechsel mit Audit in derselben Transaktion.",
+      "order": 3,
+      "weight": 21,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-2-1",
+          "title": "Erstbearbeitung, Zuweisung und Fristen",
+          "description": "RPCs für Dispatcher-Zuweisung, Prüfung/Korrektur, Abschluss, Wiedereröffnung, Ablehnung, Stornierung und Friständerung.",
+          "order": 1,
+          "weight": 5,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-5"
+          ],
+          "definitionOfDone": [
+            "Statusübergänge laut Abschnitt 6 erzwungen",
+            "intake_completed_at, intake_mode und manual_minutes_baseline nur einmal gesetzt",
+            "Ablehnung und Stornierung verlangen einen Grund",
+            "Versionsprüfung über requests.version",
+            "Jede Änderung erzeugt ein Audit-Ereignis atomar"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-2-2",
+          "title": "Einsatzplanung und Einsatzstatus",
+          "description": "RPCs für Planen, Umplanen, Starten, Warten auf Teile, Abschliessen und Stornieren von Einsätzen mit Serialisierung pro Techniker.",
+          "order": 2,
+          "weight": 5,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-5"
+          ],
+          "definitionOfDone": [
+            "Planung nur bei processed und nicht terminaler Anfrage",
+            "Arbeitszeiten und Abwesenheiten geprüft",
+            "Gleichzeitige konfliktbehaftete Buchungen abgelehnt",
+            "Umplanung bewahrt altes Intervall im Audit",
+            "Warten auf Teile erzeugt keine unbegrenzte Reservierung"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-2-3",
+          "title": "Arbeitspositionen und Abschluss der Anfrage",
+          "description": "RPCs für Zeit-, Teile- und Pauschalpositionen sowie expliziten Abschluss der Anfrage.",
+          "order": 3,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-2-2"
+          ],
+          "definitionOfDone": [
+            "Kompatible Arten, Einheiten und Status validiert",
+            "Abschluss verlangt Bericht und keine offenen aktiven Einsätze",
+            "Nur aktueller Techniker oder Manager/Admin schliesst ab",
+            "Abschluss markiert keine Zahlung"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-2-4",
+          "title": "Rechnungen, Zahlungen und Nachrichten-Warteschlange",
+          "description": "RPCs für Rechnungserstellung, Ausstellung mit atomarer Nummer, Zahlungserfassung, E-Mail-Warteschlange und manuelle Nachrichtenzuordnung.",
+          "order": 4,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-2-3"
+          ],
+          "definitionOfDone": [
+            "Nur abrechenbare erbrachte Leistungen und verbrauchte Teile",
+            "Wartung ohne automatische Stundenaufschläge",
+            "Ausgestellte Rechnung unveränderlich",
+            "Wiederholte Ausstellung erzeugt keine Doppelrechnung",
+            "Warteschlange setzt weder sent noch paid noch first_substantive_response_at",
+            "Nur Manager/Admin erfassen Zahlungen"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-2-5",
+          "title": "Datenbanktests für Berechtigung, Übergänge und Nebenläufigkeit",
+          "description": "Automatisierte SQL-Tests für Zugriffsrechte, Statusübergänge, Berechnungen und gleichzeitige Buchungen.",
+          "order": 5,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-2-1",
+            "task-2-4"
+          ],
+          "definitionOfDone": [
+            "Tests für Szenarien 1, 2, 4 und 7 aus der Spezifikation",
+            "Direkte API-Zugriffe fremder Rollen schlagen fehl",
+            "Gleichzeitige Buchungen getestet",
+            "Testbefehl dokumentiert und tatsächlich ausgeführt"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "title": "Demodaten",
+      "description": "Reproduzierbare Demo-Nutzer, rund 600 Anfragen und Prüf-Fixtures.",
+      "order": 4,
+      "weight": 9,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-3-1",
+          "title": "Bootstrap der Demo-Nutzer",
+          "description": "Skript legt 1 Admin, 1 Manager, 3 Dispatcher und 3 Techniker über die Supabase Admin API an; Passwörter aus lokalen Umgebungsvariablen.",
+          "order": 1,
+          "weight": 2,
+          "status": "planned",
+          "dependsOn": [
+            "task-1-5"
+          ],
+          "definitionOfDone": [
+            "Keine direkten INSERTs in auth-Tabellen",
+            "Keine Passwörter im Repository",
+            "Wiederholter Lauf erzeugt keine Duplikate",
+            "Keine Einladungs-E-Mails"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-3-2",
+          "title": "Seed mit rund 600 Anfragen",
+          "description": "Idempotenter Seed über 24 Monate ab seed_anchor mit Saisonalität, allen Status und den geforderten Fallbeispielen.",
+          "order": 2,
+          "weight": 5,
+          "status": "planned",
+          "dependsOn": [
+            "task-2-4",
+            "task-3-1"
+          ],
+          "definitionOfDone": [
+            "Alle Daten mit is_demo bzw. Seed-Eigentum markiert",
+            "Konsistente Chronologie ohne zukünftige Ist-Daten",
+            "Alle geforderten Fallbeispiele enthalten",
+            "Wiederholter Lauf ohne Duplikate; Bereinigung entfernt nur Seed-Daten",
+            "Keine Buchungskonflikte"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-3-3",
+          "title": "Prüf-Fixtures und Demo-Dateien",
+          "description": "Separate Fixture mit 100 automatischen Abschlüssen a 5 Minuten sowie sichere Demo-PDFs und -Bilder.",
+          "order": 3,
+          "weight": 2,
+          "status": "planned",
+          "dependsOn": [
+            "task-3-2"
+          ],
+          "definitionOfDone": [
+            "Fixture ergibt 500 Minuten (8 h 20 min)",
+            "Fixture nicht als Gesamtersparnis des Seeds ausgewiesen",
+            "Demo-Dateien im privaten Storage"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "title": "Dashboard-Grundgerüst",
+      "description": "Routing, Anmeldung, rollenbasierte Navigation und Anfrageansichten.",
+      "order": 5,
+      "weight": 10,
+      "status": "ready",
+      "tasks": [
+        {
+          "id": "task-4-1",
+          "title": "Routenstruktur, Anmeldung und Navigation",
+          "description": "Route Groups trennen Website und Dashboard; Login ohne Registrierung; /dashboard leitet zur Rollen-Startseite.",
+          "order": 1,
+          "weight": 3,
+          "status": "ready",
+          "dependsOn": [
+            "task-0-2"
+          ],
+          "definitionOfDone": [
+            "Website unverändert erreichbar",
+            "/dashboard nur für angemeldete aktive Profile",
+            "Navigation je Rolle",
+            "Keine öffentliche Zwischenspeicherung privater Antworten"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-4-2",
+          "title": "Gemeinsame UI-Bausteine",
+          "description": "Statusanzeigen mit Text und Farbe, Tabellen/Listen, Lade-, Leer-, Fehler- und Speicherzustände, de-DE-Formatierung in Europe/Berlin.",
+          "order": 2,
+          "weight": 2,
+          "status": "planned",
+          "dependsOn": [
+            "task-4-1"
+          ],
+          "definitionOfDone": [
+            "Komponenten nutzen RheinWerk-Designtokens",
+            "Fehlgeschlagenes Speichern erhält Eingaben",
+            "Mobil ohne horizontales Scrollen"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-4-3",
+          "title": "Anfrageliste und Anfrageseite",
+          "description": "Gefilterte Anfrageliste und stabile Route pro Anfrage mit rollenabhängigen Abschnitten.",
+          "order": 3,
+          "weight": 5,
+          "status": "planned",
+          "dependsOn": [
+            "task-4-2",
+            "task-2-1"
+          ],
+          "definitionOfDone": [
+            "Eigene Route /dashboard/anfragen/[id]",
+            "Zusammenfassung, Kontakt, Anlage, Erstbearbeitung, Korrespondenz, Einsätze, Arbeit, Dokumente, Rechnung, Verlauf",
+            "Abschnitte nur gemäß Rolle sichtbar und per RLS geschützt"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "title": "Dispatcher-Ansicht",
+      "description": "Prüfung, Korrespondenz und Einsatzplanung für Dispatcher.",
+      "order": 6,
+      "weight": 10,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-5-1",
+          "title": "Dispatcher-Tabs und Warteschlangen",
+          "description": "Tabs Prüfung erforderlich, Kundenantwort erhalten, Einsatzplanung erforderlich, Warten auf Kundenantwort, Alle meine Anfragen.",
+          "order": 1,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-4-3"
+          ],
+          "definitionOfDone": [
+            "Sortierung nach Priorität, Frist und Wartezeit",
+            "Automatisch bearbeitete Anfragen bleiben bis zur Planung sichtbar"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-5-2",
+          "title": "Prüfaktionen und E-Mail-Entwürfe",
+          "description": "Korrigieren, Freigeben, E-Mail vorbereiten, Erstbearbeitung abschliessen und Ablehnen mit Grund.",
+          "order": 2,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-5-1"
+          ],
+          "definitionOfDone": [
+            "Aktionen nutzen RPCs aus Phase 2",
+            "E-Mail-Vorbereitung erzeugt nur Entwurf oder Warteschlangeneintrag",
+            "UI behauptet keinen Versand"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-5-3",
+          "title": "Einsatzplanung mit Kalender",
+          "description": "Kalenderansicht mit belegten Technikerintervallen und Zuweisung von Techniker und Zeitraum.",
+          "order": 3,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-5-1",
+            "task-2-2"
+          ],
+          "definitionOfDone": [
+            "Fremde Intervalle ohne Kunden- oder Abwesenheitsdetails",
+            "Konflikte serverseitig abgelehnt und verständlich angezeigt",
+            "Kalenderbibliothek gegen React 19 geprüft"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "title": "Techniker-Ansicht",
+      "description": "Eigene Einsätze, Arbeitserfassung, Abschluss und Rechnung.",
+      "order": 7,
+      "weight": 11,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-6-1",
+          "title": "Techniker-Startseite und Wochenkalender",
+          "description": "Nächster Einsatz, heutige Arbeit, eigener Wochenkalender und Anfragen mit ausstehenden Teilen.",
+          "order": 1,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-4-3",
+            "task-2-2"
+          ],
+          "definitionOfDone": [
+            "Keine Kalender anderer Techniker sichtbar",
+            "Mobil nutzbar ohne horizontales Scrollen"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-6-2",
+          "title": "Einsatzaktionen und Arbeitserfassung",
+          "description": "Arbeit starten, auf Teile warten, Zeit/Teile/Bericht speichern, Fotos hochladen, Einsatz beenden.",
+          "order": 2,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-6-1",
+            "task-2-3"
+          ],
+          "definitionOfDone": [
+            "Einsatz beenden schliesst die Anfrage nicht",
+            "Bedarf eines Folgeeinsatzes erfassbar",
+            "Fotos im privaten Storage"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-6-3",
+          "title": "Anfrage abschliessen und Rechnung erstellen",
+          "description": "Expliziter Abschluss, Rechnungserstellung, Ausstellung und PDF-Download mit Kennzeichnung Musterrechnung / Demodaten.",
+          "order": 3,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-6-2",
+            "task-2-4"
+          ],
+          "definitionOfDone": [
+            "Abschluss ohne Managerfreigabe",
+            "PDF erst nach Ausstellung verfügbar",
+            "PDF als Musterrechnung / Demodaten gekennzeichnet",
+            "Tarifänderungen ändern ausgestellte PDFs nicht"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "title": "Manager-Ansicht",
+      "description": "Kennzahlen, Aufmerksamkeitsliste, Team, Finanzen, Diagramme und Automatisierung.",
+      "order": 8,
+      "weight": 12,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-7-1",
+          "title": "Analytik in der Datenbank",
+          "description": "Views/RPCs für KPIs, Periodenvergleich, historische Warteschlangen aus Ereignissen und Automatisierungskennzahlen unter Wahrung von RLS.",
+          "order": 1,
+          "weight": 5,
+          "status": "planned",
+          "dependsOn": [
+            "task-3-2"
+          ],
+          "definitionOfDone": [
+            "Vergleich unvollständiger Monate über gleiche Zeitspannen inkl. kürzerer Monate",
+            "Null-Basis ergibt keinen Prozentwert",
+            "Ereignisse nach created_at, intake_completed_at, completed_at getrennt",
+            "Zeitersparnis nur für korrekte automatische Erstbearbeitung",
+            "Analytik umgeht RLS nicht"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-7-2",
+          "title": "Manager-Übersicht",
+          "description": "Zeitraumwahl, KPIs mit Definition und Listenverknüpfung, Aufmerksamkeitsliste, Teamübersicht und Finanzen.",
+          "order": 2,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-7-1",
+            "task-4-3"
+          ],
+          "definitionOfDone": [
+            "Jede KPI verlinkt auf passende Liste",
+            "Ereignis- und Momentaufnahme-Kennzahlen getrennt gekennzeichnet",
+            "Ausgestellt ist nicht gleich eingenommen"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-7-3",
+          "title": "Diagramme und Automatisierungsbereich",
+          "description": "Getrennte Reihen für Eingang, Erstbearbeitung und Abschluss, Periodenvergleich, Saisonalität, Warteschlangenverlauf und Automatisierungsbereich.",
+          "order": 3,
+          "weight": 3,
+          "status": "planned",
+          "dependsOn": [
+            "task-7-2"
+          ],
+          "definitionOfDone": [
+            "Diagramme lesen Datenbankdaten, keine fest codierten Arrays",
+            "Tooltip zur Zeitersparnis zeigt Basiswert und Anzahl",
+            "Diagrammbibliothek gegen React 19 geprüft"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-8",
+      "title": "Administration",
+      "description": "Verwaltung von Mitarbeitenden und Einstellungen.",
+      "order": 9,
+      "weight": 4,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-8-1",
+          "title": "Benutzer, Tarife, Arbeitszeiten und Einstellungen",
+          "description": "Admin legt Mitarbeitende an, ändert Rollen, deaktiviert statt zu löschen und pflegt Tarife, Arbeitszeiten und Einstellungen.",
+          "order": 1,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-4-2",
+            "task-2-1"
+          ],
+          "definitionOfDone": [
+            "Keine öffentliche Registrierung",
+            "Deaktivierung zeigt bestehende aktive Zuweisungen zur Neuzuweisung",
+            "Keine Passwörter in profiles",
+            "Einstellungsänderungen wirken nur auf spätere Erstbearbeitungen"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-9",
+      "title": "Dokumentation und Abnahme",
+      "description": "Kennzahlen-Wörterbuch, n8n-Vertrag und Gesamtprüfung.",
+      "order": 10,
+      "weight": 6,
+      "status": "planned",
+      "tasks": [
+        {
+          "id": "task-9-1",
+          "title": "Kennzahlen-Wörterbuch und n8n-Vertrag",
+          "description": "Dokumentation aller Kennzahlen sowie des künftigen n8n-Ein-/Ausgabevertrags inklusive Idempotenz, Versionsprüfung, Warteschlange und Gmail-Zuordnung.",
+          "order": 1,
+          "weight": 2,
+          "status": "planned",
+          "dependsOn": [
+            "task-7-1"
+          ],
+          "definitionOfDone": [
+            "Jede KPI mit Definition und Ereignis-/Momentaufnahme-Kennzeichnung",
+            "n8n-Vertrag deckt Abschnitt 8 ab",
+            "Gmail-Versand nicht als funktionsfähig beschrieben"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-9-2",
+          "title": "Gesamtprüfung und Responsive-Check",
+          "description": "Prüfung der Szenarien 1-8 und der Hauptansichten bei 390x844, 768x1024 und 1440x900.",
+          "order": 2,
+          "weight": 4,
+          "status": "planned",
+          "dependsOn": [
+            "task-2-5",
+            "task-3-3",
+            "task-5-2",
+            "task-5-3",
+            "task-6-3",
+            "task-7-3",
+            "task-8-1",
+            "task-9-1"
+          ],
+          "definitionOfDone": [
+            "Alle Szenarien mit Ergebnis dokumentiert",
+            "lint, typecheck und build erfolgreich",
+            "Blockierte Prüfungen ehrlich benannt",
+            "Setup- und Startanleitung vollständig"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    }
+  ]
 }
-

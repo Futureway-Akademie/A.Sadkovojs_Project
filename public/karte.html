@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Standort Mannheim — RheinWerk Industrieservice</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<style>
+  html, body { margin: 0; height: 100%; min-height: 380px; background: #F2F5F7; }
+  #map { position: absolute; inset: 0; height: 100%; min-height: 380px; }
+  .leaflet-container { font-family: Inter, "Segoe UI", system-ui, sans-serif; background: #F2F5F7; }
+  .leaflet-control-attribution { font-size: 10px; }
+  .rw-pin { width: 22px; height: 22px; border-radius: 50%; background: #0B1F33; border: 3px solid #B7D83D; box-shadow: 0 2px 6px rgba(11,31,51,.35); }
+  .rw-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 500;
+    color: #0B1F33; background: #FCFBF7; border: 1px solid #C7D2DA; border-radius: 4px;
+    padding: 3px 6px; white-space: nowrap;
+  }
+  .leaflet-popup-content-wrapper { border-radius: 6px; }
+  .leaflet-popup-content { margin: 12px 14px; font-size: 13px; line-height: 1.5; color: #0B1F33; }
+</style>
+</head>
+<body>
+<div id="map" role="img" aria-label="Karte des Standorts Rheinwerkstraße 12, 68169 Mannheim"></div>
+<script>
+  var SITE = [49.51425, 8.45285];
+  var map = L.map('map', { center: SITE, zoom: 15, scrollWheelZoom: false, zoomControl: true });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+  L.marker(SITE, {
+    icon: L.divIcon({ className: '', html: '<div class="rw-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
+    alt: 'Standort RheinWerk Industrieservice'
+  }).addTo(map).bindPopup('<strong>RheinWerk Industrieservice GmbH</strong><br>Rheinwerkstraße 12<br>68169 Mannheim');
+  L.marker(SITE, {
+    icon: L.divIcon({ className: '', html: '<div class="rw-label">Rheinwerkstraße 12</div>', iconSize: [140, 20], iconAnchor: [-16, 10] }),
+    interactive: false, keyboard: false
+  }).addTo(map);
+  var fix = function () { map.invalidateSize(); };
+  window.addEventListener('load', fix);
+  window.addEventListener('resize', fix);
+  setTimeout(fix, 250);
+  setTimeout(fix, 1200);
+</script>
+</body>
+</html>

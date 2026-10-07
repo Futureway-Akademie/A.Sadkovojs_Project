@@ -1,0 +1,28 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { getSupabasePublishableKey, getSupabaseUrl } from "./env";
+
+// Refreshes the auth session and writes updated cookies to request and response.
+// Route protection is not done here; it happens in the dashboard layout and in the database (RLS).
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(getSupabaseUrl(), getSupabasePublishableKey(), {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet, headers) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+      },
+    },
+  });
+
+  // Do not run code between client creation and getClaims(); it triggers the token refresh.
+  await supabase.auth.getClaims();
+
+  return response;
+}
