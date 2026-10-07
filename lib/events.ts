@@ -63,6 +63,7 @@ function formatObject(value: string): string | null {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     return Object.entries(parsed as Record<string, unknown>)
       .map(([key, raw]) => {
+        if (raw === null || raw === undefined || raw === "") return `${FIELD_LABELS[key] ?? key}: offen`;
         const text = String(raw);
         const shown = key === "priority" ? statusInfo("request_priority", text).label
           : key === "intake_status" ? statusInfo("intake_status", text).label

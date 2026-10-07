@@ -91,3 +91,51 @@ Gemeinsame Bausteine aller Dashboard-Bereiche; Übersicht mit Beispielwerten unt
 
 `/dashboard/erstbearbeitung` (nur Dispatcher) zeigt die Tabs Prüfung erforderlich, Kundenantwort erhalten, Einsatzplanung erforderlich, Warten auf Kundenantwort und Alle meine Anfragen (`?tab=pruefung|antwort|planung|warten|alle`) mit Anzahl je Tab. Daten aus der View `dispatcher_queue` (Regeln und Sortierung: [database.md](database.md)), gefiltert auf den angemeldeten Dispatcher; `lib/dashboard/queues.ts`. Spalten: Priorität (vor der Festlegung die Kundendringlichkeit), Frist mit „Überfällig“, Wartezeit, Hinweise (Sicherheitsgefahr, Folgeeinsatz, automatisch bearbeitet, Analyse läuft). „Alle meine Anfragen“ ist nach Eingang sortiert und seitenweise.
 
+## Prüfaktionen und E-Mail-Entwürfe (task-5-2)
+
+Block „Aktionen“ auf der Anfrageseite (`components/dashboard/request-actions.tsx`) für Dispatcher, Manager und Admins; Server Actions in `app/(dashboard)/dashboard/anfragen/[id]/actions.ts`. Jede Aktion ruft genau eine kontrollierte Datenbankoperation aus Phase 2 mit den Rechten des Nutzers und der angezeigten `version` auf und lädt die Seite danach neu (`refresh()`).
+
+| Aktion | Sichtbar, wenn | Operation |
+| --- | --- | --- |
+| Prüfen und freigeben (Priorität Pflicht) | Erstbearbeitung `new`/`analyzing`/`needs_review` | `complete_intake` |
+| Analyse korrigieren (Priorität/Leistungsart, Grund Pflicht) | Anfrage nicht abgeschlossen | `correct_analysis`, markiert den letzten erfolgreichen Analyse-Lauf als korrigiert |
+| E-Mail an Kunden vorbereiten (Rückfrage mit Vorlage oder sonstige Nachricht) | Anfrage nicht abgeschlossen | `create_message_draft` |
+| Entwurf bearbeiten / In Warteschlange stellen (unter Korrespondenz) | Nachricht im Status `draft` | `update_message_draft`, `queue_message` |
+| Auf Kundenantwort warten | Erstbearbeitung offen | `mark_awaiting_customer` |
+| Anfrage ablehnen (Grund Pflicht) | vor Arbeitsbeginn | `reject_request` |
+
+- **Kein Versand:** Das Dashboard erzeugt nur Entwürfe und Warteschlangeneinträge. Texte und Status lauten „Entwurf (nicht versendet)“ und „In Warteschlange, nicht versendet“; „Versand bestätigt“ erscheint nur, wenn die spätere Integration den Versand per `confirm_message_sent` meldet. Es gibt keinen Senden-Knopf.
+- **Fehler:** Versionskonflikt (`RW409`), Zustandsfehler (`RW422`) und fehlende Berechtigung (`42501`) erscheinen als Meldung im Formular; alle Eingaben bleiben erhalten.
+- **Techniker** sehen den Block nicht; die Operationen lehnen sie zusätzlich in der Datenbank ab.
+
+## Einsatzplanung (task-5-3)
+
+`/dashboard/planung` (Dispatcher, Manager): links „Zu planen“ (Planungs-Warteschlange aus `dispatcher_queue`, Dispatcher nur eigene), rechts das Buchungsformular für die gewählte Anfrage (`?anfrage=`), darunter die Woche (`?woche=YYYY-MM-DD`, Navigation vor/zurück/heute). Daten: `lib/dashboard/planning.ts`; Buchung: Server Action `scheduleVisit` → `schedule_visit`.
+
+- **Belegung:** `technician_busy_intervals` liefert alle reservierenden Einsätze und Abwesenheiten ohne Details. Nur Einsätze, die der Nutzer per RLS ohnehin lesen darf, erhalten Anfragenummer und Link; fremde erscheinen als „Belegt“, Abwesenheiten als „Nicht verfügbar“ (ohne Grund). Arbeitszeiten (`working_hours`) zeigen außerhalb liegende Zeit grau.
+- **Konflikte** prüft ausschließlich die Datenbank (Exclusion Constraint, Arbeitszeit, Abwesenheit, Vergangenheit, Sicherheitsprüfung). `RW410` erscheint als „Der Techniker hat in diesem Zeitraum bereits einen Einsatz. Bitte im Kalender einen freien Zeitraum wählen.“; Eingaben bleiben erhalten.
+- **Zeit:** Formular in Berliner Ortszeit; `berlinToInstant` rechnet in UTC um (Sommer-/Winterzeit). Kalenderwahl siehe [decisions.md](decisions.md).
+
+## Techniker-Startseite und Wochenkalender (task-6-1)
+
+Nur Techniker; Daten `lib/dashboard/technician.ts`, Karten `components/dashboard/visit-card.tsx` (Zeit, Status, Kunde, Adresse mit Kartenlink, Kontakt mit Telefonlink, Anlage, Sicherheitsgefahr, Beschreibung).
+
+- **`/dashboard/heute` – Mein Tag:** laufender Einsatz, sonst der nächste geplante; alle Einsätze des Tages (Europe/Berlin); „Ausstehende Teile“: bestellte Teile der eigenen aktuellen Anfragen und wegen Teilen pausierte Einsätze.
+- **`/dashboard/kalender` – Kalender:** eigene Woche in der Zeitstrahl-Ansicht der Planung (nur eine Zeile, eigene Arbeitszeiten und Abwesenheiten), erledigte und pausierte Einsätze gedämpft mit Status; darunter dieselben Einsätze als Karten (mobil die Hauptansicht).
+- **Nur eigene Daten:** Alle Abfragen filtern zusätzlich zu RLS auf `technician_id` des angemeldeten Technikers, denn RLS zeigt Technikern auch Einsätze anderer Techniker auf ihren aktuellen Anfragen. Die Belegung anderer Techniker wird nicht abgefragt.
+
+## Einsatzaktionen und Arbeitserfassung (task-6-2)
+
+`/dashboard/einsatz/[visitId]` – Arbeitsbereich eines Einsatzes für den eingeplanten Techniker (andere Techniker: 404), Manager und Admins; erreichbar über „Einsatz öffnen“ auf den Techniker-Seiten und „Öffnen“ in der Einsatz-Tabelle der Anfrageseite. Daten `lib/dashboard/visit.ts`, Server Actions im Routenordner.
+
+| Bereich | Aktion | Operation |
+| --- | --- | --- |
+| Einsatz | Arbeit starten / Auf Teile warten (Grund) / Fortsetzen | `start_visit`, `wait_for_parts`, `resume_visit` |
+| Einsatz | Einsatz beenden: Arbeitszeit in Minuten (Vorschlag: Zeit seit Start, bei über 12 h die geplante Dauer), Bericht (Pflicht), optional Folgeeinsatz mit Grund | `complete_visit` |
+| Arbeit und Teile | Arbeitszeit (Stunden, Tarif der Leistungsart), Pauschale (einmal je Anfrage), Teil (Menge, Preis, bestellt/verbaut); Teil als verbaut markieren, Position stornieren | `add_work_entry`, `set_work_entry_status` |
+| Fotos | JPEG/PNG bis 10 MB hochladen, Vorschau | Upload + `add_visit_photo` |
+
+- **Fotos:** Die Server Action prüft Größe und Dateisignatur (JPEG/PNG), prüft per RLS den Zugriff auf den Einsatz, lädt die Datei mit dem Server-Schlüssel in den privaten Bucket `dashboard` (`visits/<request_id>/<visit_id>/<uuid>.jpg`) und lässt sie von `add_visit_photo` mit den Rechten des Nutzers registrieren; scheitert das, wird die Datei sofort gelöscht. Anzeige und Download über die App-Route mit Nutzerrechten. Server-Action- und Proxy-Limit: 11 MB (`next.config.ts`).
+- **Einsatz beenden schließt die Anfrage nicht;** der Abschluss folgt in task-6-3.
+- Nach ausgestellter Rechnung oder bei abgeschlossener Anfrage sind keine Positionen mehr änderbar (Datenbank-Sperre, Oberfläche blendet die Formulare aus).
+

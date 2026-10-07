@@ -666,7 +666,7 @@
       "description": "Prüfung, Korrespondenz und Einsatzplanung für Dispatcher.",
       "order": 6,
       "weight": 10,
-      "status": "in_progress",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-5-1",
@@ -708,7 +708,7 @@
           "description": "Korrigieren, Freigeben, E-Mail vorbereiten, Erstbearbeitung abschliessen und Ablehnen mit Grund.",
           "order": 2,
           "weight": 3,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-5-1"
           ],
@@ -717,13 +717,23 @@
             "E-Mail-Vorbereitung erzeugt nur Entwurf oder Warteschlangeneintrag",
             "UI behauptet keinen Versand"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T13:33:38Z",
+          "completedAt": "2026-10-07T13:42:46Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Block „Aktionen“ auf der Anfrageseite: Prüfen und freigeben (complete_intake), Analyse korrigieren (correct_analysis, markiert Analyse-Lauf), E-Mail vorbereiten (create_message_draft mit Vorlage), Entwurf bearbeiten/In Warteschlange stellen (update_message_draft, queue_message), Auf Kundenantwort warten (mark_awaiting_customer), Ablehnen mit Grund (reject_request). Alle Aktionen als Server Actions mit Nutzerrechten und Versionsprüfung; kein Senden-Knopf, Status „In Warteschlange, nicht versendet“. test:ui gegen die Datenbank: Korrektur, Entwurf, Bearbeiten + Warteschlange nacheinander, sent_at leer, Freigabe → Planungs-Warteschlange, Versionskonflikt behält Eingabe, Ablehnung; test:auth: kein Aktionsblock für Techniker, kein Senden-Knopf; test:unit 9/9; test:db 409/409; demo:verify 16/16; lint, typecheck, build erfolgreich; Screenshots gesichtet. Nebenbei: Klasse request-page kollidierte mit der Website (max-width 1000 px) und begrenzte die Anfrageseite seit task-4-3 – in dash-request umbenannt; leere Werte in Korrekturereignissen als „offen“.",
+            "commands": [
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run test:unit",
+              "npm run test:db",
+              "npm run test:auth",
+              "npm run test:ui (UI_SCREENSHOTS)",
+              "npm run demo:seed",
+              "npm run demo:verify"
+            ],
+            "checkedAt": "2026-10-07T13:42:46Z"
           }
         },
         {
@@ -732,7 +742,7 @@
           "description": "Kalenderansicht mit belegten Technikerintervallen und Zuweisung von Techniker und Zeitraum.",
           "order": 3,
           "weight": 4,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-5-1",
             "task-2-2"
@@ -742,13 +752,24 @@
             "Konflikte serverseitig abgelehnt und verständlich angezeigt",
             "Kalenderbibliothek gegen React 19 geprüft"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T13:44:53Z",
+          "completedAt": "2026-10-07T13:54:50Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Seite /dashboard/planung: „Zu planen“ (Planungs-Warteschlange), Buchungsformular (schedule_visit) und eigene Wochen-Zeitstrahlansicht aller Techniker in Europe/Berlin mit Arbeitszeiten, Belegung und Klick-Übernahme in das Formular. Fremde Intervalle aus technician_busy_intervals ohne Kunden- oder Abwesenheitsdetails (test:auth prüft HTML gegen Nummern, Firmen und Abwesenheitsgründe). Konflikte nur serverseitig: RW410 mit verständlicher Meldung, Eingaben bleiben (test:ui). Kalenderbibliotheken gegen React 19 geprüft (FullCalendar 7.1.1, react-big-calendar 1.20.0, Schedule-X 4.1.0: alle peerDependencies ^19); Entscheidung für eigene Ansicht wegen kommerzieller Ressourcen-Ansichten bzw. Browser-Zeitzone, dokumentiert in decisions.md. test:ui (zweimal hintereinander) inkl. Buchung, UTC-Umrechnung, Überschneidung, Arbeitszeit, Anschlusstermin; test:auth; test:unit 10/10 (Berliner Kalenderarithmetik inkl. Zeitumstellung); test:db 409/409; demo:verify 16/16; lint, typecheck, build erfolgreich; Screenshots 390/1440 gesichtet. Nebenbei: Dashboard-Kopfzeile bei 390 px (Logo-Text ausgeblendet), test:auth zählt den Aktionsblock nicht als Abschnitt.",
+            "commands": [
+              "npm view (peerDependencies, Lizenz)",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run test:unit",
+              "npm run test:db",
+              "npm run test:auth",
+              "npm run test:ui (2×, UI_SCREENSHOTS)",
+              "npm run demo:seed",
+              "npm run demo:verify"
+            ],
+            "checkedAt": "2026-10-07T13:54:50Z"
           }
         }
       ]
@@ -759,7 +780,7 @@
       "description": "Eigene Einsätze, Arbeitserfassung, Abschluss und Rechnung.",
       "order": 7,
       "weight": 11,
-      "status": "ready",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "task-6-1",
@@ -767,7 +788,7 @@
           "description": "Nächster Einsatz, heutige Arbeit, eigener Wochenkalender und Anfragen mit ausstehenden Teilen.",
           "order": 1,
           "weight": 3,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-4-3",
             "task-2-2"
@@ -776,13 +797,23 @@
             "Keine Kalender anderer Techniker sichtbar",
             "Mobil nutzbar ohne horizontales Scrollen"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T13:59:58Z",
+          "completedAt": "2026-10-07T14:05:43Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "/dashboard/heute: laufender bzw. nächster Einsatz, heutige Einsätze (Europe/Berlin), ausstehende Teile (bestellte Teile eigener Anfragen, pausierte Einsätze); /dashboard/kalender: eigene Woche als Zeitstrahl (eine Zeile, eigene Arbeitszeiten/Abwesenheiten, erledigte gedämpft) plus Kartenliste. Alle Abfragen zusätzlich auf technician_id = eigener Nutzer gefiltert (RLS zeigt sonst fremde Einsätze auf aktuellen Anfragen). test:auth für alle drei Demo-Techniker: nächster Einsatz = Datenbank, Teile vollständig, Kalender nur eigene Zeile, keine Namen oder Einsätze anderer Techniker; Dispatcher ohne Zugriff. test:ui: Heute und Kalender bei 390/768/1440 ohne horizontales Scrollen, Screenshots gesichtet; test:unit 10/10; test:db 409/409; demo:verify 16/16; lint, typecheck, build erfolgreich.",
+            "commands": [
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run test:unit",
+              "npm run test:db",
+              "npm run test:auth",
+              "npm run test:ui (UI_SCREENSHOTS)",
+              "npm run demo:seed",
+              "npm run demo:verify"
+            ],
+            "checkedAt": "2026-10-07T14:05:43Z"
           }
         },
         {
@@ -791,7 +822,7 @@
           "description": "Arbeit starten, auf Teile warten, Zeit/Teile/Bericht speichern, Fotos hochladen, Einsatz beenden.",
           "order": 2,
           "weight": 4,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-6-1",
             "task-2-3"
@@ -801,13 +832,25 @@
             "Bedarf eines Folgeeinsatzes erfassbar",
             "Fotos im privaten Storage"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T14:08:01Z",
+          "completedAt": "2026-10-07T14:19:46Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Einsatz-Arbeitsbereich /dashboard/einsatz/[visitId]: Arbeit starten, Auf Teile warten, Fortsetzen, Einsatz beenden (Minuten, Bericht, optional Folgeeinsatz mit Grund), Arbeitszeit nach Tarif, Pauschale, Teile (bestellt/verbaut), Positionen verbauen/stornieren, Fotos hochladen mit Vorschau. Migration 20261007220000: complete_visit mit follow_up_reason (Anfrage zurück in die Planung, nie geschlossen), add_visit_photo (Registrierung im privaten Bucket mit Rechte-, Typ-, Größen-, Pfad- und Existenzprüfung). pgTAP visit_follow_up_photos 18/18, test:db 427/427; test:ui gegen die Datenbank: kompletter Ablauf inkl. Foto im privaten Bucket (öffentlich nicht abrufbar), PDF abgelehnt, Folgeeinsatz → Planung, Anfrage nicht abgeschlossen; fremder Techniker 404; test:auth, test:unit 10/10, demo:verify 16/16 (Seed entfernt auch Testfotos); lint, typecheck, build erfolgreich; Screenshots gesichtet.",
+            "commands": [
+              "supabase migration up",
+              "npm run db:types",
+              "npm run test:db",
+              "npm run test:ui (UI_SCREENSHOTS)",
+              "npm run test:auth",
+              "npm run test:unit",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T14:19:46Z"
           }
         },
         {
@@ -816,7 +859,7 @@
           "description": "Expliziter Abschluss, Rechnungserstellung, Ausstellung und PDF-Download mit Kennzeichnung Musterrechnung / Demodaten.",
           "order": 3,
           "weight": 4,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-6-2",
             "task-2-4"

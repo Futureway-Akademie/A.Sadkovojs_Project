@@ -546,3 +546,104 @@ main > * { animation: rw-page-enter var(--rw-duration-slow) var(--rw-ease-out) b
 @media (max-width: 767px) {
   .queue-tabs a { min-height: 44px; padding: 0 10px; font-size: 14px; }
 }
+
+/* Review actions (task-5-2) */
+.button--danger { background: var(--rw-action-destructive-bg); color: var(--rw-action-destructive-fg); }
+.button--danger:hover { background: var(--rw-action-destructive-bg-hover); }
+.action-list { display: grid; gap: var(--rw-space-8); }
+.action { background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); border-left: 3px solid var(--rw-color-lime-500); }
+.action--danger { border-left-color: var(--rw-color-danger-700); }
+.action > summary { display: flex; align-items: center; min-height: var(--rw-touch-target-min, 44px); padding: 8px 14px; font-weight: 600; cursor: pointer; }
+.action[open] > summary { border-bottom: 1px solid var(--rw-border-subtle); }
+.action > .section-note { padding: 12px 14px 0; }
+.action .save-form { border: 0; }
+.draft-actions { display: grid; gap: var(--rw-space-8); margin-top: var(--rw-space-8); }
+.draft-actions .save-form { padding: var(--rw-space-12); }
+
+/* Visit planning (task-5-3) */
+.plan-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--rw-space-24); }
+@media (min-width: 1024px) { .plan-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; } }
+.plan-queue__list { display: grid; gap: var(--rw-space-8); max-height: 520px; overflow-y: auto; }
+.plan-queue__item { display: grid; gap: 2px; padding: 10px 14px; color: var(--rw-text-primary); text-decoration: none; background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); border-left: 3px solid var(--rw-border-default); }
+.plan-queue__item:hover { border-left-color: var(--rw-border-brand); }
+.plan-queue__item[aria-current="true"] { border-left-color: var(--rw-color-lime-500); background: var(--rw-color-lime-100); }
+.plan-queue__item .mono { font-size: 13px; color: var(--rw-text-link); }
+.plan-booking { scroll-margin-top: 120px; }
+.plan-booking__request { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.plan-booking__request .cell-sub { flex-basis: 100%; }
+.plan-booking .save-form .plan-booking__times { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.plan-week { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--rw-space-12); }
+.plan-week__nav { display: flex; gap: var(--rw-space-16); }
+.plan-week__nav a { display: inline-flex; align-items: center; min-height: var(--rw-touch-target-min, 44px); font-weight: 600; }
+.plan-calendar { display: grid; gap: var(--rw-space-16); }
+.plan-legend { display: flex; flex-wrap: wrap; gap: var(--rw-space-8) var(--rw-space-16); font-size: 13px; color: var(--rw-text-secondary); }
+.plan-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.plan-swatch { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--rw-border-default); }
+.plan-swatch--own, .plan-block--own { background: var(--rw-color-navy-800); color: var(--rw-text-on-dark); }
+.plan-swatch--busy, .plan-block--busy { background: var(--rw-color-steel-300); color: var(--rw-text-primary); }
+.plan-swatch--absence, .plan-block--absence { background: repeating-linear-gradient(135deg, var(--rw-color-warning-surface) 0 6px, var(--rw-color-warning-border) 6px 8px); color: var(--rw-color-warning-900); }
+.plan-swatch--off { background: var(--rw-color-steel-100); }
+.plan-day { display: grid; gap: 6px; padding: var(--rw-space-12); background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); }
+.plan-day h3 { font-size: 15px; }
+.plan-scale, .plan-lane { position: relative; }
+.plan-scale { height: 18px; font-size: 11px; color: var(--rw-text-secondary); font-family: var(--rw-font-mono); }
+.plan-scale span { position: absolute; transform: translateX(-50%); }
+.plan-scale span:first-child { transform: none; }
+.plan-scale span:last-child { transform: translateX(-100%); }
+.plan-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.plan-name { font-size: 14px; font-weight: 600; }
+.plan-name .cell-sub { display: inline; margin-left: 8px; font-weight: 400; }
+.plan-lane { height: 36px; background: var(--rw-surface-page); border: 1px solid var(--rw-border-subtle); overflow: hidden; }
+.plan-lane--pick { cursor: copy; }
+.plan-lane--pick:hover { border-color: var(--rw-border-brand); }
+.plan-off, .plan-work, .plan-block { position: absolute; top: 0; bottom: 0; }
+.plan-off { background: var(--rw-color-steel-100); }
+.plan-work { background: var(--rw-surface-default); }
+.plan-block { display: flex; align-items: center; padding: 0 6px; min-width: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-decoration: none; border-left: 2px solid var(--rw-surface-default); }
+.plan-block span { overflow: hidden; text-overflow: ellipsis; }
+a.plan-block--own:hover { background: var(--rw-color-navy-900); }
+@media (min-width: 768px) {
+  .plan-scale { margin-left: 200px; }
+  .plan-row { grid-template-columns: 188px minmax(0, 1fr); align-items: center; gap: 12px; }
+  .plan-name .cell-sub { display: block; margin-left: 0; }
+}
+@media (max-width: 767px) {
+  .plan-scale span:nth-child(even) { display: none; }
+}
+@media (max-width: 480px) {
+  .dash-header .logo__type { display: none; }
+}
+
+/* Technician pages (task-6-1) */
+.visit-list { display: grid; gap: var(--rw-space-12); }
+@media (min-width: 1024px) { .visit-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.visit-card { display: grid; gap: var(--rw-space-8); padding: var(--rw-space-16); background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); border-left: 3px solid var(--rw-color-steel-300); min-width: 0; }
+.visit-card--next { border-left: 4px solid var(--rw-color-lime-500); box-shadow: var(--rw-shadow-sm); }
+.visit-card__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--rw-space-8); }
+.visit-card__time { font-weight: 700; }
+.visit-card h3 { font-size: var(--rw-type-body-l-size); overflow-wrap: anywhere; }
+.visit-card h3 a { color: var(--rw-text-primary); }
+.visit-card__meta { font-size: 14px; color: var(--rw-text-secondary); }
+.visit-card__risk { justify-self: start; }
+.visit-card__facts { display: grid; gap: 4px; font-size: 15px; }
+.visit-card__facts > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: var(--rw-space-8); }
+.visit-card__facts dt { color: var(--rw-text-secondary); font-size: 14px; }
+.visit-card__facts dd { overflow-wrap: anywhere; }
+.visit-card__facts a { display: inline-block; min-height: 24px; }
+.visit-card__description { font-size: 14px; color: var(--rw-text-secondary); white-space: pre-line; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.parts-list { display: grid; gap: var(--rw-space-8); }
+.parts-list > li { display: grid; gap: 4px; padding: 12px 14px; background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); border-left: 3px solid var(--rw-color-warning-border); }
+.parts-list > li > a { font-weight: 600; overflow-wrap: anywhere; }
+.parts-list ul { display: grid; gap: 2px; font-size: 14px; list-style: disc; padding-left: 20px; }
+.plan-block--done, .plan-swatch--done { background: var(--rw-color-steel-200); color: var(--rw-color-navy-800); }
+a.plan-block--done:hover { background: var(--rw-color-steel-300); }
+
+/* Visit workspace (task-6-2) */
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--rw-space-12); }
+.photo-grid li { display: grid; gap: 4px; min-width: 0; }
+.photo-grid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--rw-surface-sunken); border: 1px solid var(--rw-border-subtle); }
+.photo-grid .cell-sub { overflow-wrap: anywhere; }
+.entry-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.entry-actions .save-form { padding: 0; background: none; border: 0; gap: 4px; }
+.entry-actions .button { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.visit-card__open { justify-self: start; font-weight: 600; }

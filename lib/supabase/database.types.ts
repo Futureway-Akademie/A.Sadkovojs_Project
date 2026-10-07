@@ -494,7 +494,29 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "add_work_entry":
+            "add_visit_photo":
+{ Args: { "expected_version": number,"file_name": string,"mime_type": string,"size_bytes": number,"storage_path": string,"visit_id": string }; Returns: {
+              "bucket": string,
+"created_at": string,
+"file_name": string,
+"id": string,
+"invoice_id": string | null,
+"message_id": string | null,
+"mime_type": string,
+"request_id": string | null,
+"size_bytes": number,
+"storage_path": string,
+"uploaded_by": string | null,
+"visibility": Database["public"]['Enums']["visibility_level"],
+"visit_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "attachments"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"add_work_entry":
 { Args: { "billable"?: boolean,"description": string,"expected_version": number,"item_status"?: Database["public"]['Enums']["work_item_status"],"kind": Database["public"]['Enums']["work_entry_kind"],"quantity": number,"request_id": string,"service_rate_id"?: string,"tax_rate"?: number,"unit_price"?: number,"visit_id"?: string }; Returns: {
               "author_id": string,
 "billable": boolean,
@@ -825,7 +847,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "complete_visit":
-{ Args: { "actual_work_minutes": number,"expected_version": number,"summary"?: string,"visit_id": string }; Returns: {
+{ Args: { "actual_work_minutes": number,"expected_version": number,"follow_up_reason"?: string,"summary"?: string,"visit_id": string }; Returns: {
               "actual_end": string | null,
 "actual_start": string | null,
 "actual_work_minutes": number | null,

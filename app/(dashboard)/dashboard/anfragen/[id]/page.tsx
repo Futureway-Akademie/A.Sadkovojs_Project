@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { availableActions, DraftActions, RequestActions } from "@/components/dashboard/request-actions";
 import { DataTable, type Column } from "@/components/dashboard/ui/data-table";
 import { EmptyState, ErrorState } from "@/components/dashboard/ui/states";
 import { StatusBadge } from "@/components/dashboard/ui/status-badge";
@@ -36,16 +37,19 @@ export default async function RequestPage({ params }: Props) {
     kontakt: () => <Contact detail={detail} />,
     anlage: () => <Equipment detail={detail} />,
     erstbearbeitung: () => <Intake detail={detail} person={person} />,
-    korrespondenz: () => <Correspondence detail={detail} person={person} />,
-    einsaetze: () => <Visits detail={detail} person={person} />,
+    korrespondenz: () => <Correspondence detail={detail} person={person} editable={employee.role !== "technician"} />,
+    einsaetze: () => <Visits detail={detail} person={person} employee={employee} />,
     arbeit: () => <Work detail={detail} person={person} />,
     dokumente: () => <Documents detail={detail} person={person} />,
     rechnung: () => <Invoice detail={detail} />,
     verlauf: () => <History detail={detail} names={names} />,
   };
 
+  const actions = availableActions(detail, employee.role);
+  const hasActions = Object.values(actions).some(Boolean);
+
   return (
-    <div className="dash-page request-page">
+    <div className="dash-page dash-request">
       <nav className="breadcrumb-dash" aria-label="Pfad">
         <Link href="/dashboard/anfragen">Anfragen</Link> <span aria-hidden="true">/</span> <span className="mono">{request.request_number}</span>
       </nav>
@@ -63,8 +67,15 @@ export default async function RequestPage({ params }: Props) {
       </header>
 
       <nav className="section-nav" aria-label="Abschnitte">
-        <ul>{sections.map((section) => <li key={section.id}><a href={`#${section.id}`}>{section.label}</a></li>)}</ul>
+        <ul>{hasActions && <li><a href="#aktionen">Aktionen</a></li>}{sections.map((section) => <li key={section.id}><a href={`#${section.id}`}>{section.label}</a></li>)}</ul>
       </nav>
+
+      {hasActions && (
+        <section id="aktionen" className="request-section request-section--actions" aria-labelledby="aktionen-title">
+          <h2 id="aktionen-title">Aktionen</h2>
+          <RequestActions detail={detail} employee={employee} />
+        </section>
+      )}
 
       {sections.map((section) => (
         <section key={section.id} id={section.id} className="request-section" aria-labelledby={`${section.id}-title`}>
@@ -183,7 +194,7 @@ const STEP_LABELS: Record<string, string> = { intake_analysis: "Analyse der Anfr
 const DECISION_LABELS: Record<string, string> = { ready_for_planning: "Bereit zur Planung", ask_customer: "Rückfrage an Kunden", human_review: "Menschliche Prüfung", matched: "Zugeordnet", unmatched: "Nicht zugeordnet", sent: "Versendet" };
 const MESSAGE_KIND_LABELS: Record<string, string> = { receipt: "Eingangsbestätigung", clarification: "Rückfrage", customer_reply: "Kundenantwort", invoice: "Rechnung", other: "Sonstige" };
 
-function Correspondence({ detail, person }: { detail: RequestDetail; person: PersonFn }) {
+function Correspondence({ detail, person, editable }: { detail: RequestDetail; person: PersonFn; editable: boolean }) {
   const messages = detail.messages ?? [];
   if (messages.length === 0) return <EmptyState title="Keine Nachrichten zu dieser Anfrage." />;
   return (
@@ -195,7 +206,7 @@ function Correspondence({ detail, person }: { detail: RequestDetail; person: Per
           const when = message.received_at ?? message.sent_at ?? message.created_at;
           return (
             <li key={message.id} className={`message message--${message.direction}`}>
-              <details>
+              <details open={message.status === "draft" && editable}>
                 <summary>
                   <span className="message__head">
                     <span className="message__direction">{incoming ? "Eingehend" : "Ausgehend"} · {MESSAGE_KIND_LABELS[message.kind] ?? message.kind}</span>
@@ -208,6 +219,7 @@ function Correspondence({ detail, person }: { detail: RequestDetail; person: Per
                   <p>{message.body_text}</p>
                   {message.author_id && <p className="message__meta">Verfasst von {person(message.author_id, "Unbekannt")}</p>}
                   {message.error_text && <p className="message__error">Fehler: {message.error_text}</p>}
+                  {message.status === "draft" && editable && <DraftActions detail={detail} message={message} />}
                 </div>
               </details>
             </li>
@@ -218,7 +230,9 @@ function Correspondence({ detail, person }: { detail: RequestDetail; person: Per
   );
 }
 
-function Visits({ detail, person }: { detail: RequestDetail; person: PersonFn }) {
+function Visits({ detail, person, employee }: { detail: RequestDetail; person: PersonFn; employee: { id: string; role: string } }) {
+  // Visit workspace for the planned technician, managers and admins (task-6-2)
+  const canOpen = (visit: RequestDetail["visits"][number]) => visit.status !== "cancelled" && (employee.role === "manager" || employee.role === "admin" || (employee.role === "technician" && visit.technician_id === employee.id));
   const columns: Column<RequestDetail["visits"][number]>[] = [
     { key: "time", header: "Termin", cell: (visit) => formatTimeRange(visit.scheduled_start, visit.scheduled_end), mobile: "title" },
     { key: "technician", header: "Techniker", cell: (visit) => person(visit.technician_id) },
@@ -226,6 +240,7 @@ function Visits({ detail, person }: { detail: RequestDetail; person: PersonFn })
     { key: "actual", header: "Tatsächlich", cell: (visit) => (visit.actual_start ? `${formatDateTime(visit.actual_start)}${visit.actual_end ? ` – ${formatDateTime(visit.actual_end)}` : ""}` : EMPTY), mobile: "hide" },
     { key: "minutes", header: "Arbeitszeit", cell: (visit) => (visit.actual_work_minutes === null ? EMPTY : formatMinutes(visit.actual_work_minutes)), align: "end" },
     { key: "note", header: "Bemerkung", cell: (visit) => visit.summary ?? visit.waiting_reason ?? visit.cancellation_reason ?? EMPTY },
+    { key: "open", header: "Einsatz", cell: (visit) => (canOpen(visit) ? <Link href={`/dashboard/einsatz/${visit.id}`}>Öffnen</Link> : EMPTY) },
   ];
   return <DataTable caption="Einsätze" columns={columns} rows={detail.visits} rowKey={(visit) => visit.id} empty={<EmptyState title="Noch kein Einsatz geplant." />} />;
 }

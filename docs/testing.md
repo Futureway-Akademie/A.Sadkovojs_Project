@@ -37,6 +37,7 @@ Jede Datei läuft in einer Transaktion mit `ROLLBACK` und hinterlässt keine Dat
 | `invoice_message_operations.test.sql` | Rechnungen, Zahlungen, E-Mail-Warteschlange, Zuordnung |
 | `scenarios.test.sql` | Durchgehende Szenarien 1, 2, 3, 4 und 7 der Spezifikation |
 | `dispatcher_queue.test.sql` | Warteschlangen der Dispatcher: Zuordnung, Sortierung, RLS |
+| `visit_follow_up_photos.test.sql` | Folgeeinsatz beim Beenden eines Einsatzes, Registrierung von Einsatzfotos |
 | `savings_fixture.test.sql` | Prüf-Fixture 100 × 15 Minuten = 25 h (Szenario 5, Teil) |
 
 ## API-Tests (`npm run test:api`)
@@ -57,6 +58,9 @@ Voraussetzung: lokaler Supabase-Stack, Demo-Nutzer (`npm run demo:users`) und la
 - Konto ohne Profil, deaktiviertes Profil und Deaktivierung während einer bestehenden Sitzung: kein Zugriff, Hinweis auf `/login`.
 
 - Anfragen: Trefferzahl der Liste je Rolle stimmt mit der Datenbank überein (Manager alle, Dispatcher eigene, Techniker zugewiesene und mit eigenem Einsatz); Filter, Suche, ungültige Filterwerte und letzte Seite; Manager und Dispatcher sehen 10 Abschnitte, Techniker 8 ohne Erstbearbeitung und Korrespondenz und ohne Nachrichteninhalte im HTML; fremde und ungültige IDs ergeben 404;
+- Techniker-Seiten: für alle drei Demo-Techniker entspricht der nächste Einsatz der Datenbank (laufend vor geplant), bestellte Teile der eigenen Anfragen stehen unter „Ausstehende Teile“, der Kalender hat genau eine Zeile je Tag ohne Namen anderer Techniker und ohne Einsätze anderer Techniker; Dispatcher erreichen den Techniker-Kalender nicht;
+- Einsatzplanung: „Zu planen“ entspricht der Planungs-Warteschlange (Dispatcher eigene, Manager alle), Techniker ohne Zugriff; im Kalender des Dispatchers erscheinen fremde Einsätze der laufenden Woche nur als „Belegt“ ohne Nummer oder Firma, eigene mit Anfragenummer, Abwesenheitsgründe nirgends;
+- Prüfaktionen: Techniker sehen keinen Aktionsblock; Manager sehen ihn bei offener Prüfung, mit „Als Entwurf speichern“ und ohne Senden-Knopf;
 - Warteschlangen: für alle drei Demo-Dispatcher entsprechen Anzahl und Reihenfolge jedes Tabs der View `dispatcher_queue`; Manager wird umgeleitet; automatisch bearbeitete, ungeplante Anfragen stehen in der Planung;
 - Dokumente: Manager lädt die interne Notiz (`management`), der Dispatcher der Anfrage sieht und lädt sie nicht, anonym 401; der Techniker der Anfrage lädt ein operatives Dokument, ein anderer Techniker nicht.
 
@@ -73,7 +77,15 @@ Voraussetzung wie bei `test:auth` sowie Google Chrome (anderer Pfad über `CHROM
 - alle Dashboard-Bereiche je Rolle sowie Anfrageliste, eine Anfrageseite (Manager, Techniker) und die Warteschlangen-Tabs (Dispatcher) bei 390×844, 768×1024 und 1440×900: Seitenbreite nicht größer als das Fenster;
 - Formular unter `/dashboard/bausteine`: Validierungsfehler und simulierter Versionskonflikt behalten alle Eingaben, markieren die Felder und setzen den Fokus; erfolgreiches Speichern zeigt „Gespeichert · HH:MM“.
 
+- Prüfaktionen (task-5-2) als temporärer Dispatcher auf eigener Testanfrage, jeweils gegen die Datenbank geprüft: Korrektur ohne Grund behält die Auswahl, Korrektur markiert den Analyse-Lauf; E-Mail vorbereiten erzeugt nur einen Entwurf; Entwurf bearbeiten und direkt danach in die Warteschlange stellen (zweite Aktion mit aktualisierter Version); `sent_at` bleibt leer und die Oberfläche zeigt „In Warteschlange, nicht versendet“; Freigabe setzt `processed`/`human_review` und die Planungs-Warteschlange; Versionskonflikt beim Ablehnen behält den Grund und ändert nichts; Ablehnung danach erfolgreich.
+
+- Einsatzplanung (task-5-3) in einer zufälligen Woche ab 2030: Klick in die Zeile eines Technikers übernimmt Techniker, Datum und 09:00–11:00; Buchung landet mit korrekter UTC-Umrechnung in der Datenbank, erscheint im Kalender und verlässt „Zu planen“; überschneidende Buchung einer zweiten Anfrage wird mit verständlicher Meldung abgelehnt (Eingaben bleiben, kein Einsatz); Buchung außerhalb der Arbeitszeit abgelehnt; direkt anschließender Termin möglich.
+
+- Einsatzaktionen (task-6-2) als temporärer Techniker, jeweils gegen die Datenbank: fremder Techniker erhält 404; Arbeit starten; 1,5 h Arbeitszeit nach Tarif; Teil bestellt mit 48,90 €, dann verbaut; JPEG-Foto landet im privaten Bucket mit Metadaten, ist nicht öffentlich abrufbar und über die App ladbar; PDF als Foto abgelehnt; auf Teile warten und fortsetzen; Beenden mit Folgeeinsatz ohne Grund scheitert (Bericht bleibt), mit Grund: Einsatz beendet, Anfrage nicht abgeschlossen und wieder in der Planung.
+
 Mit `UI_SCREENSHOTS=<Ordner>` wird je Seite und Breite ein Screenshot gespeichert.
+
+`test:ui` und `test:api` legen Testanfragen mit `is_demo = true` an; `npm run demo:seed` entfernt sie samt Einsatzfotos wieder (Testnutzer bleiben bis `supabase db reset`).
 
 ## Szenarien der Spezifikation (Abschnitt 10)
 

@@ -13,12 +13,14 @@ export function SaveForm({
   action,
   children,
   submitLabel = "Speichern",
+  submitVariant = "primary",
   resetOnSuccess = false,
   className,
 }: {
   action: SaveAction;
   children: ReactNode;
   submitLabel?: string;
+  submitVariant?: "primary" | "secondary" | "danger";
   resetOnSuccess?: boolean;
   className?: string;
 }) {
@@ -54,7 +56,7 @@ export function SaveForm({
       >
         {children}
         <div className="save-form__footer">
-          <button className="button button--primary" type="submit" disabled={pending}>{pending ? "Wird gespeichert …" : submitLabel}</button>
+          <button className={`button button--${submitVariant}`} type="submit" disabled={pending}>{pending ? "Wird gespeichert …" : submitLabel}</button>
           <SaveStatus state={state} pending={pending} dirty={dirty} />
         </div>
       </form>
@@ -122,6 +124,20 @@ export function SelectField({ options, ...props }: FieldProps & { options: Array
         {props.required && !props.defaultValue && <option value="" disabled>Bitte wählen</option>}
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
+    </FieldFrame>
+  );
+}
+
+// Context values (ids, versions). Controlled so a refreshed page passes the new version to the next save.
+export function HiddenField({ name, value }: { name: string; value: string | number }) {
+  return <input type="hidden" name={name} value={String(value)} readOnly />;
+}
+
+export function FileField({ name, label, accept, hint, required }: { name: string; label: string; accept: string; hint?: string; required?: boolean }) {
+  const { error, describedBy } = useField(name);
+  return (
+    <FieldFrame name={name} label={label} hint={hint} required={required} error={error}>
+      <input id={`field-${name}`} name={name} type="file" accept={accept} required={required} aria-invalid={!!error} aria-describedby={describedBy} />
     </FieldFrame>
   );
 }

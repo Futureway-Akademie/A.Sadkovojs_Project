@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 61,54 % (Gewicht 64 von 104).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 75,0 % (Gewicht 78 von 104).
 
 ## Aktive Phase
 
-Phasen 0–4 sind abgeschlossen. Phase 5 (Dispatcher) läuft; startbar außerdem Phase 6 (Techniker), Phase 7 (Analytik) und Phase 8 (Verwaltung).
+Phasen 0–5 sind abgeschlossen. Phase 6 (Techniker) läuft; startbar außerdem Phase 7 (Analytik) und Phase 8 (Verwaltung).
 
 ## Aktive Aufgabe
 
@@ -14,13 +14,11 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-5-1`: Dispatcher-Warteschlangen unter `/dashboard/erstbearbeitung` (fünf Tabs mit Zählern) auf Basis der View `dispatcher_queue` (security_invoker, Sortierung nach Priorität bzw. Kundendringlichkeit, Frist, Wartezeit). Automatisch bearbeitete Anfragen bleiben bis zur Einplanung in „Einsatzplanung erforderlich“.
+`task-6-2`: Einsatz-Arbeitsbereich `/dashboard/einsatz/[visitId]` (Starten, Teile, Fortsetzen, Beenden mit Bericht und optionalem Folgeeinsatz, Arbeitszeit/Pauschale/Teile, Fotos). Migration: `complete_visit` mit `follow_up_reason`, `add_visit_photo`. Einsatz beenden schließt die Anfrage nie.
 
 ## Bereite nächste Aufgaben
 
-- `task-5-2`: Prüfaktionen und E-Mail-Entwürfe.
-- `task-5-3`: Einsatzplanung mit Kalender.
-- `task-6-1`: Techniker-Startseite und Wochenkalender.
+- `task-6-3`: Anfrage abschliessen und Rechnung erstellen.
 - `task-7-1`: Analytik in der Datenbank.
 - `task-8-1`: Benutzer, Tarife, Arbeitszeiten und Einstellungen.
 
@@ -36,6 +34,10 @@ Nichts.
 - Der Formularpfad zu Make bleibt unverändert; der künftige n8n-Vertrag wird nur dokumentiert.
 - Entwicklung gegen lokales Supabase (`supabase start`); Schemaänderungen nur als Migrationen unter `supabase/migrations/`, spätere Übernahme in die Cloud per `supabase db push`.
 - `proxy.ts` erneuert nur die Sitzung (nur `/dashboard`, `/login`, `/auth/*`) und setzt `Cache-Control: private, no-store`; Zugriffsschutz in jeder Dashboard-Seite (`lib/auth/session.ts`) und über RLS.
+- Einsatzfotos: Server lädt in den privaten Bucket (`visits/<request>/<visit>/`), `add_visit_photo` registriert mit Nutzerrechten; bei Fehler wird die Datei gelöscht. Limit 11 MB für Server Actions und Proxy.
+- Techniker-Seiten filtern zusätzlich zu RLS auf die eigene `technician_id` (RLS zeigt sonst fremde Einsätze auf aktuellen Anfragen).
+- Einsatzplanung mit eigener Kalenderansicht (keine Bibliothek); Zeiten über `lib/berlin-time.ts` in Europe/Berlin.
+- Prüfaktionen als Server Actions, je Aktion genau eine RPC mit angezeigter `version`, danach `refresh()`; kein Senden-Knopf, Warteschlange ≠ Versand.
 - Dispatcher-Warteschlangen als View `public.dispatcher_queue` mit `security_invoker`; Regeln und Sortierung in `docs/database.md`.
 - Anfrageseite liest alle Abschnitte mit Nutzerrechten (nie Admin-Client); Dokumente werden durch die App gestreamt (`/dashboard/anfragen/[id]/dokumente/[attachmentId]`). Supabase-Clients sind mit `lib/supabase/database.types.ts` typisiert (`npm run db:types` nach Schemaänderungen).
 - UI-Bausteine unter `components/dashboard/ui/`, Formatierung `lib/format.ts`, Status `lib/status.ts`, Speichervertrag `lib/forms.ts`; kein segmentweites `loading.tsx` (würde Zugriffs-Weiterleitungen streamen), Laden per `Suspense` je Seite.
@@ -58,9 +60,9 @@ Nichts.
 
 - `supabase db lint` meldet `warning extra` zu Composite-OUT-Parametern der Hilfsfunktionen `private.lock_visit`, `lock_work_entry`, `lock_invoice`, `lock_outgoing_message` (stilistisch, ohne Auswirkung).
 - Kein Supabase-Cloud-Projekt verknüpft; für das spätere Deployment nötig (`supabase login`, `supabase link`).
-- `npm run test:api` legt dauerhaft Testnutzer („API …“) an; sie erscheinen lokal in Namenslisten, bis `supabase db reset` sie entfernt.
+- `npm run test:api` und `npm run test:ui` legen Testnutzer und Testanfragen an. Die Anfragen (`is_demo`) entfernt `npm run demo:seed`; die Testnutzer erscheinen lokal in Namenslisten, bis `supabase db reset` sie entfernt.
 - Lokale Entwicklung setzt laufendes Docker und `supabase start` voraus; `.env.local` mit Werten aus `supabase status`.
 
 ## Empfohlener nächster Schritt
 
-`task-5-2` (Prüfaktionen und E-Mail-Entwürfe) starten; die Warteschlangen zeigen bereits, welche Anfragen Aktionen brauchen.
+`task-6-3` (Anfrage abschließen und Rechnung erstellen) starten; damit ist der Ablauf von der Anfrage bis zur Rechnung vollständig.

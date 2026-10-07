@@ -85,3 +85,24 @@ test("Verlauf: Ereignisse verständlich beschreiben", async () => {
   assert.equal(describeEvent({ event_type: "message_queued", from_value: "draft", to_value: "queued" }, names).change, "Entwurf → In Warteschlange, nicht versendet");
   assert.deepEqual(describeEvent({ event_type: "unbekannt", from_value: null, to_value: null }, names), { title: "unbekannt", change: null });
 });
+
+test("Verlauf: leere Werte in Korrekturen als „offen“", async () => {
+  const { describeEvent } = await import("../../lib/events.ts");
+  assert.equal(describeEvent({ event_type: "analysis_corrected", from_value: '{"priority":null,"service_kind":"inspection"}', to_value: '{"priority":"high","service_kind":"inspection"}' }, new Map()).change, "Priorität: offen, Leistungsart: Inspektion → Priorität: Hoch, Leistungsart: Inspektion");
+});
+
+test("Berliner Kalenderarithmetik für die Einsatzplanung", async () => {
+  const t = await import("../../lib/berlin-time.ts");
+  assert.equal(t.weekStart("2026-10-07"), "2026-10-05");
+  assert.equal(t.weekStart("2026-10-11"), "2026-10-05");
+  assert.equal(t.isoWeek("2026-10-07"), 41);
+  assert.equal(t.isoWeek("2027-01-01"), 53);
+  assert.equal(t.berlinToInstant("2026-10-07", "08:00").toISOString(), "2026-10-07T06:00:00.000Z");
+  assert.equal(t.berlinToInstant("2026-12-01", "08:00").toISOString(), "2026-12-01T07:00:00.000Z");
+  assert.equal(t.berlinToInstant("2026-03-29", "03:00").toISOString(), "2026-03-29T01:00:00.000Z");
+  assert.equal(t.dayKeyOf(new Date("2026-12-31T23:30:00Z")), "2027-01-01");
+  assert.equal(t.minutesOfDay(new Date("2026-10-07T06:30:00Z")), 510);
+  assert.equal(t.isTime("24:00"), false);
+  assert.equal(t.isDayKey("2026-02-30"), false);
+  assert.equal(t.isDayKey("2026-02-28"), true);
+});

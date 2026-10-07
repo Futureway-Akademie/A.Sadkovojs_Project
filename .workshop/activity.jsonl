@@ -86,3 +86,18 @@
 {"timestamp": "2026-10-07T13:29:07Z", "type": "task_completed", "taskId": "task-5-1", "summary": "Dispatcher-Warteschlangen mit fünf Tabs, Sortierung nach Priorität, Frist und Wartezeit."}
 {"timestamp": "2026-10-07T13:29:07Z", "type": "task_ready", "taskId": "task-5-2", "summary": "Task task-5-2 ist startbar."}
 {"timestamp": "2026-10-07T13:29:07Z", "type": "task_ready", "taskId": "task-5-3", "summary": "Task task-5-3 ist startbar."}
+{"timestamp": "2026-10-07T13:33:38Z", "type": "task_started", "taskId": "task-5-2", "summary": "Prüfaktionen und E-Mail-Entwürfe begonnen."}
+{"timestamp": "2026-10-07T13:42:46Z", "type": "verification_passed", "taskId": "task-5-2", "summary": "test:ui Prüfaktionen gegen die Datenbank, test:auth, test:unit 9/9, test:db 409/409, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T13:42:46Z", "type": "task_completed", "taskId": "task-5-2", "summary": "Prüfaktionen und E-Mail-Entwürfe über die kontrollierten Operationen; kein Versand aus dem Dashboard."}
+{"timestamp": "2026-10-07T13:44:53Z", "type": "task_started", "taskId": "task-5-3", "summary": "Einsatzplanung mit Kalender begonnen."}
+{"timestamp": "2026-10-07T13:54:50Z", "type": "verification_passed", "taskId": "task-5-3", "summary": "Datenschutz der Belegung (test:auth), Buchung und Konflikte im Browser (test:ui), test:unit 10/10, test:db 409/409, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T13:54:50Z", "type": "task_completed", "taskId": "task-5-3", "summary": "Einsatzplanung mit eigener Wochenansicht aller Techniker und serverseitiger Konfliktprüfung."}
+{"timestamp": "2026-10-07T13:54:50Z", "type": "phase_completed", "taskId": "task-5-3", "summary": "Phase 5 Dispatcher abgeschlossen."}
+{"timestamp": "2026-10-07T13:59:58Z", "type": "task_started", "taskId": "task-6-1", "summary": "Techniker-Startseite und Wochenkalender begonnen."}
+{"timestamp": "2026-10-07T14:05:43Z", "type": "verification_passed", "taskId": "task-6-1", "summary": "test:auth (nur eigene Daten je Techniker), test:ui, test:unit, test:db, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T14:05:43Z", "type": "task_completed", "taskId": "task-6-1", "summary": "Techniker-Startseite mit nächstem Einsatz, Tagesübersicht, ausstehenden Teilen und eigenem Wochenkalender."}
+{"timestamp": "2026-10-07T14:05:43Z", "type": "task_ready", "taskId": "task-6-2", "summary": "Task task-6-2 ist startbar."}
+{"timestamp": "2026-10-07T14:08:01Z", "type": "task_started", "taskId": "task-6-2", "summary": "Einsatzaktionen und Arbeitserfassung begonnen."}
+{"timestamp": "2026-10-07T14:19:46Z", "type": "verification_passed", "taskId": "task-6-2", "summary": "pgTAP 18/18 (gesamt 427), test:ui kompletter Einsatzablauf gegen die Datenbank, test:auth, test:unit, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T14:19:46Z", "type": "task_completed", "taskId": "task-6-2", "summary": "Einsatzaktionen, Arbeitserfassung, Folgeeinsatz und Fotos im privaten Storage."}
+{"timestamp": "2026-10-07T14:19:46Z", "type": "task_ready", "taskId": "task-6-3", "summary": "Task task-6-3 ist startbar."}

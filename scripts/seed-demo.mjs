@@ -30,7 +30,7 @@ const admin = createClient(url, secretKey, { auth: { persistSession: false, auto
 const BUCKET = "dashboard";
 const FILE_PREFIX = "demo";
 
-// Demo files live under dashboard/demo/<request_id>/; only this prefix is removed
+// Demo files live under dashboard/demo/<request_id>/; additionally visit photos of demo requests are removed
 async function removeDemoFiles() {
   const { data: folders, error } = await admin.storage.from(BUCKET).list(FILE_PREFIX, { limit: 1000 });
   if (error) throw new Error(`Storage: ${error.message}`);
@@ -42,6 +42,24 @@ async function removeDemoFiles() {
       const { error: removeError } = await admin.storage.from(BUCKET).remove(paths);
       if (removeError) throw new Error(`Storage: ${removeError.message}`);
       removed += paths.length;
+    }
+  }
+  // Visit photos of demo requests (e.g. from test:ui) under visits/<request_id>/<visit_id>/
+  const { data: demoRequests } = await admin.from("requests").select("id").eq("is_demo", true).range(0, 99999);
+  const demoIds = new Set((demoRequests ?? []).map((request) => request.id));
+  const { data: requestFolders } = await admin.storage.from(BUCKET).list("visits", { limit: 1000 });
+  for (const requestFolder of requestFolders ?? []) {
+    if (!demoIds.has(requestFolder.name)) continue;
+    const { data: visitFolders } = await admin.storage.from(BUCKET).list(`visits/${requestFolder.name}`, { limit: 1000 });
+    for (const visitFolder of visitFolders ?? []) {
+      const prefix = `visits/${requestFolder.name}/${visitFolder.name}`;
+      const { data: files } = await admin.storage.from(BUCKET).list(prefix, { limit: 1000 });
+      const paths = (files ?? []).map((file) => `${prefix}/${file.name}`);
+      if (paths.length > 0) {
+        const { error: removeError } = await admin.storage.from(BUCKET).remove(paths);
+        if (removeError) throw new Error(`Storage: ${removeError.message}`);
+        removed += paths.length;
+      }
     }
   }
   return removed;

@@ -529,3 +529,16 @@ Sortierschlüssel (Reihenfolge der Anzeige):
 
 Tests: `supabase/tests/database/dispatcher_queue.test.sql` (16 Tests: Zuordnung jeder Warteschlange, alte vs. neue Kundenantwort, Folgeeinsatz, Sortierung, Verlassen der Planung nach Einplanung, Stornierung, RLS je Dispatcher, kein Zugriff für `anon`).
 
+## Folgeeinsatz und Einsatzfotos (task-6-2)
+
+Migration `20261007220000_visit_follow_up_and_photos.sql`. Tests: `supabase/tests/database/visit_follow_up_photos.test.sql` (18 Tests).
+
+| Funktion | Rollen | Wirkung | Ereignisse |
+| --- | --- | --- | --- |
+| `complete_visit(visit_id, expected_version, actual_work_minutes, summary?, follow_up_reason?)` | eingeplanter Techniker, Manager, Admin | wie bisher: beendet nur den Einsatz, **nie** die Anfrage. Mit `follow_up_reason` (nicht leer, sonst `RW422`): Anfrage `in_progress` ohne weiteren offenen Einsatz → `work_status = not_planned` und damit wieder in der Planungs-Warteschlange; eine auf Teile wartende Anfrage bleibt `waiting_parts` | `visit_status_changed` (`data.follow_up_required`), `follow_up_requested` mit Grund, ggf. `work_status_changed` |
+| `add_visit_photo(visit_id, expected_version, storage_path, file_name, mime_type, size_bytes)` | dto. | registriert ein bereits hochgeladenes Foto: nur JPEG/PNG bis 10 MB, Pfad `visits/<request_id>/<visit_id>/…`, Objekt muss im privaten Bucket `dashboard` existieren; nicht bei stornierten Einsätzen oder Anfragen. Legt `attachments` (Sichtbarkeit `operational`, `uploaded_by`) an | `photo_added` |
+
+Die bisherige Signatur von `complete_visit` (vier Parameter) wurde ersetzt; Aufrufe ohne Folgeeinsatz bleiben unverändert gültig.
+
+Zusätzliche Ereigniscodes: `follow_up_requested`, `photo_added`.
+
