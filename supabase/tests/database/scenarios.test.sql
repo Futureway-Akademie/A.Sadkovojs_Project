@@ -325,7 +325,7 @@ set local role authenticated;
 select public.record_payment((select id from public.invoices where request_id = '00000000-0000-0000-0000-000000000001'),
   (select version from public.requests where id = '00000000-0000-0000-0000-000000000001'));
 select throws_ok(
-  $$select public.confirm_message_sent((select id from public.messages where kind = 'invoice'))$$,
+  $$select public.confirm_message_sent((select id from public.messages where kind = 'invoice' and request_id = '00000000-0000-0000-0000-000000000001'))$$,
   '42501', null, 'S4: dashboard users cannot confirm delivery'
 );
 reset role;
@@ -353,15 +353,15 @@ select public.create_message_draft('00000000-0000-0000-0000-000000000003', (sele
   'receipt', 'service@kunde3.example.com', 'Eingangsbestätigung', 'Wir haben Ihre Anfrage erhalten.');
 select public.create_message_draft('00000000-0000-0000-0000-000000000003', (select version from public.requests where id = '00000000-0000-0000-0000-000000000003'),
   'clarification', 'service@kunde3.example.com', 'Rückfrage', 'Bitte senden Sie die Typenschildangaben.');
-select public.queue_message((select id from public.messages where kind = 'receipt'), (select version from public.requests where id = '00000000-0000-0000-0000-000000000003'));
-select public.queue_message((select id from public.messages where kind = 'clarification'), (select version from public.requests where id = '00000000-0000-0000-0000-000000000003'));
+select public.queue_message((select id from public.messages where kind = 'receipt' and request_id = '00000000-0000-0000-0000-000000000003'), (select version from public.requests where id = '00000000-0000-0000-0000-000000000003'));
+select public.queue_message((select id from public.messages where kind = 'clarification' and request_id = '00000000-0000-0000-0000-000000000003'), (select version from public.requests where id = '00000000-0000-0000-0000-000000000003'));
 reset role;
 set local role service_role;
-select public.confirm_message_sent((select id from public.messages where kind = 'receipt'));
+select public.confirm_message_sent((select id from public.messages where kind = 'receipt' and request_id = '00000000-0000-0000-0000-000000000003'));
 reset role;
 select is((select first_substantive_response_at from public.requests where id = '00000000-0000-0000-0000-000000000003'), null, 'S4: receipt does not count as first response');
 set local role service_role;
-select public.confirm_message_sent((select id from public.messages where kind = 'clarification'), sent_at => '2027-03-01 09:30+01');
+select public.confirm_message_sent((select id from public.messages where kind = 'clarification' and request_id = '00000000-0000-0000-0000-000000000003'), sent_at => '2027-03-01 09:30+01');
 reset role;
 select is((select first_substantive_response_at from public.requests where id = '00000000-0000-0000-0000-000000000003'),
   '2027-03-01 09:30+01'::timestamptz, 'S4: confirmed clarification sets first response');

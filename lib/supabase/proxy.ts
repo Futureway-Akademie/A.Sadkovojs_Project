@@ -24,5 +24,7 @@ export async function updateSession(request: NextRequest) {
   // Do not run code between client creation and getClaims(); it triggers the token refresh.
   await supabase.auth.getClaims();
 
+  // Login and dashboard responses are personal: never stored by shared caches or the browser cache
+  response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
   return response;
 }

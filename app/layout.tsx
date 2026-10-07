@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Inter, Manrope } from "next/font/google";
 import "./globals.css";
-import { SiteShell } from "@/components/site-shell";
 
 const bodyFont = Inter({ subsets: ["latin"], variable: "--font-rw-body", display: "swap" });
 const displayFont = Manrope({ subsets: ["latin"], variable: "--font-rw-display", display: "swap" });
@@ -20,7 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="de">
       <body className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable}`}>
-        <SiteShell>{children}</SiteShell>
+        {children}
       </body>
     </html>
   );

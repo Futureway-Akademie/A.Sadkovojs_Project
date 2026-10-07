@@ -76,8 +76,8 @@ select is((public.complete_intake('00000000-0000-0000-0000-000000000001', 2, 'hi
 reset role;
 select results_eq(
   $$select intake_mode::text, manual_minutes_baseline, intake_completed_at is not null, priority::text from public.requests where id = '00000000-0000-0000-0000-000000000001'$$,
-  $$values ('human_review', 5.00::numeric, true, 'high')$$,
-  'first completion snapshot: human_review, baseline 5'
+  $$select 'human_review', manual_intake_minutes, true, 'high' from public.settings$$,
+  'first completion snapshot: human_review, baseline from settings'
 );
 select is(pg_temp.events(1, 'intake_completed'), 1, 'intake_completed event written');
 select is((select actor_id from public.request_events where request_id = '00000000-0000-0000-0000-000000000001' and event_type = 'intake_completed'),

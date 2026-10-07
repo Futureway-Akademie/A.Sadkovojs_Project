@@ -440,7 +440,7 @@
       "description": "Reproduzierbare Demo-Nutzer, rund 600 Anfragen und Prüf-Fixtures.",
       "order": 4,
       "weight": 9,
-      "status": "ready",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-3-1",
@@ -448,7 +448,7 @@
           "description": "Skript legt 1 Admin, 1 Manager, 3 Dispatcher und 3 Techniker über die Supabase Admin API an; Passwörter aus lokalen Umgebungsvariablen.",
           "order": 1,
           "weight": 2,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-1-5"
           ],
@@ -458,13 +458,22 @@
             "Wiederholter Lauf erzeugt keine Duplikate",
             "Keine Einladungs-E-Mails"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T11:45:07Z",
+          "completedAt": "2026-10-07T11:47:22Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "npm run demo:users legt 8 Nutzer (1 Admin, 1 Manager, 3 Dispatcher, 3 Techniker) über die Auth-Admin-API an; zweiter Lauf: 8 × aktualisiert, weiterhin 8 Nutzer und 8 Profile, keine Duplikate. Mailpit vor und nach dem Lauf: 0 E-Mails. Login technik1 mit Passwort aus .env.local erfolgreich, falsches Passwort abgelehnt. Konflikt: vorhandener Nutzer ohne Demo-Kennzeichnung bleibt unverändert, Exit-Code 1. Guards: zu kurzes Passwort und Remote-URL ohne Freigabe abgebrochen. .env.local von Git ignoriert, .env.example nur mit Variablennamen. npm run test:db mit Demo-Nutzern bestanden; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "npm run demo:users (2 Läufe)",
+              "Mailpit-API /api/v1/messages",
+              "Login-Prüfung mit supabase-js",
+              "Konfliktprüfung mit Live-Nutzer",
+              "npm run test:db",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T11:47:22Z"
           }
         },
         {
@@ -473,7 +482,7 @@
           "description": "Idempotenter Seed über 24 Monate ab seed_anchor mit Saisonalität, allen Status und den geforderten Fallbeispielen.",
           "order": 2,
           "weight": 5,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-2-4",
             "task-3-1"
@@ -485,37 +494,60 @@
             "Wiederholter Lauf ohne Duplikate; Bereinigung entfernt nur Seed-Daten",
             "Keine Buchungskonflikte"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T11:50:45Z",
+          "completedAt": "2026-10-07T12:05:09Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "npm run demo:seed erzeugt 592 Demo-Anfragen über 24 Monate (saisonal) mit Ereignissen, Läufen, Nachrichten, Einsätzen, Positionen und Rechnungen in einer Transaktion. npm run demo:verify: 14/14 Prüfungen ok (keine zukünftigen Ist-Daten, Chronologie, keine Buchungskonflikte, Arbeitszeit/Abwesenheit, alle Status, alle Fallbeispiele, Techniker-Einsätze dieser Woche, Dispatcher-Anfragen, Abwesenheit, Tarifwechsel, ein Erstabschluss je Anfrage). Idempotenz: wiederholter Lauf ersetzt Daten ohne Duplikate mit identischen Nummern und Status; Bereinigung entfernt nur Demodaten, Live-Anfrage mit Ereignis und Live-Tarif bleiben, Einstellungen werden wiederhergestellt. Mailpit: 0 E-Mails. npm run test:db 384/384 auf leerer und auf befüllter Datenbank (Tests dafür weiter entkoppelt), npm run test:api bestanden; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "npm run demo:users",
+              "npm run demo:seed (mehrfach)",
+              "npm run demo:seed -- --purge",
+              "npm run demo:verify",
+              "Live-Daten-Schutzprüfung per psql",
+              "npm run test:db",
+              "npm run test:api",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T12:05:09Z"
           }
         },
         {
           "id": "task-3-3",
           "title": "Prüf-Fixtures und Demo-Dateien",
-          "description": "Separate Fixture mit 100 automatischen Abschlüssen a 5 Minuten sowie sichere Demo-PDFs und -Bilder.",
+          "description": "Separate Fixture mit 100 automatischen Abschlüssen à 15 Minuten (Demo-Basiswert nach Nutzerentscheidung) sowie sichere Demo-PDFs und -Bilder.",
           "order": 3,
           "weight": 2,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-3-2"
           ],
           "definitionOfDone": [
-            "Fixture ergibt 500 Minuten (8 h 20 min)",
+            "Fixture ergibt 1.500 Minuten (25 h)",
             "Fixture nicht als Gesamtersparnis des Seeds ausgewiesen",
-            "Demo-Dateien im privaten Storage"
+            "Demo-Dateien im privaten Storage",
+            "Demo-Basiswert der manuellen Bearbeitung 15 Minuten"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T12:13:25Z",
+          "completedAt": "2026-10-07T12:17:28Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Demo-Basiswert auf Nutzerwunsch 15 Minuten (Migration 20261007200000, Seed, Entscheidung dokumentiert). savings_fixture.test.sql: 100 berechtigte automatische Abschlüsse ergeben 1.500 Minuten = 25 h (Anzeige 25 h 0 min); menschliche Prüfung, manuell, korrigiert, außerhalb des Zeitraums und offen werden ausgeschlossen; Fixture nur in der Testtransaktion, nicht Teil des Seeds. 6 selbst erzeugte Demo-Dateien (3 PDF, 2 JPEG, 1 PNG) im privaten Bucket dashboard/demo/ mit attachments-Zeilen (operational, dispatch, management); Download-Matrix mit echten Demo-Logins geprüft (anon/fremde Rollen ohne Zugriff, Sichtbarkeiten korrekt). npm run demo:verify 16/16 ok; test:db 393/393; test:api bestanden; lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "npm run demo:users",
+              "npm run demo:seed (2 Läufe)",
+              "npm run demo:verify",
+              "Download-Prüfung mit supabase-js je Rolle",
+              "npm run test:db",
+              "npm run test:api",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T12:17:28Z"
           }
         }
       ]
@@ -526,7 +558,7 @@
       "description": "Routing, Anmeldung, rollenbasierte Navigation und Anfrageansichten.",
       "order": 5,
       "weight": 10,
-      "status": "ready",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-4-1",
@@ -534,7 +566,7 @@
           "description": "Route Groups trennen Website und Dashboard; Login ohne Registrierung; /dashboard leitet zur Rollen-Startseite.",
           "order": 1,
           "weight": 3,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-0-2"
           ],
@@ -544,13 +576,20 @@
             "Navigation je Rolle",
             "Keine öffentliche Zwischenspeicherung privater Antworten"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T12:26:46Z",
+          "completedAt": "2026-10-07T12:33:25Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Route Groups (site) und (dashboard) unter gemeinsamem Root-Layout; 16 Website-Pfade mit Status, sichtbarem Inhalt und Headern identisch zur vorherigen Version (Vergleichs-Build von HEAD). Login per Server Action ohne Registrierung, gleiche Meldung bei falscher Adresse/Passwort; /dashboard leitet je Rolle zur Startseite (Admin Verwaltung, Manager Übersicht, Dispatcher Erstbearbeitung, Techniker Mein Tag). Jede Seite prüft Sitzung und Rolle serverseitig (lib/auth/session.ts), fremde Bereiche leiten zur eigenen Startseite; Konten ohne oder mit deaktiviertem Profil erhalten keinen Zugang, Deaktivierung wirkt sofort. Navigation je Rolle aus lib/auth/roles.ts. Dashboard- und Login-Antworten: Cache-Control private, no-cache, no-store, max-age=0, must-revalidate und noindex. npm run test:auth (neu) mit 4 Demo-Rollen, Fehlanmeldungen, inaktiven Konten: alle Prüfungen bestanden; lint, typecheck und build erfolgreich; Login bei 390 px gesichtet. Nicht ausgeführt: Sichtprüfung der Dashboard-Seiten bei 768/1440 px (Platzhalterinhalte, folgt mit task-4-2/9-2); /api/service-request nicht aufgerufen (Code unverändert, im Build enthalten); test:db/test:api nicht erneut, da keine Datenbankänderung.",
+            "commands": [
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "Vergleich der Website-Ausgabe mit Build von HEAD (16 Pfade)",
+              "npm run test:auth",
+              "Screenshot /login bei 390 px"
+            ],
+            "checkedAt": "2026-10-07T12:33:25Z"
           }
         },
         {
@@ -559,7 +598,7 @@
           "description": "Statusanzeigen mit Text und Farbe, Tabellen/Listen, Lade-, Leer-, Fehler- und Speicherzustände, de-DE-Formatierung in Europe/Berlin.",
           "order": 2,
           "weight": 2,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-4-1"
           ],
@@ -568,13 +607,21 @@
             "Fehlgeschlagenes Speichern erhält Eingaben",
             "Mobil ohne horizontales Scrollen"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T12:44:04Z",
+          "completedAt": "2026-10-07T12:51:29Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Gemeinsame Bausteine: lib/format.ts (de-DE, Europe/Berlin, unabhängig von der Server-Zeitzone), lib/status.ts (Text + Ton für alle Status-Enums, queued ausdrücklich nicht versendet), lib/forms.ts (Speichervertrag, Übersetzung 42501/RW409/RW410/RW422), StatusBadge, DataTable (Tabelle ab 768 px, Karten darunter), CardList, PageHeader, Leer-/Fehler-/Ladezustand, SaveForm mit Speicherzustand, error.tsx; Übersicht /dashboard/bausteine (nur Admin, ohne DB). Ausschließlich RheinWerk-Tokens. npm run test:unit 7/7 (auch mit TZ=America/New_York); npm run test:ui (neu, headless Chrome): 24 Seiten-/Breitenkombinationen ohne horizontales Scrollen, Eingaben bleiben bei Validierungsfehler und simuliertem RW409 erhalten, Fokus auf erstem Fehler, Erfolg mit Zeitpunkt; Screenshots 390/768/1440 gesichtet. test:auth erneut bestanden; lint, typecheck, build erfolgreich. Korrektur aus task-4-1: Logo in der Dashboard-Kopfzeile invertiert (war unsichtbar). Segmentweites loading.tsx verworfen, da es Zugriffs-Weiterleitungen streamt (200 statt 307); Laden per Suspense je Seite. Nicht ausgeführt: Speichern gegen echte Datenbankoperationen (folgt mit den Rollenansichten); test:db/test:api nicht erneut, da keine Datenbankänderung.",
+            "commands": [
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run test:unit",
+              "TZ=America/New_York npm run test:unit",
+              "npm run test:ui (UI_SCREENSHOTS)",
+              "npm run test:auth"
+            ],
+            "checkedAt": "2026-10-07T12:51:29Z"
           }
         },
         {
@@ -583,7 +630,7 @@
           "description": "Gefilterte Anfrageliste und stabile Route pro Anfrage mit rollenabhängigen Abschnitten.",
           "order": 3,
           "weight": 5,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-4-2",
             "task-2-1"
@@ -593,13 +640,22 @@
             "Zusammenfassung, Kontakt, Anlage, Erstbearbeitung, Korrespondenz, Einsätze, Arbeit, Dokumente, Rechnung, Verlauf",
             "Abschnitte nur gemäß Rolle sichtbar und per RLS geschützt"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T13:05:55Z",
+          "completedAt": "2026-10-07T13:17:19Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Anfrageliste /dashboard/anfragen mit Suche, Filtern (Erstbearbeitung, Arbeit, Priorität) und Seiten; Anfrageseite /dashboard/anfragen/[id] mit Zusammenfassung, Kontakt, Anlage, Erstbearbeitung, Korrespondenz, Einsätze, Arbeit, Dokumente, Rechnung, Verlauf; Dokument-Download per Route Handler mit Nutzerrechten. Alle Daten mit Nutzerrechten (RLS); Techniker erhalten Erstbearbeitung und Korrespondenz weder abgefragt noch angezeigt. Supabase-Typen (npm run db:types) für alle Clients. test:auth (76 Prüfungen): Trefferzahlen je Rolle = Datenbank (592/198/213), Filter, Suche, Seiten, 10 bzw. 8 Abschnitte, fremde/ungültige IDs 404, keine Nachrichteninhalte für Techniker, Dokumente nach Sichtbarkeit (management nur Manager, anonym 401, fremder Techniker 404). test:ui 45 Prüfungen inkl. Liste und Anfrageseite bei 390/768/1440 ohne horizontales Scrollen, Screenshots gesichtet; test:unit 8/8; lint, typecheck, build erfolgreich. Nebenbei: Nutzer-Fotos mit anderen Endungen brachten demo:seed zum Abbruch – Seed sucht Demo-Dateien jetzt per Basisname (pdf/jpg/jpeg/png), erneut geseedet; verify-seed zählt nur Demo-Nutzer (API-Testnutzer störten), 16/16 ok. Nicht ausgeführt: test:db/test:api (keine Schemaänderung).",
+            "commands": [
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run test:unit",
+              "npm run test:auth",
+              "npm run test:ui (UI_SCREENSHOTS)",
+              "npm run demo:seed",
+              "npm run demo:verify"
+            ],
+            "checkedAt": "2026-10-07T13:17:19Z"
           }
         }
       ]
@@ -610,7 +666,7 @@
       "description": "Prüfung, Korrespondenz und Einsatzplanung für Dispatcher.",
       "order": 6,
       "weight": 10,
-      "status": "planned",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "task-5-1",
@@ -618,7 +674,7 @@
           "description": "Tabs Prüfung erforderlich, Kundenantwort erhalten, Einsatzplanung erforderlich, Warten auf Kundenantwort, Alle meine Anfragen.",
           "order": 1,
           "weight": 3,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-4-3"
           ],
@@ -626,13 +682,24 @@
             "Sortierung nach Priorität, Frist und Wartezeit",
             "Automatisch bearbeitete Anfragen bleiben bis zur Planung sichtbar"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T13:23:03Z",
+          "completedAt": "2026-10-07T13:29:07Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "View public.dispatcher_queue (security_invoker, RLS der Basistabellen) mit den Warteschlangen review, reply_received, planning, awaiting_customer sowie Sortierschlüsseln priority_rank (Priorität bzw. Kundendringlichkeit), due_at und waiting_since; Seite /dashboard/erstbearbeitung mit fünf Tabs und Zählern, Frist/Überfällig, Wartezeit und Hinweisen. Automatisch bearbeitete Anfragen bleiben in der Planung, bis ein reservierender Einsatz existiert (pgTAP geprüft). Prüfungen: dispatcher_queue.test.sql 16/16, test:db 409/409; test:auth: für alle drei Demo-Dispatcher Anzahl und Reihenfolge jedes Tabs = View, Manager umgeleitet; test:ui inkl. Tabs bei 390/768/1440 ohne horizontales Scrollen, Screenshots gesichtet; test:unit 8/8; demo:verify 16/16; lint, typecheck, build erfolgreich. Nebenbei: Tabellenzellen mit mehrteiligem Inhalt brachen in der mobilen Kartenansicht in die Beschriftungsspalte um (DataTable kapselt Zellinhalt jetzt), Tabs umbrechen statt zu scrollen.",
+            "commands": [
+              "supabase migration up",
+              "npm run db:types",
+              "npm run test:db",
+              "npm run test:auth",
+              "npm run test:ui (UI_SCREENSHOTS)",
+              "npm run test:unit",
+              "npm run demo:verify",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T13:29:07Z"
           }
         },
         {
@@ -641,7 +708,7 @@
           "description": "Korrigieren, Freigeben, E-Mail vorbereiten, Erstbearbeitung abschliessen und Ablehnen mit Grund.",
           "order": 2,
           "weight": 3,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-5-1"
           ],
@@ -665,7 +732,7 @@
           "description": "Kalenderansicht mit belegten Technikerintervallen und Zuweisung von Techniker und Zeitraum.",
           "order": 3,
           "weight": 4,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-5-1",
             "task-2-2"
@@ -692,7 +759,7 @@
       "description": "Eigene Einsätze, Arbeitserfassung, Abschluss und Rechnung.",
       "order": 7,
       "weight": 11,
-      "status": "planned",
+      "status": "ready",
       "tasks": [
         {
           "id": "task-6-1",
@@ -700,7 +767,7 @@
           "description": "Nächster Einsatz, heutige Arbeit, eigener Wochenkalender und Anfragen mit ausstehenden Teilen.",
           "order": 1,
           "weight": 3,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-4-3",
             "task-2-2"
@@ -777,7 +844,7 @@
       "description": "Kennzahlen, Aufmerksamkeitsliste, Team, Finanzen, Diagramme und Automatisierung.",
       "order": 8,
       "weight": 12,
-      "status": "planned",
+      "status": "ready",
       "tasks": [
         {
           "id": "task-7-1",
@@ -785,7 +852,7 @@
           "description": "Views/RPCs für KPIs, Periodenvergleich, historische Warteschlangen aus Ereignissen und Automatisierungskennzahlen unter Wahrung von RLS.",
           "order": 1,
           "weight": 5,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-3-2"
           ],
@@ -862,7 +929,7 @@
       "description": "Verwaltung von Mitarbeitenden und Einstellungen.",
       "order": 9,
       "weight": 4,
-      "status": "planned",
+      "status": "ready",
       "tasks": [
         {
           "id": "task-8-1",
@@ -870,7 +937,7 @@
           "description": "Admin legt Mitarbeitende an, ändert Rollen, deaktiviert statt zu löschen und pflegt Tarife, Arbeitszeiten und Einstellungen.",
           "order": 1,
           "weight": 4,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-4-2",
             "task-2-1"

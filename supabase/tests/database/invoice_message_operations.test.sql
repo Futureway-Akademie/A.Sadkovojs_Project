@@ -281,11 +281,12 @@ reset role;
 select is((select request_id from public.attachments where message_id = '00000000-0000-0000-0000-0000000000e9'),
   '00000000-0000-0000-0000-000000000001'::uuid, 'attachment follows the message');
 select is(
-  (select (data ->> 'previous_inbox_dispatcher_id')::uuid from public.request_events where event_type = 'message_linked'),
+  (select (data ->> 'previous_inbox_dispatcher_id')::uuid from public.request_events where event_type = 'message_linked' and request_id::text like '00000000-0000-0000-0000-%'),
   '00000000-0000-0000-0000-0000000000d1'::uuid, 'link event records previous inbox assignment'
 );
 select is(
-  (select count(*)::int from public.request_events where event_type in ('invoice_created', 'invoice_issued', 'invoice_paid', 'message_drafted', 'message_queued', 'message_linked')),
+  (select count(*)::int from public.request_events where request_id::text like '00000000-0000-0000-0000-%'
+     and event_type in ('invoice_created', 'invoice_issued', 'invoice_paid', 'message_drafted', 'message_queued', 'message_linked')),
   9, 'all invoice and message operations audited'
 );
 

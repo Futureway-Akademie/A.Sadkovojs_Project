@@ -53,3 +53,36 @@
 {"timestamp": "2026-10-07T11:33:42Z", "type": "task_started", "taskId": "task-2-5", "summary": "Szenario-, API- und Nebenläufigkeitstests begonnen."}
 {"timestamp": "2026-10-07T11:40:40Z", "type": "verification_passed", "taskId": "task-2-5", "summary": "test:db 384/384, test:api 20/20 inkl. Nebenläufigkeit über HTTP, lint, typecheck und build erfolgreich."}
 {"timestamp": "2026-10-07T11:40:40Z", "type": "task_completed", "taskId": "task-2-5", "summary": "Szenariotests 1, 2, 3, 4, 7, API-Tests mit echten Logins und Nebenläufigkeitstests; Testbefehle dokumentiert; confirm_message_sent und request_events.seq ergänzt."}
+{"timestamp": "2026-10-07T11:45:07Z", "type": "task_started", "taskId": "task-3-1", "summary": "Bootstrap-Skript für Demo-Nutzer begonnen."}
+{"timestamp": "2026-10-07T11:47:22Z", "type": "verification_passed", "taskId": "task-3-1", "summary": "Zwei Bootstrap-Läufe ohne Duplikate, keine E-Mails, Login, Konfliktschutz, test:db, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T11:47:22Z", "type": "task_completed", "taskId": "task-3-1", "summary": "Bootstrap-Skript für 8 Demo-Nutzer über die Auth-Admin-API mit Seed-Kennzeichnung und Passwort aus .env.local."}
+{"timestamp": "2026-10-07T11:47:22Z", "type": "task_ready", "taskId": "task-3-2", "summary": "Task task-3-2 ist startbar."}
+{"timestamp": "2026-10-07T11:50:45Z", "type": "task_started", "taskId": "task-3-2", "summary": "Idempotenter Demo-Seed mit rund 600 Anfragen begonnen."}
+{"timestamp": "2026-10-07T12:05:09Z", "type": "verification_passed", "taskId": "task-3-2", "summary": "demo:verify 14/14, Idempotenz und Live-Daten-Schutz geprüft, test:db 384/384 auf befüllter DB, test:api, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T12:05:09Z", "type": "task_completed", "taskId": "task-3-2", "summary": "Idempotenter Demo-Seed mit 592 Anfragen über 24 Monate, allen Status und Fallbeispielen; atomares Ersetzen und Bereinigung nur von Seed-Daten."}
+{"timestamp": "2026-10-07T12:05:09Z", "type": "task_ready", "taskId": "task-3-3", "summary": "Task task-3-3 ist startbar."}
+{"timestamp": "2026-10-07T12:05:09Z", "type": "task_ready", "taskId": "task-7-1", "summary": "Task task-7-1 ist startbar."}
+{"timestamp": "2026-10-07T12:13:25Z", "type": "roadmap_updated", "taskId": "task-3-3", "summary": "Auf Nutzerwunsch Demo-Basiswert der manuellen Erstbearbeitung von 5 auf 15 Minuten geändert; Fixture-Ziel jetzt 100 × 15 = 1.500 Minuten (25 h)."}
+{"timestamp": "2026-10-07T12:13:25Z", "type": "task_started", "taskId": "task-3-3", "summary": "Prüf-Fixture Zeitersparnis und Demo-Dateien begonnen."}
+{"timestamp": "2026-10-07T12:17:28Z", "type": "verification_passed", "taskId": "task-3-3", "summary": "Fixture 100 × 15 min = 25 h, Download-Matrix der Demo-Dateien, demo:verify 16/16, test:db 393/393, test:api, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T12:17:28Z", "type": "task_completed", "taskId": "task-3-3", "summary": "Prüf-Fixture Zeitersparnis (Basiswert 15 Minuten) und sichere Demo-Dateien im privaten Storage."}
+{"timestamp": "2026-10-07T12:26:46Z", "type": "task_started", "taskId": "task-4-1", "summary": "Routenstruktur, Anmeldung und Navigation begonnen."}
+{"timestamp": "2026-10-07T12:33:25Z", "type": "verification_passed", "taskId": "task-4-1", "summary": "Website unverändert (16 Pfade), test:auth mit allen Rollen und inaktiven Konten, Cache-Header privat/no-store, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T12:33:25Z", "type": "task_completed", "taskId": "task-4-1", "summary": "Route Groups, Anmeldung ohne Registrierung, Rollen-Startseiten und Navigation je Rolle."}
+{"timestamp": "2026-10-07T12:33:25Z", "type": "task_ready", "taskId": "task-4-2", "summary": "Task task-4-2 ist startbar."}
+{"timestamp": "2026-10-07T12:44:04Z", "type": "task_started", "taskId": "task-4-2", "summary": "Gemeinsame UI-Bausteine begonnen."}
+{"timestamp": "2026-10-07T12:51:29Z", "type": "verification_passed", "taskId": "task-4-2", "summary": "test:unit 7/7, test:ui ohne horizontales Scrollen bei 390/768/1440 und mit erhaltenen Eingaben, test:auth, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T12:51:29Z", "type": "task_completed", "taskId": "task-4-2", "summary": "Gemeinsame UI-Bausteine: Status, Tabellen, Zustände, Speicherformular, de-DE-Formatierung."}
+{"timestamp": "2026-10-07T12:51:29Z", "type": "task_ready", "taskId": "task-4-3", "summary": "Task task-4-3 ist startbar."}
+{"timestamp": "2026-10-07T12:51:29Z", "type": "task_ready", "taskId": "task-8-1", "summary": "Task task-8-1 ist startbar."}
+{"timestamp": "2026-10-07T13:05:55Z", "type": "task_started", "taskId": "task-4-3", "summary": "Anfrageliste und Anfrageseite begonnen."}
+{"timestamp": "2026-10-07T13:17:19Z", "type": "verification_passed", "summary": "test:auth 76 Prüfungen inkl. RLS-Trefferzahlen und Dokumentrechten, test:ui 45, test:unit 8/8, demo:verify 16/16, lint, typecheck und build erfolgreich.", "taskId": "task-4-3"}
+{"timestamp": "2026-10-07T13:17:19Z", "type": "task_completed", "summary": "Anfrageliste mit Filtern und Anfrageseite mit zehn rollenabhängigen Abschnitten.", "taskId": "task-4-3"}
+{"timestamp": "2026-10-07T13:17:19Z", "type": "phase_completed", "taskId": "task-4-3", "summary": "Phase 4 Dashboard-Grundgerüst abgeschlossen."}
+{"timestamp": "2026-10-07T13:17:19Z", "type": "task_ready", "summary": "Task task-5-1 ist startbar.", "taskId": "task-5-1"}
+{"timestamp": "2026-10-07T13:17:19Z", "type": "task_ready", "summary": "Task task-6-1 ist startbar.", "taskId": "task-6-1"}
+{"timestamp": "2026-10-07T13:23:03Z", "type": "task_started", "taskId": "task-5-1", "summary": "Dispatcher-Tabs und Warteschlangen begonnen."}
+{"timestamp": "2026-10-07T13:29:07Z", "type": "verification_passed", "taskId": "task-5-1", "summary": "dispatcher_queue.test.sql 16/16, test:db 409/409, test:auth (Tabs = View je Dispatcher), test:ui, test:unit, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T13:29:07Z", "type": "task_completed", "taskId": "task-5-1", "summary": "Dispatcher-Warteschlangen mit fünf Tabs, Sortierung nach Priorität, Frist und Wartezeit."}
+{"timestamp": "2026-10-07T13:29:07Z", "type": "task_ready", "taskId": "task-5-2", "summary": "Task task-5-2 ist startbar."}
+{"timestamp": "2026-10-07T13:29:07Z", "type": "task_ready", "taskId": "task-5-3", "summary": "Task task-5-3 ist startbar."}

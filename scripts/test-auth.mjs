@@ -1,0 +1,198 @@
+// End-to-end checks of login, role start pages, navigation, access and logout over HTTP (task-4-1).
+// Uses the real login form without JavaScript (progressive enhancement of the server action).
+// Usage: npm run build && npm run start, then npm run test:auth   (APP_URL default http://localhost:3000)
+// Requires the local Supabase stack and the demo users (npm run demo:users).
+import { createClient } from "@supabase/supabase-js";
+
+const BASE = process.env.APP_URL ?? "http://localhost:3000";
+const pw = process.env.DEMO_USER_PASSWORD;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (!pw || !supabaseUrl || !process.env.SUPABASE_SECRET_KEY) {
+  console.error("DEMO_USER_PASSWORD, NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SECRET_KEY werden benötigt.");
+  process.exit(1);
+}
+const local = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/;
+if (!local.test(BASE) || !local.test(supabaseUrl)) {
+  console.error("Abbruch: test:auth läuft nur gegen lokale App und lokalen Supabase-Stack.");
+  process.exit(1);
+}
+try {
+  await fetch(`${BASE}/login`, { redirect: "manual" });
+} catch {
+  console.error(`App unter ${BASE} nicht erreichbar. Zuerst npm run build && npm run start ausführen.`);
+  process.exit(1);
+}
+console.log(`Anmelde-Prüfung gegen ${BASE}\n`);
+let fail = 0;
+const check = (n, ok, d = "") => { console.log(`${ok ? "✓" : "✗"} ${n}${ok ? "" : " – " + d}`); if (!ok) fail++; };
+const decode = (s) => s.replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+
+// Minimal cookie jar
+class Jar { c = new Map(); add(res) { for (const h of res.headers.getSetCookie()) { const [kv] = h.split(";"); const i = kv.indexOf("="); const k = kv.slice(0, i), v = kv.slice(i + 1); if (/max-age=0|expires=thu, 01 jan 1970/i.test(h) || v === "") this.c.delete(k); else this.c.set(k, v); } } get header() { return [...this.c].map(([k, v]) => `${k}=${v}`).join("; "); } }
+async function get(jar, path) { const r = await fetch(BASE + path, { headers: { cookie: jar.header }, redirect: "manual" }); jar.add(r); return { status: r.status, loc: r.headers.get("location"), cc: r.headers.get("cache-control"), html: await r.text() }; }
+function hidden(html, formIndex = 0) { const forms = html.match(/<form[\s\S]*?<\/form>/g) ?? []; const f = forms[formIndex] ?? ""; const fd = new FormData(); for (const m of f.matchAll(/<input type="hidden" name="([^"]+)"(?: value="([^"]*)")?\/>/g)) fd.append(decode(m[1]), decode(m[2] ?? "")); return fd; }
+async function post(jar, path, fd) { const r = await fetch(BASE + path, { method: "POST", body: fd, headers: { cookie: jar.header }, redirect: "manual" }); jar.add(r); return { status: r.status, loc: r.headers.get("location"), html: await r.text() }; }
+async function login(email, password) { const jar = new Jar(); const page = await get(jar, "/login"); const fd = hidden(page.html); fd.append("email", email); fd.append("password", password); const res = await post(jar, "/login", fd); return { jar, res }; }
+const path = (loc) => (loc ? new URL(loc, BASE).pathname : null);
+
+const roles = [
+  ["admin.demo@example.com", "Clara Becker", "/dashboard/verwaltung", ["Übersicht", "Anfragen", "Verwaltung"], "/dashboard/heute"],
+  ["manager.demo@example.com", "Jonas Hoffmann", "/dashboard/uebersicht", ["Übersicht", "Einsatzplanung", "Anfragen"], "/dashboard/verwaltung"],
+  ["dispo1.demo@example.com", "Lea Schneider", "/dashboard/erstbearbeitung", ["Erstbearbeitung", "Einsatzplanung", "Anfragen"], "/dashboard/uebersicht"],
+  ["technik1.demo@example.com", "Tobias Krüger", "/dashboard/heute", ["Mein Tag", "Kalender", "Anfragen"], "/dashboard/planung"],
+];
+const ALL = ["Übersicht", "Erstbearbeitung", "Mein Tag", "Kalender", "Einsatzplanung", "Anfragen", "Verwaltung"];
+for (const [email, name, start, nav, forbidden] of roles) {
+  const { jar, res } = await login(email, pw);
+  check(`${email}: Login leitet zu /dashboard`, res.status === 303 && path(res.loc) === "/dashboard", `${res.status} ${res.loc}`);
+  const d = await get(jar, "/dashboard");
+  check(`  /dashboard → ${start}`, d.status === 307 && path(d.loc) === start, `${d.status} ${d.loc}`);
+  const s = await get(jar, start);
+  const navHtml = (s.html.match(/<nav class="dash-nav"[\s\S]*?<\/nav>/) ?? [""])[0];
+  const shown = ALL.filter((l) => navHtml.includes(`>${l}<`));
+  check(`  Startseite 200, Name sichtbar`, s.status === 200 && s.html.includes(name), String(s.status));
+  check(`  Navigation: ${nav.join(", ")}`, JSON.stringify(shown.sort()) === JSON.stringify([...nav].sort()), shown.join(","));
+  check(`  Cache-Control privat/no-store`, /private/.test(s.cc) && /no-store/.test(s.cc), s.cc);
+  check(`  keine Website-Kopfzeile im Dashboard`, !s.html.includes("site-header"));
+  const f = await get(jar, forbidden);
+  check(`  fremder Bereich ${forbidden} → eigene Startseite`, f.status === 307 && path(f.loc) === start, `${f.status} ${f.loc}`);
+  const l = await get(jar, "/login");
+  check(`  /login angemeldet → /dashboard`, l.status === 307 && path(l.loc) === "/dashboard", `${l.status}`);
+  const u = await get(jar, "/dashboard/gibtsnicht");
+  check(`  unbekannter Pfad → 404 im Dashboard`, u.status === 404 || u.html.includes("Diese Seite gibt es im Dashboard nicht"), String(u.status));
+  // Logout over the header form (first form = logout)
+  const out = await post(jar, start, hidden(s.html, 0));
+  check(`  Abmelden → /login`, out.status === 303 && path(out.loc) === "/login", `${out.status} ${out.loc}`);
+  const after = await get(jar, start);
+  check(`  nach Abmelden kein Zugriff`, after.status === 307 && path(after.loc) === "/login", `${after.status} ${after.loc}`);
+}
+
+// Wrong password and unknown address: same message, no session
+for (const [email, password] of [["dispo1.demo@example.com", "falsch-123"], ["niemand@example.com", "falsch-123"]]) {
+  const { jar, res } = await login(email, password);
+  check(`Fehlanmeldung ${email}: Fehlermeldung, keine Weiterleitung`, res.status === 200 && res.html.includes("Anmeldung fehlgeschlagen"), String(res.status));
+  const d = await get(jar, "/dashboard");
+  check(`  danach kein Zugriff`, d.status === 307 && path(d.loc) === "/login");
+}
+
+// Deactivated profile and user without profile
+const admin = createClient(supabaseUrl, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
+const run = Date.now().toString(36);
+const tmp = [];
+for (const kind of ["inaktiv", "ohneprofil", "spaeter-deaktiviert"]) {
+  const email = `e2e-${kind}-${run}@example.com`;
+  const { data } = await admin.auth.admin.createUser({ email, password: pw, email_confirm: true });
+  tmp.push(data.user.id);
+  if (kind !== "ohneprofil") {
+    await admin.from("profiles").insert({ id: data.user.id, display_name: `E2E ${kind}`, role: "dispatcher", is_active: kind !== "inaktiv" });
+  }
+  const { jar } = await login(email, pw);
+  if (kind === "spaeter-deaktiviert") {
+    const before = await get(jar, "/dashboard/anfragen");
+    check(`${kind}: aktiv angemeldet`, before.status === 200, String(before.status));
+    // Deactivation takes effect on the next request of the existing session
+    await admin.from("profiles").update({ is_active: false }).eq("id", data.user.id);
+  }
+  const d = await get(jar, "/dashboard/anfragen");
+  check(`${kind}: /dashboard/anfragen → /login`, d.status === 307 && path(d.loc) === "/login", `${d.status} ${d.loc}`);
+  const l = await get(jar, "/login");
+  check(`  Login-Seite zeigt Hinweis + Abmelden`, l.status === 200 && l.html.includes("kein aktives Mitarbeiterprofil") && l.html.includes("Abmelden"), String(l.status));
+}
+await admin.from("profiles").delete().in("id", tmp);
+for (const id of tmp) await admin.auth.admin.deleteUser(id);
+
+// Request list and request page (task-4-3): RLS decides rows, sections follow the role
+console.log("\nAnfragen");
+const { data: userList } = await admin.auth.admin.listUsers({ perPage: 200 });
+const userId = (email) => userList.users.find((user) => user.email === email)?.id;
+const countOf = async (build) => { const { count } = await build(admin.from("requests").select("id", { count: "exact", head: true })); return count; };
+const shownTotal = (html) => Number((/<p class="result-count"[^>]*>([\d.]+) Anfrage/.exec(html.replaceAll("<!-- -->", ""))?.[1] ?? "-1").replaceAll(".", ""));
+const sectionTitles = (html) => [...html.matchAll(/<h2 id="[a-z]+-title">([^<]+)<\/h2>/g)].map((match) => match[1]);
+const ALL_SECTIONS = ["Zusammenfassung", "Kontakt", "Anlage", "Erstbearbeitung", "Korrespondenz", "Einsätze", "Arbeit", "Dokumente", "Rechnung", "Verlauf"];
+
+const managerJar = (await login("manager.demo@example.com", pw)).jar;
+const dispoJar = (await login("dispo1.demo@example.com", pw)).jar;
+const techJar = (await login("technik1.demo@example.com", pw)).jar;
+const dispo1 = userId("dispo1.demo@example.com");
+const tech1 = userId("technik1.demo@example.com");
+
+const allCount = await countOf((query) => query);
+const managerList = await get(managerJar, "/dashboard/anfragen");
+check(`Manager sieht alle Anfragen (${allCount})`, shownTotal(managerList.html) === allCount, String(shownTotal(managerList.html)));
+const dispoCount = await countOf((query) => query.eq("dispatcher_id", dispo1));
+check(`Dispatcher sieht nur eigene (${dispoCount})`, shownTotal((await get(dispoJar, "/dashboard/anfragen")).html) === dispoCount);
+const { data: ownVisits } = await admin.from("visits").select("request_id").eq("technician_id", tech1);
+const techIds = new Set(ownVisits.map((visit) => visit.request_id));
+const { data: allRequests } = await admin.from("requests").select("id, technician_id").range(0, 9999);
+const techVisible = (request) => request.technician_id === tech1 || techIds.has(request.id);
+const techCount = allRequests.filter(techVisible).length;
+check(`Techniker sieht zugewiesene und eigene Einsätze (${techCount})`, shownTotal((await get(techJar, "/dashboard/anfragen")).html) === techCount);
+const reviewCount = await countOf((query) => query.eq("intake_status", "needs_review"));
+check(`Filter Erstbearbeitung = Prüfung erforderlich (${reviewCount})`, shownTotal((await get(managerJar, "/dashboard/anfragen?erstbearbeitung=needs_review")).html) === reviewCount);
+const { data: sample } = await admin.from("requests").select("id, request_number, dispatcher_id").eq("dispatcher_id", dispo1).limit(1).single();
+check("Suche nach Anfragenummer", shownTotal((await get(managerJar, `/dashboard/anfragen?suche=${sample.request_number}`)).html) === 1);
+check("Unbekannter Filterwert wird ignoriert", shownTotal((await get(managerJar, "/dashboard/anfragen?arbeit=%27%3Bdrop")).html) === allCount);
+const lastPage = Math.ceil(allCount / 25);
+const pageLast = await get(managerJar, `/dashboard/anfragen?seite=${lastPage}`);
+check("Letzte Seite erreichbar", pageLast.status === 200 && pageLast.html.replaceAll("<!-- -->", "").includes(`Seite ${lastPage} von ${lastPage}`));
+
+const managerDetail = await get(managerJar, `/dashboard/anfragen/${sample.id}`);
+check("Manager: alle 10 Abschnitte", JSON.stringify(sectionTitles(managerDetail.html)) === JSON.stringify(ALL_SECTIONS), sectionTitles(managerDetail.html).join(","));
+check("  Anfrageseite privat, no-store", /no-store/.test(managerDetail.cc ?? ""), managerDetail.cc);
+const dispoDetail = await get(dispoJar, `/dashboard/anfragen/${sample.id}`);
+check("Dispatcher: eigene Anfrage mit allen 10 Abschnitten", dispoDetail.status === 200 && sectionTitles(dispoDetail.html).length === 10);
+const { data: foreign } = await admin.from("requests").select("id").neq("dispatcher_id", dispo1).not("dispatcher_id", "is", null).limit(1).single();
+check("Dispatcher: fremde Anfrage → 404", (await get(dispoJar, `/dashboard/anfragen/${foreign.id}`)).status === 404);
+check("Ungültige ID → 404", (await get(managerJar, "/dashboard/anfragen/keine-uuid")).status === 404);
+
+const { data: techRequest } = await admin.from("requests").select("id").eq("technician_id", tech1).limit(1).single();
+const techDetail = await get(techJar, `/dashboard/anfragen/${techRequest.id}`);
+const techSections = sectionTitles(techDetail.html);
+check("Techniker: 8 Abschnitte ohne Erstbearbeitung und Korrespondenz", JSON.stringify(techSections) === JSON.stringify(ALL_SECTIONS.filter((title) => title !== "Erstbearbeitung" && title !== "Korrespondenz")), techSections.join(","));
+const { data: techMessages } = await admin.from("messages").select("subject").eq("request_id", techRequest.id);
+check("  keine Nachrichteninhalte im HTML", techMessages.every((message) => !techDetail.html.includes(message.subject)));
+const notTech = allRequests.find((request) => !techVisible(request));
+check("Techniker: fremde Anfrage → 404", (await get(techJar, `/dashboard/anfragen/${notTech.id}`)).status === 404);
+
+// Documents: management note only for manager/admin, operational files for the technician of the request
+const { data: files } = await admin.from("attachments").select("id, request_id, file_name, visibility").like("storage_path", "demo/%");
+const note = files.find((file) => file.visibility === "management");
+const noteRequest = (await admin.from("requests").select("dispatcher_id").eq("id", note.request_id).single()).data;
+const noteDispatcher = userList.users.find((user) => user.id === noteRequest.dispatcher_id);
+const noteUrl = `/dashboard/anfragen/${note.request_id}/dokumente/${note.id}`;
+const managerFile = await fetch(BASE + noteUrl, { headers: { cookie: managerJar.header } });
+check("Manager lädt interne Notiz (PDF)", managerFile.status === 200 && managerFile.headers.get("content-type") === "application/pdf" && /no-store/.test(managerFile.headers.get("cache-control") ?? ""), String(managerFile.status));
+const noteDispoJar = (await login(noteDispatcher.email, pw)).jar;
+const noteDispoPage = await get(noteDispoJar, `/dashboard/anfragen/${note.request_id}`);
+check("Dispatcher der Anfrage sieht interne Notiz nicht in der Liste", noteDispoPage.status === 200 && !noteDispoPage.html.includes(note.file_name));
+check("  und kann sie nicht laden", (await fetch(BASE + noteUrl, { headers: { cookie: noteDispoJar.header } })).status === 404);
+check("Anonym kein Download", (await fetch(BASE + noteUrl, { redirect: "manual" })).status === 401);
+const operational = files.find((file) => file.visibility === "operational");
+const opTech = (await admin.from("requests").select("technician_id").eq("id", operational.request_id).single()).data.technician_id;
+const opTechJar = (await login(userList.users.find((user) => user.id === opTech).email, pw)).jar;
+const opResponse = await fetch(`${BASE}/dashboard/anfragen/${operational.request_id}/dokumente/${operational.id}`, { headers: { cookie: opTechJar.header } });
+check("Techniker lädt operatives Dokument seiner Anfrage", opResponse.status === 200 && Number(opResponse.headers.get("content-length")) > 0, String(opResponse.status));
+const opOther = await fetch(`${BASE}/dashboard/anfragen/${operational.request_id}/dokumente/${operational.id}`, { headers: { cookie: (opTech === tech1 ? (await login("technik2.demo@example.com", pw)).jar : techJar).header } });
+check("Anderer Techniker lädt es nicht", opOther.status === 404, String(opOther.status));
+
+// Dispatcher queues (task-5-1): counts and order equal the view, other roles have no access
+console.log("\nWarteschlangen Dispatcher");
+const QUEUES = [["pruefung", "review"], ["antwort", "reply_received"], ["planung", "planning"], ["warten", "awaiting_customer"]];
+for (const email of ["dispo1.demo@example.com", "dispo2.demo@example.com", "dispo3.demo@example.com"]) {
+  const jar = (await login(email, pw)).jar;
+  const id = userId(email);
+  for (const [slug, queue] of QUEUES) {
+    const { data: expected } = await admin.from("dispatcher_queue").select("request_number").eq("dispatcher_id", id).eq("queue", queue)
+      .order("priority_rank").order("due_at", { ascending: true, nullsFirst: false }).order("waiting_since").order("id");
+    const page = await get(jar, `/dashboard/erstbearbeitung?tab=${slug}`);
+    const shown = [...page.html.matchAll(/<span class="mono">(RIS-\d{4}-\d{5})<\/span>/g)].map((match) => match[1]);
+    check(`${email.split(".")[0]} ${slug}: ${expected.length} Anfragen in Reihenfolge der Datenbank`, page.status === 200 && JSON.stringify(shown) === JSON.stringify(expected.map((row) => row.request_number)), `${shown.join(",")} ≠ ${expected.map((row) => row.request_number).join(",")}`);
+  }
+}
+const managerQueue = await get(managerJar, "/dashboard/erstbearbeitung");
+check("Manager hat keinen Zugriff auf Dispatcher-Warteschlangen", managerQueue.status === 307 && path(managerQueue.loc) === "/dashboard/uebersicht", String(managerQueue.status));
+const { data: autoPlanning } = await admin.from("dispatcher_queue").select("dispatcher_id").eq("queue", "planning").eq("intake_mode", "automatic");
+check("Automatisch bearbeitete, ungeplante Anfragen stehen in der Planung", autoPlanning.length > 0, "keine im Demo-Datensatz");
+
+console.log(fail ? `${fail} fehlgeschlagen` : "Alle Prüfungen bestanden");
+process.exit(fail ? 1 : 0);

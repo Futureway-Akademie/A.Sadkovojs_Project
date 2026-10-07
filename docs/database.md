@@ -66,7 +66,7 @@ Genau eine Zeile (`id = 1`), wird von der Migration angelegt.
 | `id` | smallint | nein | PK, `CHECK (id = 1)` |
 | `timezone` | text | nein | Default `Europe/Berlin` |
 | `currency` | text | nein | Default `EUR`, drei Großbuchstaben |
-| `manual_intake_minutes` | numeric(8,2) | nein | Default 5, > 0 |
+| `manual_intake_minutes` | numeric(8,2) | nein | Default 15 (Demo-Basiswert, siehe decisions.md), > 0 |
 | `default_tax_rate` | numeric(5,2) | nein | Default 19, 0 bis 100 |
 | `payment_terms_days` | integer | nein | Default 14, >= 0 |
 | `company_details` | jsonb | nein | Default `{}`, muss ein Objekt sein |
@@ -501,3 +501,31 @@ Migrationen `20261007180000_confirm_message_sent.sql`, `20261007180100_request_e
 **`request_events.seq`** (Identity) ordnet Ereignisse mit gleichem `occurred_at` (gleiche Transaktion). Historie und Analytik sortieren nach `(occurred_at, seq)`.
 
 Tests: siehe [testing.md](testing.md).
+
+## Demo-Seed (task-3-2)
+
+Migration `20261007190000_demo_seed.sql`: `public.demo_seed_apply(payload)` und `public.demo_seed_purge()` (nur `service_role`), Registry `private.demo_seed_records`, Bereinigungs-Flag `rheinwerk.demo_purge` (transaktionslokal) in den Triggern `prevent_request_event_change` und `guard_invoice_items`. Details: [demo-data.md](demo-data.md).
+
+## Warteschlangen der Dispatcher (task-5-1)
+
+Migration `20261007210000_dispatcher_queue.sql`. View `public.dispatcher_queue` mit `security_invoker = true`: sie läuft mit den Rechten des Aufrufers, RLS der Basistabellen gilt unverändert (Dispatcher sehen nur aktuell zugewiesene Anfragen). `anon` hat keinen Zugriff, `authenticated` nur `SELECT`.
+
+| Spalte `queue` | Bedingung (offene Anfragen; abgelehnte, stornierte und abgeschlossene stehen in keiner Warteschlange) |
+| --- | --- |
+| `reply_received` – Kundenantwort erhalten | `intake_status` `needs_review` oder `analyzing` und eine eingehende Nachricht, die nach dem letzten Wechsel auf `awaiting_customer` empfangen wurde |
+| `review` – Prüfung erforderlich | sonst `intake_status = needs_review` |
+| `awaiting_customer` – Warten auf Kundenantwort | `intake_status = awaiting_customer` |
+| `planning` – Einsatzplanung erforderlich | Erstbearbeitung `processed`, kein reservierender Einsatz (`scheduled`/`in_progress`) und `work_status` `not_planned` oder `waiting_parts` (Folgeeinsatz). Automatisch bearbeitete Anfragen bleiben hier, bis ein Einsatz geplant ist. |
+
+Jede Anfrage steht in höchstens einer Warteschlange.
+
+Sortierschlüssel (Reihenfolge der Anzeige):
+
+1. `priority_rank`: Priorität (`critical` 1 … `low` 4); solange keine Priorität gesetzt ist, die Dringlichkeit des Kunden (`production_stop` 1, `erheblich` 2, `zeitnah` 3, `planbar` 4).
+2. `due_at` aufsteigend, leere zuletzt: Antwortfrist, solange keine inhaltliche Antwort erfolgt ist (Prüfung, Kundenantwort, Warten); Servicefrist in der Planung.
+3. `waiting_since` aufsteigend (am längsten wartend zuerst): Eingang der Kundenantwort; Wechsel in den aktuellen Status der Erstbearbeitung; in der Planung der spätere Zeitpunkt aus Abschluss der Erstbearbeitung und letztem Wechsel des Arbeitsstatus.
+
+`safety_check_required` markiert automatisch bearbeitete Anfragen mit bekannter oder unklarer Sicherheitsgefahr; `schedule_visit` verlangt dafür zuerst eine menschliche Aktion (task-2-2).
+
+Tests: `supabase/tests/database/dispatcher_queue.test.sql` (16 Tests: Zuordnung jeder Warteschlange, alte vs. neue Kundenantwort, Folgeeinsatz, Sortierung, Verlassen der Planung nach Einplanung, Stornierung, RLS je Dispatcher, kein Zugriff für `anon`).
+

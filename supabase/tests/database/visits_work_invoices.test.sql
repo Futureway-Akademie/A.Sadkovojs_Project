@@ -168,7 +168,7 @@ select throws_ok(
 );
 
 select lives_ok(
-  $$update public.invoices set status = 'issued', invoice_number = 'RE-2026-00001', issued_by = '00000000-0000-0000-0000-0000000000b1',
+  $$update public.invoices set status = 'issued', invoice_number = 'RE-TEST-00001', issued_by = '00000000-0000-0000-0000-0000000000b1',
       issued_at = now(), issue_date = '2026-10-21', payment_due_date = '2026-11-04'
     where id = '00000000-0000-0000-0000-0000000000e1'$$,
   'issued invoice with full details accepted'

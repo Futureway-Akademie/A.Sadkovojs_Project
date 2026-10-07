@@ -1,0 +1,156 @@
+// Demo data seed: about 600 requests over 24 months with full chronology (spec section 9).
+// Usage:
+//   npm run demo:users            (once: demo staff)
+//   npm run demo:seed             replace demo data (idempotent)
+//   npm run demo:seed -- --purge  remove demo data only
+// Optional: DEMO_SEED_ANCHOR=YYYY-MM-DD (default: today, Europe/Berlin).
+//
+// The data is generated deterministically from the anchor and written by public.demo_seed_apply in a single
+// transaction that first removes previous demo data. Live data (is_demo = false, users without demo marker)
+// is never touched. No e-mails are sent.
+import { readdir, readFile } from "node:fs/promises";
+import { createClient } from "@supabase/supabase-js";
+import { DEMO_SEED_OWNER, DEMO_STAFF } from "./demo/staff.mjs";
+import { generateDemoData } from "./demo/generate.mjs";
+import { berlinTime, isoDate } from "./demo/time.mjs";
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const secretKey = process.env.SUPABASE_SECRET_KEY;
+if (!url || !secretKey) {
+  console.error("NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SECRET_KEY werden benötigt.");
+  process.exit(1);
+}
+const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/.test(url);
+if (!isLocal && process.env.DEMO_BOOTSTRAP_ALLOW_REMOTE !== "1") {
+  console.error(`Abbruch: ${url} ist kein lokaler Stack. Für ein Remote-Projekt DEMO_BOOTSTRAP_ALLOW_REMOTE=1 setzen.`);
+  process.exit(1);
+}
+
+const admin = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const BUCKET = "dashboard";
+const FILE_PREFIX = "demo";
+
+// Demo files live under dashboard/demo/<request_id>/; only this prefix is removed
+async function removeDemoFiles() {
+  const { data: folders, error } = await admin.storage.from(BUCKET).list(FILE_PREFIX, { limit: 1000 });
+  if (error) throw new Error(`Storage: ${error.message}`);
+  let removed = 0;
+  for (const folder of folders) {
+    const { data: files } = await admin.storage.from(BUCKET).list(`${FILE_PREFIX}/${folder.name}`, { limit: 1000 });
+    const paths = (files ?? []).map((file) => `${FILE_PREFIX}/${folder.name}/${file.name}`);
+    if (paths.length > 0) {
+      const { error: removeError } = await admin.storage.from(BUCKET).remove(paths);
+      if (removeError) throw new Error(`Storage: ${removeError.message}`);
+      removed += paths.length;
+    }
+  }
+  return removed;
+}
+
+if (process.argv.includes("--purge")) {
+  const files = await removeDemoFiles();
+  const { data, error } = await admin.rpc("demo_seed_purge");
+  if (error) throw new Error(error.message);
+  console.log("Demodaten entfernt:", { ...data, storage_files: files });
+  process.exit(0);
+}
+
+// Demo staff must exist (npm run demo:users)
+const users = [];
+for (let page = 1; ; page += 1) {
+  const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+  if (error) throw new Error(error.message);
+  users.push(...data.users);
+  if (data.users.length < 200) break;
+}
+const idOf = (key) => {
+  const member = DEMO_STAFF.find((m) => m.key === key);
+  const user = users.find((u) => u.email === member.email && u.app_metadata?.demo_seed === DEMO_SEED_OWNER);
+  if (!user) {
+    console.error(`Demo-Nutzer ${member.email} fehlt. Zuerst npm run demo:users ausführen.`);
+    process.exit(1);
+  }
+  return user.id;
+};
+const staff = {
+  admin: idOf("admin"),
+  manager: idOf("manager"),
+  dispatchers: ["dispatcher-1", "dispatcher-2", "dispatcher-3"].map(idOf),
+  technicians: ["technician-1", "technician-2", "technician-3"].map(idOf),
+};
+
+const anchorText = process.env.DEMO_SEED_ANCHOR;
+let anchor = new Date();
+if (anchorText) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchorText);
+  if (!match) {
+    console.error("DEMO_SEED_ANCHOR muss das Format JJJJ-MM-TT haben.");
+    process.exit(1);
+  }
+  anchor = berlinTime(Number(match[1]), Number(match[2]), Number(match[3]), 12, 0);
+}
+
+const { payload, cutoff, rateChange } = generateDemoData({ anchor, now: new Date(), staff });
+console.log(`Seed-Anker ${isoDate(anchor)}, Stichzeitpunkt ${cutoff.toISOString()}, Tarifwechsel ${isoDate(rateChange)}`);
+
+const removedFiles = await removeDemoFiles();
+const { data, error } = await admin.rpc("demo_seed_apply", { payload });
+if (error) {
+  console.error("Seed fehlgeschlagen:", error.message, error.details ?? "", error.hint ?? "");
+  process.exit(1);
+}
+console.log("Entfernt:", { ...data.purged, storage_files: removedFiles });
+console.log("Eingefügt:", data.inserted);
+
+// Safe demo files (scripts/demo/files) attached to selected demo cases
+const caseRequest = (demoCase) => payload.requests.find((r) => r.raw_payload.demo_case === demoCase);
+const firstVisit = (request) => payload.visits.filter((v) => v.request_id === request.id).sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start))[0];
+// Files are found by base name, so a replacement may use any allowed extension (.pdf, .jpg, .jpeg, .png)
+const attachmentsPlan = [
+  { demoCase: "Bestellte Teile und Folgeeinsatz", file: "foto-gleitringdichtung", visibility: "operational", parent: "visit" },
+  { demoCase: "Sichere automatische Bearbeitung", file: "wartungsprotokoll-kompressor", visibility: "operational", parent: "visit" },
+  { demoCase: "Technischer Fehler der Analyse", file: "pruefbericht-pumpe", visibility: "operational", parent: "visit" },
+  { demoCase: "Rückfrage und Kundenantwort", file: "typenschild-pumpe", visibility: "dispatch", parent: "reply" },
+  { demoCase: "Abgeschlossen mit offener Rechnung", file: "interne-notiz-forderung", visibility: "management", parent: "invoice" },
+  { demoCase: "Prüfung offen mit E-Mail-Entwurf", file: "foto-lueftungsanlage", visibility: "operational", parent: "request" },
+];
+const MIME_TYPES = { ".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png" };
+const filesDir = new URL("./demo/files/", import.meta.url);
+const available = await readdir(filesDir);
+function demoFile(base) {
+  const name = available.find((entry) => {
+    const dot = entry.lastIndexOf(".");
+    return entry.slice(0, dot) === base && entry.slice(dot).toLowerCase() in MIME_TYPES;
+  });
+  if (!name) throw new Error(`Demo-Datei ${base}.(pdf|jpg|jpeg|png) fehlt in scripts/demo/files/`);
+  return { name, mime: MIME_TYPES[name.slice(name.lastIndexOf(".")).toLowerCase()] };
+}
+const attachments = [];
+for (const plan of attachmentsPlan) {
+  const request = caseRequest(plan.demoCase);
+  if (!request) continue;
+  const visit = plan.parent === "visit" ? firstVisit(request) : null;
+  const reply = plan.parent === "reply" ? payload.messages.find((m) => m.request_id === request.id && m.direction === "incoming") : null;
+  const invoice = plan.parent === "invoice" ? payload.invoices.find((i) => i.request_id === request.id) : null;
+  const file = demoFile(plan.file);
+  const bytes = await readFile(new URL(file.name, filesDir));
+  const storagePath = `${FILE_PREFIX}/${request.id}/${file.name}`;
+  const { error: uploadError } = await admin.storage.from(BUCKET).upload(storagePath, bytes, { contentType: file.mime, upsert: true });
+  if (uploadError) throw new Error(`Upload ${file.name}: ${uploadError.message}`);
+  attachments.push({
+    request_id: request.id,
+    visit_id: visit?.id ?? null,
+    message_id: reply?.id ?? null,
+    invoice_id: invoice?.id ?? null,
+    bucket: BUCKET,
+    storage_path: storagePath,
+    file_name: file.name,
+    mime_type: file.mime,
+    size_bytes: bytes.length,
+    uploaded_by: visit?.technician_id ?? null,
+    visibility: plan.visibility,
+  });
+}
+const { error: attachmentError } = await admin.from("attachments").insert(attachments);
+if (attachmentError) throw new Error(`Anhänge: ${attachmentError.message}`);
+console.log(`Demo-Dateien: ${attachments.length} im privaten Bucket ${BUCKET}/${FILE_PREFIX}/`);
