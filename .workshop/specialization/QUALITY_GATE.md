@@ -14,8 +14,8 @@ Alle drei Befehle müssen ohne Fehler durchlaufen.
 
 ## Zusätzlich je nach Task
 
-- Datenbank-Tasks: Migrationen lassen sich anwenden; zugehörige SQL-Tests laufen erfolgreich.
-- Berechtigungs-Tasks: Prüfung über direkte API-/Datenbankzugriffe mit verschiedenen Rollen, nicht nur über die Oberfläche.
+- Datenbank-Tasks: `supabase db reset` wendet alle Migrationen an; `npm run test:db` läuft erfolgreich.
+- Berechtigungs-Tasks: Prüfung über direkte API-/Datenbankzugriffe mit verschiedenen Rollen (`npm run test:api`), nicht nur über die Oberfläche.
 - UI-Tasks: Sichtprüfung bei ca. 390×844, 768×1024 und 1440×900 ohne horizontales Scrollen bei Kernaktionen.
 - Website-Änderungen: öffentliche Seiten und `/api/service-request` verhalten sich unverändert.
 

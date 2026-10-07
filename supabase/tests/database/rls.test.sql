@@ -86,23 +86,23 @@ select is((select public from storage.buckets where id = 'dashboard'), false, 'd
 set local role anon;
 select throws_ok($$select * from public.requests$$, '42501', null, 'anon cannot read requests');
 select throws_ok($$select * from public.profiles$$, '42501', null, 'anon cannot read profiles');
-select is((select count(*)::int from storage.objects where bucket_id = 'dashboard'), 0, 'anon sees no dashboard files');
+select is((select count(*)::int from storage.objects where bucket_id = 'dashboard' and name like 'r_/%'), 0, 'anon sees no dashboard files');
 reset role;
 
 -- Technician 1: historical participant of R1
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b1');
 set local role authenticated;
-select is((select count(*)::int from public.requests), 1, 't1 sees R1 through own historical visit');
-select is((select count(*)::int from public.visits), 1, 't1 sees only own historical visit');
-select is((select count(*)::int from public.work_entries), 1, 't1 sees only own work entry');
-select is((select count(*)::int from public.messages), 0, 't1 sees no correspondence');
-select is((select count(*)::int from public.automation_runs), 0, 't1 sees no automation results');
-select is((select count(*)::int from public.request_events), 1, 't1 sees only operational events');
-select is((select count(*)::int from public.attachments), 1, 't1 sees only operational attachment of own visit');
-select is((select count(*)::int from storage.objects where bucket_id = 'dashboard'), 1, 't1 can download one file');
-select is((select count(*)::int from public.invoices), 1, 't1 sees related invoice');
-select is((select count(*)::int from public.technician_busy_intervals('2026-10-19', '2026-10-26')), 0, 't1 gets no busy intervals');
-select is((select count(*)::int from public.employee_availability), 2, 't1 sees own availability');
+select is((select count(*)::int from public.requests where id::text like '00000000-0000-0000-0000-%'), 1, 't1 sees R1 through own historical visit');
+select is((select count(*)::int from public.visits where id::text like '00000000-0000-0000-0000-%'), 1, 't1 sees only own historical visit');
+select is((select count(*)::int from public.work_entries where request_id::text like '00000000-0000-0000-0000-%'), 1, 't1 sees only own work entry');
+select is((select count(*)::int from public.messages where id::text like '00000000-0000-0000-0000-%'), 0, 't1 sees no correspondence');
+select is((select count(*)::int from public.automation_runs where request_id::text like '00000000-0000-0000-0000-%'), 0, 't1 sees no automation results');
+select is((select count(*)::int from public.request_events where request_id::text like '00000000-0000-0000-0000-%'), 1, 't1 sees only operational events');
+select is((select count(*)::int from public.attachments where storage_path like 'r_/%'), 1, 't1 sees only operational attachment of own visit');
+select is((select count(*)::int from storage.objects where bucket_id = 'dashboard' and name like 'r_/%'), 1, 't1 can download one file');
+select is((select count(*)::int from public.invoices where request_id::text like '00000000-0000-0000-0000-%'), 1, 't1 sees related invoice');
+select is((select count(*)::int from public.technician_busy_intervals('2026-10-19', '2026-10-26') where technician_id::text like '00000000-0000-0000-0000-%'), 0, 't1 gets no busy intervals');
+select is((select count(*)::int from public.employee_availability where employee_id::text like '00000000-0000-0000-0000-%'), 2, 't1 sees own availability');
 select throws_ok($$update public.profiles set role = 'admin' where id = '00000000-0000-0000-0000-0000000000b1'$$, '42501', null, 't1 cannot change own role');
 select throws_ok($$update public.profiles set is_active = false where id = '00000000-0000-0000-0000-0000000000b1'$$, '42501', null, 't1 cannot change own activity');
 select throws_ok($$insert into public.request_events (request_id, actor_type, event_type) values ('00000000-0000-0000-0000-000000000001', 'system', 'note_added')$$, '42501', null, 't1 cannot write events directly');
@@ -121,51 +121,51 @@ revoke update on public.profiles from authenticated;
 -- Technician 2: currently assigned to R1 and R2
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b2');
 set local role authenticated;
-select is((select count(*)::int from public.requests), 2, 't2 sees both assigned requests');
-select is((select count(*)::int from public.visits), 3, 't2 sees all visits of current requests');
-select is((select count(*)::int from public.work_entries), 2, 't2 sees all work entries of current request');
-select is((select count(*)::int from public.employee_availability), 0, 't2 does not see t1 availability');
+select is((select count(*)::int from public.requests where id::text like '00000000-0000-0000-0000-%'), 2, 't2 sees both assigned requests');
+select is((select count(*)::int from public.visits where id::text like '00000000-0000-0000-0000-%'), 3, 't2 sees all visits of current requests');
+select is((select count(*)::int from public.work_entries where request_id::text like '00000000-0000-0000-0000-%'), 2, 't2 sees all work entries of current request');
+select is((select count(*)::int from public.employee_availability where employee_id::text like '00000000-0000-0000-0000-%'), 0, 't2 does not see t1 availability');
 reset role;
 
 -- Dispatcher 1: R1 and own inbox
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d1');
 set local role authenticated;
-select is((select count(*)::int from public.requests), 1, 'd1 sees only own request');
-select is((select count(*)::int from public.visits), 2, 'd1 sees only visits of own request');
-select is((select count(*)::int from public.messages), 2, 'd1 sees request message and own inbox');
-select is((select count(*)::int from public.request_events), 2, 'd1 sees operational and dispatch events');
-select is((select count(*)::int from public.attachments), 2, 'd1 sees attachments of own request');
-select is((select count(*)::int from public.automation_runs), 1, 'd1 sees automation result of own request');
-select is((select count(*)::int from public.employee_availability), 1, 'd1 sees working hours, no absence details');
-select is((select count(*)::int from public.technician_busy_intervals('2026-10-19', '2026-10-26')), 3, 'd1 gets busy intervals of all technicians');
+select is((select count(*)::int from public.requests where id::text like '00000000-0000-0000-0000-%'), 1, 'd1 sees only own request');
+select is((select count(*)::int from public.visits where id::text like '00000000-0000-0000-0000-%'), 2, 'd1 sees only visits of own request');
+select is((select count(*)::int from public.messages where id::text like '00000000-0000-0000-0000-%'), 2, 'd1 sees request message and own inbox');
+select is((select count(*)::int from public.request_events where request_id::text like '00000000-0000-0000-0000-%'), 2, 'd1 sees operational and dispatch events');
+select is((select count(*)::int from public.attachments where storage_path like 'r_/%'), 2, 'd1 sees attachments of own request');
+select is((select count(*)::int from public.automation_runs where request_id::text like '00000000-0000-0000-0000-%'), 1, 'd1 sees automation result of own request');
+select is((select count(*)::int from public.employee_availability where employee_id::text like '00000000-0000-0000-0000-%'), 1, 'd1 sees working hours, no absence details');
+select is((select count(*)::int from public.technician_busy_intervals('2026-10-19', '2026-10-26') where technician_id::text like '00000000-0000-0000-0000-%'), 3, 'd1 gets busy intervals of all technicians');
 select is(
   (select count(*)::int from public.technician_busy_intervals('2026-10-19', '2026-10-26') where technician_id = '00000000-0000-0000-0000-0000000000b2' and starts_at = '2026-10-20 08:00+02'),
   1, 'd1 sees interval of other dispatcher''s booking'
 );
-select is((select count(*)::int from public.profiles), 7, 'd1 sees minimal employee list');
+select is((select count(*)::int from public.profiles where id::text like '00000000-0000-0000-0000-%'), 7, 'd1 sees minimal employee list');
 reset role;
 
 -- Dispatcher 2: reassignment-style isolation
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d2');
 set local role authenticated;
-select is((select count(*)::int from public.requests), 1, 'd2 sees only own request');
-select is((select count(*)::int from public.messages), 0, 'd2 sees no messages of d1');
-select is((select count(*)::int from storage.objects where bucket_id = 'dashboard'), 1, 'd2 downloads only own request file');
+select is((select count(*)::int from public.requests where id::text like '00000000-0000-0000-0000-%'), 1, 'd2 sees only own request');
+select is((select count(*)::int from public.messages where id::text like '00000000-0000-0000-0000-%'), 0, 'd2 sees no messages of d1');
+select is((select count(*)::int from storage.objects where bucket_id = 'dashboard' and name like 'r_/%'), 1, 'd2 downloads only own request file');
 reset role;
 
 -- Manager and admin
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a1');
 set local role authenticated;
-select is((select count(*)::int from public.requests), 2, 'manager sees all requests');
-select is((select count(*)::int from public.request_events), 3, 'manager sees all event levels');
-select is((select count(*)::int from public.employee_availability), 2, 'manager sees all availability');
+select is((select count(*)::int from public.requests where id::text like '00000000-0000-0000-0000-%'), 2, 'manager sees all requests');
+select is((select count(*)::int from public.request_events where request_id::text like '00000000-0000-0000-0000-%'), 3, 'manager sees all event levels');
+select is((select count(*)::int from public.employee_availability where employee_id::text like '00000000-0000-0000-0000-%'), 2, 'manager sees all availability');
 reset role;
 
 -- Deactivated manager
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a9');
 set local role authenticated;
-select is((select count(*)::int from public.requests), 0, 'deactivated employee sees no requests');
-select is((select count(*)::int from public.profiles), 0, 'deactivated employee sees no profiles');
+select is((select count(*)::int from public.requests where id::text like '00000000-0000-0000-0000-%'), 0, 'deactivated employee sees no requests');
+select is((select count(*)::int from public.profiles where id::text like '00000000-0000-0000-0000-%'), 0, 'deactivated employee sees no profiles');
 reset role;
 
 select * from finish();

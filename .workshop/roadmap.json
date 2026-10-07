@@ -261,7 +261,7 @@
       "description": "Serverseitige RPC-Funktionen für alle Statuswechsel mit Audit in derselben Transaktion.",
       "order": 3,
       "weight": 21,
-      "status": "in_progress",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-2-1",
@@ -303,7 +303,7 @@
           "description": "RPCs für Planen, Umplanen, Starten, Warten auf Teile, Abschliessen und Stornieren von Einsätzen mit Serialisierung pro Techniker.",
           "order": 2,
           "weight": 5,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-1-5"
           ],
@@ -314,13 +314,21 @@
             "Umplanung bewahrt altes Intervall im Audit",
             "Warten auf Teile erzeugt keine unbegrenzte Reservierung"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T10:55:37Z",
+          "completedAt": "2026-10-07T11:00:41Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007150000_visit_operations per supabase db reset angewendet. pgTAP: 240/240 Tests bestanden (davon 39 neu: Planung nur bei processed/nicht terminal, Vergangenheit, Arbeitszeit, Wochenende, Abwesenheit, aktiver Techniker, Sicherheitsgefahr nach automatischer Bearbeitung, Versionskonflikt, Terminkonflikt RW410, angrenzende Buchung, Umplanung mit altem Intervall im Audit, Technikerrechte, Warten auf Teile ohne Reservierung, Fortsetzen in belegtes Fenster, Abschluss nur des Einsatzes, Stornierung zurück zur Planung, Verfügbarkeitsänderungen gegen aktive Buchungen). Nebenläufigkeit: 10 parallele schedule_visit-Aufrufe, genau 1 erfolgreich. supabase db lint ohne Fehler (eine 'warning extra' zu Composite-OUT-Parametern in private.lock_visit, funktional ohne Auswirkung); lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "10 parallele schedule_visit-Aufrufe per psql",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T11:00:41Z"
           }
         },
         {
@@ -329,7 +337,7 @@
           "description": "RPCs für Zeit-, Teile- und Pauschalpositionen sowie expliziten Abschluss der Anfrage.",
           "order": 3,
           "weight": 3,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-2-2"
           ],
@@ -339,13 +347,20 @@
             "Nur aktueller Techniker oder Manager/Admin schliesst ab",
             "Abschluss markiert keine Zahlung"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T11:11:54Z",
+          "completedAt": "2026-10-07T11:15:12Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007160000_work_operations per supabase db reset angewendet. pgTAP: 274/274 Tests bestanden (davon 34 neu: Rechte Dispatcher/fremder/früherer Techniker, Einheit aus Art, Preis/Steuer aus Tarif oder Einstellungen, Art/Status/Tarif/Leistungsart-Kompatibilität, Menge, Einsatzzugehörigkeit, Versionskonflikt, Statuslebenszyklus, Korrektur, Abrechnungssperre, abgelehnte Anfrage, Abschluss nur durch aktuellen Techniker/Manager mit Bericht, ohne offene Einsätze und mit abgeschlossenem Einsatz, Wiederholung idempotent, keine Zahlungsmarkierung, Audit). supabase db lint ohne Fehler (warning extra zu Composite-OUT-Parametern in private.lock_visit und private.lock_work_entry); lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T11:15:12Z"
           }
         },
         {
@@ -354,7 +369,7 @@
           "description": "RPCs für Rechnungserstellung, Ausstellung mit atomarer Nummer, Zahlungserfassung, E-Mail-Warteschlange und manuelle Nachrichtenzuordnung.",
           "order": 4,
           "weight": 4,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-2-3"
           ],
@@ -366,13 +381,21 @@
             "Warteschlange setzt weder sent noch paid noch first_substantive_response_at",
             "Nur Manager/Admin erfassen Zahlungen"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T11:24:40Z",
+          "completedAt": "2026-10-07T11:30:09Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261007170000_invoice_message_operations per supabase db reset angewendet. pgTAP: 320/320 Tests bestanden, viermal stabil (davon 45 neu: nur abrechenbare performed/used-Positionen, Wartung ohne Stundenaufschlag, Entwurf als Vorschau, atomare Nummer, Snapshots, unveränderliche ausgestellte Rechnung und Positionen auch für vertrauenswürdige Rollen, wiederholte Ausstellung ohne Doppelrechnung, Zahlung nur Manager/Admin, Warteschlange ohne sent/paid/first_substantive_response_at, manuelle Zuordnung mit Anhängen und Audit). Bestehende Tests an die neue Abrechnungssperre angepasst; ein instabiler Sortiertest aus task-2-1 korrigiert. Nebenläufigkeit: 10 parallele issue_invoice-Aufrufe, genau eine Rechnungsnummer. supabase db lint ohne Fehler (warning extra zu Composite-OUT-Parametern der lock_*-Hilfsfunktionen); lint, typecheck und build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "supabase test db (4 Durchläufe)",
+              "10 parallele issue_invoice-Aufrufe per psql",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T11:30:09Z"
           }
         },
         {
@@ -381,7 +404,7 @@
           "description": "Automatisierte SQL-Tests für Zugriffsrechte, Statusübergänge, Berechnungen und gleichzeitige Buchungen.",
           "order": 5,
           "weight": 4,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-2-1",
             "task-2-4"
@@ -392,13 +415,21 @@
             "Gleichzeitige Buchungen getestet",
             "Testbefehl dokumentiert und tatsächlich ausgeführt"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-07T11:33:42Z",
+          "completedAt": "2026-10-07T11:40:40Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "npm run test:db: 384/384 pgTAP-Tests in 10 Dateien bestanden, neu scenarios.test.sql mit 63 Prüfungen für Szenarien 1, 2, 3, 4 und 7; Tests laufen unabhängig von vorhandenen Daten (geprüft auf leerer und auf mit API-Testdaten gefüllter Datenbank). npm run test:api: 20/20 Prüfungen bestanden mit echten Logins über REST/RPC/Storage (fremde Rollen, gefälschte PATCH/INSERT, Selbstbeförderung, inaktive Profile) und Nebenläufigkeit über HTTP (10 gleichzeitige Buchungen: 1 Erfolg, 9 × RW410; 10 Durchläufe Buchung gegen gleichzeitige Abwesenheit: nie beide erfolgreich), zweimal wiederholt. Ergänzt: Integrationsoperation confirm_message_sent (nur service_role) und request_events.seq. Testbefehle in docs/testing.md dokumentiert. supabase db lint ohne Fehler (warning extra der lock_*-Hilfsfunktionen); lint, typecheck und build erfolgreich. Szenarien 5, 6 und 8 folgen mit Analytik, Fixtures und Oberfläche.",
+            "commands": [
+              "supabase db reset",
+              "npm run test:db",
+              "npm run test:api",
+              "supabase db lint",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-07T11:40:40Z"
           }
         }
       ]

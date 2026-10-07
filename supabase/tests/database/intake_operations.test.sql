@@ -139,7 +139,7 @@ select is((public.change_deadline('00000000-0000-0000-0000-000000000002', 3, 're
 reset role;
 select is(
   (select (data ->> 'breach_recorded')::boolean from public.request_events
-   where request_id = '00000000-0000-0000-0000-000000000002' and event_type = 'deadline_changed' order by occurred_at desc, created_at desc limit 1),
+   where request_id = '00000000-0000-0000-0000-000000000002' and event_type = 'deadline_changed' and data ->> 'old_due_at' is not null),
   true, 'moving an elapsed deadline records the breach'
 );
 

@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 25,00 % (Gewicht 26 von 104).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 40,38 % (Gewicht 42 von 104).
 
 ## Aktive Phase
 
-Phase 2: Kontrollierte Operationen (`phase-2`).
+Phasen 0–2 sind abgeschlossen. Nächste: Phase 3 (Demodaten) und Phase 4 (Dashboard-Grundgerüst).
 
 ## Aktive Aufgabe
 
@@ -14,11 +14,10 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-2-1`: RPCs `assign_dispatcher`, `mark_needs_review`, `mark_awaiting_customer`, `resume_analysis`, `correct_analysis`, `complete_intake`, `reopen_intake`, `reject_request`, `cancel_request`, `change_deadline` mit Rollen-/Zugriffs-/Versionsprüfung (Fehlercodes 42501, RW409, RW422) und atomarem Audit; Erstabschluss-Snapshot per Trigger unveränderlich. pgTAP 201/201, REST-API-Prüfung, lint, typecheck und build erfolgreich.
+`task-2-5`: Szenariotests (Spezifikation 1, 2, 3, 4, 7), API-Tests mit echten Logins (`npm run test:api`) inkl. gleichzeitiger Buchungen über HTTP, datenunabhängige pgTAP-Tests (`npm run test:db`, 384/384), Integrationsoperation `confirm_message_sent` (nur service_role) und `request_events.seq`. Dokumentation: `docs/testing.md`.
 
 ## Bereite nächste Aufgaben
 
-- `task-2-2`: Einsatzplanung und Einsatzstatus.
 - `task-3-1`: Bootstrap der Demo-Nutzer.
 - `task-4-1`: Routenstruktur, Anmeldung und Navigation.
 
@@ -41,12 +40,16 @@ Nichts.
 - Zugehörigkeit zur selben Anfrage wird über `UNIQUE (id, request_id)` und zusammengesetzte Fremdschlüssel garantiert; Überschneidungen aktiver Einsätze verhindert ein Exclusion Constraint (`btree_gist`).
 - RLS gewährt nur Lesen; Schreiben ausschließlich über kontrollierte `security definer`-Operationen (Phase 2). Neue Tabellen müssen RLS aktivieren und Standardrechte von `anon`/`authenticated` entziehen.
 - Kontrollierte Operationen: `security definer`-RPCs mit `expected_version`; Fehlercodes `42501` (Berechtigung), `RW409` (Versionskonflikt), `RW422` (Zustand/Eingabe). Siehe `docs/database.md`.
+- Einsatzplanung serialisiert pro Techniker per Advisory-Lock; Verfügbarkeitsänderungen nehmen dieselbe Sperre. Reservierend sind nur `scheduled`/`in_progress`.
+- Rechnungsentwurf ist eine Vorschau; die Ausstellung baut die Positionen neu und sperrt danach alle Arbeitspositionen der Anfrage.
+- Tests: `npm run test:db` (pgTAP, datenunabhängig) und `npm run test:api` (nur lokal, echte Logins); siehe `docs/testing.md`.
 
 ## Bekannte Probleme
 
+- `supabase db lint` meldet `warning extra` zu Composite-OUT-Parametern der Hilfsfunktionen `private.lock_visit`, `lock_work_entry`, `lock_invoice`, `lock_outgoing_message` (stilistisch, ohne Auswirkung).
 - Kein Supabase-Cloud-Projekt verknüpft; für das spätere Deployment nötig (`supabase login`, `supabase link`).
 - Lokale Entwicklung setzt laufendes Docker und `supabase start` voraus; `.env.local` mit Werten aus `supabase status`.
 
 ## Empfohlener nächster Schritt
 
-`task-2-2` (Einsatzplanung und Einsatzstatus) starten und Phase 2 fortsetzen.
+`task-3-1` (Bootstrap der Demo-Nutzer) starten; alternativ `task-4-1` (Anmeldung und Navigation).

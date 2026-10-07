@@ -1,0 +1,249 @@
+// Direct API checks against the local Supabase stack (REST, RPC, Storage) with real logins.
+// Covers foreign-role access (scenario 1), concurrent bookings and booking vs. availability races (scenario 2).
+// Usage: npm run test:api   (requires `supabase start` and .env.local)
+// Each run creates its own users and records (suffix = run id); `supabase db reset` removes them.
+import { createClient } from "@supabase/supabase-js";
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const secretKey = process.env.SUPABASE_SECRET_KEY;
+if (!url || !publishableKey || !secretKey) {
+  console.error("NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY und SUPABASE_SECRET_KEY werden benötigt.");
+  process.exit(1);
+}
+if (!/^https?:\/\/(127\.0\.0\.1|localhost)/.test(url)) {
+  console.error(`Abbruch: test:api läuft nur gegen den lokalen Stack, nicht gegen ${url}.`);
+  process.exit(1);
+}
+
+const options = { auth: { persistSession: false, autoRefreshToken: false } };
+const admin = createClient(url, secretKey, options);
+const runId = Date.now().toString(36);
+const password = `Api-Test-${runId}-Passwort`;
+let failures = 0;
+
+function check(name, ok, detail = "") {
+  console.log(`${ok ? "✓" : "✗"} ${name}${ok || !detail ? "" : ` – ${detail}`}`);
+  if (!ok) failures += 1;
+}
+
+function denied(result) {
+  return Boolean(result.error) && ["42501", "PGRST301"].includes(result.error.code);
+}
+
+async function must(promise) {
+  const result = await promise;
+  if (result.error) throw new Error(result.error.message);
+  return result.data;
+}
+
+async function createEmployee(key, role, isActive = true) {
+  const email = `api-${key}-${runId}@example.com`;
+  const user = await must(admin.auth.admin.createUser({ email, password, email_confirm: true }));
+  await must(admin.from("profiles").insert({ id: user.user.id, display_name: `API ${key}`, role, is_active: isActive }));
+  const client = createClient(url, publishableKey, options);
+  await must(client.auth.signInWithPassword({ email, password }));
+  return { id: user.user.id, client };
+}
+
+async function createRequest(key, dispatcherId, technicianId = null) {
+  return must(
+    admin
+      .from("requests")
+      .insert({
+        source_event_key: `api-${key}-${runId}`,
+        request_number: "wird-ersetzt",
+        source: "demo_seed",
+        is_demo: true,
+        company_name: `API Kunde ${key}`,
+        contact_name: "Erika Muster",
+        business_email: `kunde-${key}@example.com`,
+        phone_number: "+49 211 000000",
+        street_house_number: "Werkstr. 1",
+        postal_code: "40210",
+        city: "Düsseldorf",
+        equipment_kind: "pump",
+        service_kind: "diagnosis_repair",
+        requested_visit_date: "2027-03-01",
+        description: "API-Test",
+        customer_urgency: "planbar",
+        safety_risk: "none_known",
+        raw_payload: { test: runId },
+        dispatcher_id: dispatcherId,
+        technician_id: technicianId,
+        intake_status: "processed",
+        priority: "normal",
+        intake_completed_at: new Date().toISOString(),
+        intake_mode: "manual",
+        manual_minutes_baseline: 5,
+      })
+      .select()
+      .single(),
+  );
+}
+
+async function workingHours(technicianId) {
+  const rows = [1, 2, 3, 4, 5].map((weekday) => ({
+    employee_id: technicianId,
+    kind: "working_hours",
+    weekday,
+    local_start: "07:00",
+    local_end: "16:00",
+  }));
+  await must(admin.from("employee_availability").insert(rows));
+}
+
+// Monday 2027-03-01 + week offset, local time Europe/Berlin (UTC+1 in March before DST)
+function slot(weekOffset, startHour, hours = 1) {
+  const day = new Date(Date.UTC(2027, 2, 1 + weekOffset * 7));
+  const start = new Date(day.getTime() + (startHour - 1) * 3600_000);
+  const end = new Date(start.getTime() + hours * 3600_000);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+console.log(`API-Prüfung gegen ${url} (Lauf ${runId})\n`);
+
+// Setup
+const dispatcherA = await createEmployee("dispo-a", "dispatcher");
+const dispatcherB = await createEmployee("dispo-b", "dispatcher");
+const inactive = await createEmployee("inaktiv", "dispatcher", false);
+const manager = await createEmployee("manager", "manager");
+const technicianA = await createEmployee("technik-a", "technician");
+const technicianB = await createEmployee("technik-b", "technician");
+await workingHours(technicianA.id);
+await workingHours(technicianB.id);
+
+const requestA = await createRequest("a", dispatcherA.id, technicianA.id);
+const requestB = await createRequest("b", dispatcherB.id, technicianB.id);
+const visitA = await must(
+  dispatcherA.client.rpc("schedule_visit", {
+    request_id: requestA.id,
+    expected_version: 1,
+    technician_id: technicianA.id,
+    scheduled_start: slot(0, 8).start,
+    scheduled_end: slot(0, 8, 2).end,
+  }),
+);
+const filePath = `api-${runId}/auftrag-a.pdf`;
+await must(admin.storage.from("dashboard").upload(filePath, new Blob(["%PDF-1.4 Demo"], { type: "application/pdf" })));
+await must(
+  admin.from("attachments").insert({
+    request_id: requestA.id,
+    bucket: "dashboard",
+    storage_path: filePath,
+    file_name: "auftrag-a.pdf",
+    mime_type: "application/pdf",
+    size_bytes: 13,
+  }),
+);
+
+console.log("Szenario 1: Zugriff fremder Rollen über die API");
+const anon = createClient(url, publishableKey, options);
+check("anon liest keine Anfragen", denied(await anon.from("requests").select("id")));
+check("anon ruft keine Operation auf", denied(await anon.rpc("complete_intake", { request_id: requestA.id, expected_version: 1 })));
+check("anon lädt keine Datei", Boolean((await anon.storage.from("dashboard").download(filePath)).error));
+
+const foreignRead = await technicianB.client.from("requests").select("id").eq("id", requestA.id);
+check("Techniker B liest Anfrage von A nicht", !foreignRead.error && foreignRead.data.length === 0);
+const foreignFile = await technicianB.client.from("attachments").select("id").eq("request_id", requestA.id);
+check("Techniker B sieht Dokument-Metadaten von A nicht", !foreignFile.error && foreignFile.data.length === 0);
+check("Techniker B lädt Dokument von A nicht", Boolean((await technicianB.client.storage.from("dashboard").download(filePath)).error));
+check("Techniker A lädt eigenes Dokument", !(await technicianA.client.storage.from("dashboard").download(filePath)).error);
+check(
+  "Techniker B startet Einsatz von A nicht",
+  denied(await technicianB.client.rpc("start_visit", { visit_id: visitA.id, expected_version: 3 })),
+);
+check(
+  "Techniker B ändert Anfrage von A nicht per PATCH",
+  denied(await technicianB.client.from("requests").update({ priority: "critical" }).eq("id", requestA.id)),
+);
+check(
+  "Techniker kann Autor/Arbeitsposition nicht direkt einfügen",
+  denied(
+    await technicianA.client.from("work_entries").insert({
+      request_id: requestA.id,
+      author_id: manager.id,
+      kind: "labor",
+      description: "gefälscht",
+      quantity: 1,
+      unit: "hour",
+      unit_price: 1,
+      tax_rate: 19,
+    }),
+  ),
+);
+check(
+  "Techniker befördert sich nicht selbst",
+  denied(await technicianA.client.from("profiles").update({ role: "admin" }).eq("id", technicianA.id)),
+);
+const roleAfter = await must(admin.from("profiles").select("role").eq("id", technicianA.id).single());
+check("Rolle unverändert", roleAfter.role === "technician");
+
+const dispatcherRead = await dispatcherA.client.from("requests").select("id").eq("id", requestB.id);
+check("Dispatcher A liest Anfrage von B nicht", !dispatcherRead.error && dispatcherRead.data.length === 0);
+check(
+  "Dispatcher A ändert Anfrage von B nicht",
+  denied(await dispatcherA.client.rpc("mark_needs_review", { request_id: requestB.id, expected_version: 1 })),
+);
+check(
+  "Inaktives Profil handelt nicht",
+  denied(await inactive.client.rpc("mark_needs_review", { request_id: requestA.id, expected_version: 3 })),
+);
+check(
+  "Manager bestätigt keinen E-Mail-Versand (nur Integration)",
+  denied(await manager.client.rpc("confirm_message_sent", { message_id: visitA.id })),
+);
+
+console.log("\nSzenario 2: Gleichzeitige Buchungen über HTTP");
+const parallelRequests = await Promise.all(
+  Array.from({ length: 10 }, (_, i) => createRequest(`parallel-${i}`, dispatcherA.id)),
+);
+const bookingSlot = slot(1, 8, 2);
+const bookings = await Promise.all(
+  parallelRequests.map((request) =>
+    dispatcherA.client.rpc("schedule_visit", {
+      request_id: request.id,
+      expected_version: 1,
+      technician_id: technicianB.id,
+      scheduled_start: bookingSlot.start,
+      scheduled_end: bookingSlot.end,
+    }),
+  ),
+);
+const booked = bookings.filter((result) => !result.error).length;
+const conflicts = bookings.filter((result) => result.error?.code === "RW410").length;
+check("10 gleichzeitige Buchungen desselben Zeitfensters: genau 1 erfolgreich", booked === 1, `erfolgreich: ${booked}`);
+check("übrige 9 erhalten Terminkonflikt RW410", conflicts === 9, `RW410: ${conflicts}`);
+
+const raceRequests = await Promise.all(
+  Array.from({ length: 10 }, (_, i) => createRequest(`race-${i}`, dispatcherA.id)),
+);
+let bothSucceeded = 0;
+let neitherSucceeded = 0;
+for (let i = 0; i < raceRequests.length; i += 1) {
+  const raceSlot = slot(2 + i, 9);
+  const [booking, absence] = await Promise.all([
+    dispatcherA.client.rpc("schedule_visit", {
+      request_id: raceRequests[i].id,
+      expected_version: 1,
+      technician_id: technicianB.id,
+      scheduled_start: raceSlot.start,
+      scheduled_end: raceSlot.end,
+    }),
+    admin.from("employee_availability").insert({
+      employee_id: technicianB.id,
+      kind: "absence",
+      starts_at: raceSlot.start,
+      ends_at: raceSlot.end,
+      label: "Parallel eingetragen",
+    }),
+  ]);
+  if (!booking.error && !absence.error) bothSucceeded += 1;
+  if (booking.error && absence.error) neitherSucceeded += 1;
+}
+check("Buchung und gleichzeitige Abwesenheit nie beide erfolgreich (10 Durchläufe)", bothSucceeded === 0, `beide: ${bothSucceeded}`);
+check("jeweils genau eine Seite erfolgreich", neitherSucceeded === 0, `keine: ${neitherSucceeded}`);
+
+
+console.log(`\n${failures === 0 ? "Alle API-Prüfungen bestanden." : `${failures} Prüfung(en) fehlgeschlagen.`}`);
+process.exit(failures === 0 ? 0 : 1);

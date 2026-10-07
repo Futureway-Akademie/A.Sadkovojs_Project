@@ -38,3 +38,18 @@
 {"timestamp": "2026-10-07T10:12:38Z", "type": "task_started", "taskId": "task-2-1", "summary": "Kontrollierte Operationen für Erstbearbeitung, Zuweisung und Fristen begonnen."}
 {"timestamp": "2026-10-07T10:17:47Z", "type": "verification_passed", "taskId": "task-2-1", "summary": "pgTAP 201/201, REST-API-Prüfung, db lint, lint, typecheck und build erfolgreich."}
 {"timestamp": "2026-10-07T10:17:47Z", "type": "task_completed", "taskId": "task-2-1", "summary": "RPCs für Dispatcher-Zuweisung, Prüfung/Korrektur, Abschluss, Wiedereröffnung, Ablehnung, Stornierung und Friständerung mit Versionsprüfung und atomarem Audit angelegt."}
+{"timestamp": "2026-10-07T10:55:37Z", "type": "task_started", "taskId": "task-2-2", "summary": "Kontrollierte Operationen für Einsatzplanung und Einsatzstatus begonnen."}
+{"timestamp": "2026-10-07T11:00:41Z", "type": "verification_passed", "taskId": "task-2-2", "summary": "pgTAP 240/240, Nebenläufigkeitstest der Planung, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T11:00:41Z", "type": "task_completed", "taskId": "task-2-2", "summary": "RPCs für Planen, Umplanen, Starten, Warten auf Teile, Fortsetzen, Abschließen und Stornieren von Einsätzen mit Verfügbarkeitsprüfung und Serialisierung pro Techniker angelegt."}
+{"timestamp": "2026-10-07T11:00:41Z", "type": "task_ready", "taskId": "task-2-3", "summary": "Task task-2-3 ist startbar."}
+{"timestamp": "2026-10-07T11:11:54Z", "type": "task_started", "taskId": "task-2-3", "summary": "Kontrollierte Operationen für Arbeitspositionen und Abschluss der Anfrage begonnen."}
+{"timestamp": "2026-10-07T11:15:12Z", "type": "verification_passed", "taskId": "task-2-3", "summary": "pgTAP 274/274, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T11:15:12Z", "type": "task_completed", "taskId": "task-2-3", "summary": "RPCs für Zeit-, Teile- und Pauschalpositionen mit Kompatibilitätsprüfung und Abrechnungssperre sowie expliziter Abschluss der Anfrage angelegt."}
+{"timestamp": "2026-10-07T11:15:12Z", "type": "task_ready", "taskId": "task-2-4", "summary": "Task task-2-4 ist startbar."}
+{"timestamp": "2026-10-07T11:24:40Z", "type": "task_started", "taskId": "task-2-4", "summary": "Kontrollierte Operationen für Rechnungen, Zahlungen und Nachrichten-Warteschlange begonnen."}
+{"timestamp": "2026-10-07T11:30:09Z", "type": "verification_passed", "taskId": "task-2-4", "summary": "pgTAP 320/320, Nebenläufigkeitstest der Ausstellung, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T11:30:09Z", "type": "task_completed", "taskId": "task-2-4", "summary": "RPCs für Rechnungserstellung, Ausstellung mit atomarer Nummer, Zahlungserfassung, E-Mail-Warteschlange und manuelle Nachrichtenzuordnung; Unveränderlichkeit ausgestellter Rechnungen per Trigger."}
+{"timestamp": "2026-10-07T11:30:09Z", "type": "task_ready", "taskId": "task-2-5", "summary": "Task task-2-5 ist startbar."}
+{"timestamp": "2026-10-07T11:33:42Z", "type": "task_started", "taskId": "task-2-5", "summary": "Szenario-, API- und Nebenläufigkeitstests begonnen."}
+{"timestamp": "2026-10-07T11:40:40Z", "type": "verification_passed", "taskId": "task-2-5", "summary": "test:db 384/384, test:api 20/20 inkl. Nebenläufigkeit über HTTP, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-07T11:40:40Z", "type": "task_completed", "taskId": "task-2-5", "summary": "Szenariotests 1, 2, 3, 4, 7, API-Tests mit echten Logins und Nebenläufigkeitstests; Testbefehle dokumentiert; confirm_message_sent und request_events.seq ergänzt."}

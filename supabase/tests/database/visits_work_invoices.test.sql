@@ -1,6 +1,6 @@
 -- task-1-4: visits, work_entries, invoices, invoice_items. Run with: supabase test db
 begin;
-select plan(31);
+select plan(32);
 
 -- Fixtures: two technicians, a dispatcher, two requests
 insert into auth.users (id, email) values
@@ -140,17 +140,6 @@ select throws_ok(
   $$update public.invoices set total = 10 where id = '00000000-0000-0000-0000-0000000000e1'$$,
   '23514', null, 'total = subtotal + tax_total'
 );
-select lives_ok(
-  $$update public.invoices set status = 'issued', invoice_number = 'RE-2026-00001', issued_by = '00000000-0000-0000-0000-0000000000b1',
-      issued_at = now(), issue_date = '2026-10-21', payment_due_date = '2026-11-04'
-    where id = '00000000-0000-0000-0000-0000000000e1'$$,
-  'issued invoice with full details accepted'
-);
-select throws_ok(
-  $$update public.invoices set status = 'paid' where id = '00000000-0000-0000-0000-0000000000e1'$$,
-  '23514', null, 'paid requires paid_at'
-);
-
 -- invoice_items
 select lives_ok(
   $$insert into public.invoice_items (invoice_id, work_entry_id, position, kind, description, unit, quantity, unit_price, tax_rate, net_amount, tax_amount, gross_amount)
@@ -176,6 +165,23 @@ select throws_ok(
   $$insert into public.invoice_items (invoice_id, work_entry_id, position, kind, description, unit, quantity, unit_price, tax_rate, net_amount, tax_amount, gross_amount)
     values ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000f2', 4, 'labor', 'Fremd', 'hour', 1, 95, 19, 95, 18.05, 113.05)$$,
   '23514', null, 'cannot bill work entry of another request'
+);
+
+select lives_ok(
+  $$update public.invoices set status = 'issued', invoice_number = 'RE-2026-00001', issued_by = '00000000-0000-0000-0000-0000000000b1',
+      issued_at = now(), issue_date = '2026-10-21', payment_due_date = '2026-11-04'
+    where id = '00000000-0000-0000-0000-0000000000e1'$$,
+  'issued invoice with full details accepted'
+);
+select throws_ok(
+  $$update public.invoices set status = 'paid' where id = '00000000-0000-0000-0000-0000000000e1'$$,
+  '23514', null, 'paid requires paid_at'
+);
+
+select throws_ok(
+  $$insert into public.invoice_items (invoice_id, position, kind, description, unit, quantity, unit_price, tax_rate, net_amount, tax_amount, gross_amount)
+    values ('00000000-0000-0000-0000-0000000000e1', 9, 'labor', 'Nachtrag', 'hour', 1, 95, 19, 95, 18.05, 113.05)$$,
+  '23514', null, 'no items can be added to an issued invoice'
 );
 
 select * from finish();

@@ -38,10 +38,10 @@ select has_index('public', 'requests', 'requests_dispatcher_idx', 'index on disp
 select has_index('public', 'request_events', 'request_events_request_time_idx', 'index on request events (request, time)');
 
 -- Numbering
-select is((pg_temp.new_request('k1', '2026-03-01 10:00+01')).request_number, 'RIS-2026-00001', 'first number of 2026');
-select is((pg_temp.new_request('k2', '2026-03-02 10:00+01')).request_number, 'RIS-2026-00002', 'numbers increase per year');
-select is((pg_temp.new_request('k3', '2025-06-01 10:00+02')).request_number, 'RIS-2025-00001', 'separate counter per year');
-select is((pg_temp.new_request('k4', '2025-12-31 23:30+00')).request_number, 'RIS-2026-00003', 'year follows Europe/Berlin');
+select is((pg_temp.new_request('k1', '2031-03-01 10:00+01')).request_number, 'RIS-2031-00001', 'first number of a year');
+select is((pg_temp.new_request('k2', '2031-03-02 10:00+01')).request_number, 'RIS-2031-00002', 'numbers increase per year');
+select is((pg_temp.new_request('k3', '2030-06-01 10:00+02')).request_number, 'RIS-2030-00001', 'separate counter per year');
+select is((pg_temp.new_request('k4', '2030-12-31 23:30+00')).request_number, 'RIS-2031-00003', 'year follows Europe/Berlin');
 select is((pg_temp.new_request('k5', now(), 'RIS-1999-99999')).request_number ~ '^RIS-\d{4}-\d{5}$', true, 'client-supplied number is replaced');
 
 -- Idempotency

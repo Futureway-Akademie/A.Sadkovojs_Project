@@ -108,7 +108,7 @@ CHECK-Constraints je Art:
 - `working_hours`: `weekday`, `local_start`, `local_end` gesetzt, `local_end > local_start`; `starts_at`, `ends_at` leer. Schichten über Mitternacht sind nicht vorgesehen.
 - `absence`: `starts_at`, `ends_at` gesetzt, `ends_at > starts_at`; Wochentag, Uhrzeiten und Gültigkeitszeitraum leer.
 
-Überschneidungsprüfung mit Einsätzen und Serialisierung je Techniker folgen in task-2-2.
+Überschneidungsprüfung mit Einsätzen und Serialisierung je Techniker: siehe task-2-2.
 
 ## Anfragen und Audit-Ereignisse (task-1-2)
 
@@ -157,7 +157,7 @@ Indizes: `dispatcher_id`, `technician_id`, `intake_status`, `work_status`, `crea
 
 Append-only: Trigger blockieren `UPDATE`, `DELETE` und `TRUNCATE` für alle Rollen; zusätzlich sind diese Rechte für `anon` und `authenticated` entzogen. Normale Clients schreiben Ereignisse nur über kontrollierte Operationen (Phase 2), die `actor_id` und `occurred_at` selbst setzen.
 
-Ereigniscodes: `submission_received`, `intake_status_changed`, `intake_completed`, `dispatcher_assigned`, `technician_assigned`, `visit_scheduled`, `visit_status_changed`, `work_status_changed`, `work_completed`, `message_received`, `message_linked`, `message_queued`, `message_sent`, `invoice_issued`, `invoice_sent`, `invoice_paid`, `automatic_result_corrected`, `note_added`, `deadline_changed`, `analysis_corrected` (task-2-1). Neue Codes werden hier ergänzt.
+Ereigniscodes: `submission_received`, `intake_status_changed`, `intake_completed`, `dispatcher_assigned`, `technician_assigned`, `visit_scheduled`, `visit_status_changed`, `work_status_changed`, `work_completed`, `message_received`, `message_linked`, `message_queued`, `message_sent`, `invoice_issued`, `invoice_sent`, `invoice_paid`, `automatic_result_corrected`, `note_added`, `deadline_changed`, `analysis_corrected` (task-2-1), `visit_rescheduled` (task-2-2), `work_entry_added`, `work_entry_changed` (task-2-3), `invoice_created`, `message_drafted` (task-2-4). Neue Codes werden hier ergänzt.
 
 ## Nachrichten, Automatisierungsläufe, Anhänge (task-1-3)
 
@@ -223,7 +223,7 @@ Pflicht: `id`, `request_id`, `technician_id`, `status` (Default `scheduled`), `s
 
 **Reservierende Einsatzstatus:** `scheduled` und `in_progress`. Nur diese blockieren das Zeitfenster eines Technikers. `waiting_parts`, `completed` und `cancelled` reservieren nicht, damit Warten auf Teile keine unbegrenzte Kalenderblockade erzeugt; der Kalender verwendet dieselbe Definition.
 
-**Überschneidungsschutz:** Exclusion Constraint `visits_no_overlap` auf `(technician_id, tstzrange(scheduled_start, scheduled_end, '[)'))` für reservierende Status. Halboffene Intervalle: ein Einsatz bis 10:00 und einer ab 10:00 überschneiden sich nicht. Der Constraint gilt auch bei gleichzeitigen Buchungen (geprüft: 10 parallele Buchungen desselben Zeitfensters, genau 1 erfolgreich). Prüfung gegen Arbeitszeiten und Abwesenheiten folgt in task-2-2.
+**Überschneidungsschutz:** Exclusion Constraint `visits_no_overlap` auf `(technician_id, tstzrange(scheduled_start, scheduled_end, '[)'))` für reservierende Status. Halboffene Intervalle: ein Einsatz bis 10:00 und einer ab 10:00 überschneiden sich nicht. Der Constraint gilt auch bei gleichzeitigen Buchungen (geprüft: 10 parallele Buchungen desselben Zeitfensters, genau 1 erfolgreich). Prüfung gegen Arbeitszeiten und Abwesenheiten: siehe task-2-2.
 
 ### `work_entries`
 
@@ -233,7 +233,7 @@ Pflicht: alle Felder außer `visit_id`, `service_rate_id`, `ordered_at`, `perfor
 - Art und Status passen: Teile `planned`/`ordered`/`used`/`cancelled`; Arbeit und Pauschalen `planned`/`performed`/`cancelled`.
 - `ordered` verlangt `ordered_at`; `performed` und `used` verlangen `performed_at`.
 - `quantity > 0`, `unit_price >= 0`, `tax_rate` 0 bis 100.
-- Abrechenbar sind nur `billable` und `performed` beziehungsweise `used` (geprüft beim Erstellen der Rechnung, task-2-4). Die Sperre abgerechneter Positionen folgt ebenfalls in task-2-4.
+- Abrechenbar sind nur `billable` und `performed` beziehungsweise `used` (geprüft beim Erstellen der Rechnung, task-2-4). Die Sperre abgerechneter Positionen: siehe task-2-3.
 
 ### `invoices`
 
@@ -243,7 +243,7 @@ Pflicht: `id`, `request_id` (**UNIQUE**, eine Rechnung je Anfrage), `status` (De
 - Ab `issued`: `invoice_number` (UNIQUE), `issued_by`, `issued_at`, `issue_date`, `payment_due_date` gesetzt; Fälligkeit nicht vor Ausstellung.
 - `sent` verlangt `sent_at`; `paid` genau dann, wenn `paid_at` gesetzt ist. `sent_at` darf bei `paid` gesetzt sein (Versand nach Zahlung).
 - `total = subtotal + tax_total`.
-- Vergabe der Rechnungsnummer und Unveränderlichkeit nach Ausstellung folgen in task-2-4.
+- Vergabe der Rechnungsnummer und Unveränderlichkeit nach Ausstellung: siehe task-2-4.
 
 ### `invoice_items`
 
@@ -355,3 +355,149 @@ Beim ersten Ergebnis `processed` oder `rejected` werden `intake_completed_at`, `
 Wird eine abgelaufene, nicht erfüllte Frist verschoben, hält das Ereignis `deadline_changed` dies in `data.breach_recorded = true` fest. Erfüllung: Antwortfrist durch `first_substantive_response_at`, Servicefrist durch `completed_at`. Damit löscht eine Verschiebung keinen bestehenden Verstoß.
 
 Zusätzliche Ereigniscodes: `analysis_corrected` (menschliche Korrektur ohne automatisches Ergebnis).
+
+## Kontrollierte Operationen: Einsatzplanung und Einsatzstatus (task-2-2)
+
+Migration `20261007150000_visit_operations.sql`. Tests: `supabase/tests/database/visit_operations.test.sql`.
+
+`expected_version` ist immer die Version der Anfrage, zu der der Einsatz gehört. Jede Operation erhöht sie.
+
+Zusätzlicher Fehlercode: **`RW410` Terminkonflikt** – das Zeitfenster überschneidet sich mit einer aktiven Buchung des Technikers (Oberfläche: anderes Zeitfenster wählen).
+
+### Operationen
+
+| Funktion | Rollen | Übergang / Wirkung | Ereignisse |
+| --- | --- | --- | --- |
+| `schedule_visit(request_id, expected_version, technician_id, scheduled_start, scheduled_end)` | Dispatcher (eigene Anfragen), Manager, Admin | nur `processed` und nicht terminal; nicht in der Vergangenheit; aktiver Techniker; Arbeitszeit und Abwesenheit geprüft; setzt `requests.technician_id`; `not_planned`/`waiting_parts` → `scheduled` | `visit_scheduled`, ggf. `technician_assigned`, `work_status_changed` |
+| `reschedule_visit(visit_id, expected_version, scheduled_start, scheduled_end, reason, technician_id?)` | dto. | nur `scheduled`; optional anderer Techniker | `visit_rescheduled` mit altem und neuem Intervall und Techniker, ggf. `technician_assigned` |
+| `start_visit(visit_id, expected_version)` | eingeplanter Techniker, Manager, Admin | `scheduled` → `in_progress`, `actual_start`; Anfrage → `in_progress` | `visit_status_changed`, `work_status_changed` |
+| `wait_for_parts(visit_id, expected_version, reason)` | dto. | `in_progress` → `waiting_parts`; Anfrage → `waiting_parts`; Einsatz reserviert nicht mehr | dto. |
+| `resume_visit(visit_id, expected_version)` | dto. | `waiting_parts` → `in_progress` im ursprünglichen Zeitfenster; ist es inzwischen belegt: `RW410` (neuen Einsatz planen) | dto. |
+| `complete_visit(visit_id, expected_version, actual_work_minutes, summary?)` | dto. | `in_progress`/`waiting_parts` → `completed`, `actual_end`; schließt nur den Einsatz, nicht die Anfrage | `visit_status_changed` mit Arbeitsminuten |
+| `cancel_visit(visit_id, expected_version, reason)` | Dispatcher, Manager, Admin | `scheduled`/`waiting_parts` → `cancelled`; ohne weitere aktive Einsätze geht eine `scheduled`-Anfrage zurück auf `not_planned` | `visit_status_changed`, ggf. `work_status_changed` |
+
+Techniker dürfen nur eigene Einsätze bearbeiten. Abgebrochene, abgeschlossene und umgeplante Einsätze bleiben samt Intervallen erhalten.
+
+**Sicherheitsgefahr:** Eine Anfrage mit `safety_risk` `known` oder `unclear`, die automatisch bearbeitet wurde, kann erst nach einer menschlichen Aktion (Korrektur oder Statusänderung durch Personal) eingeplant werden.
+
+### Verfügbarkeit
+
+`private.availability_problem` prüft:
+
+- Der Einsatz liegt an einem lokalen Kalendertag (`settings.timezone`); Ende um 24:00 ist zulässig.
+- Eine `working_hours`-Zeile für den ISO-Wochentag mit gültigem Zeitraum umfasst Beginn und Ende vollständig. Ohne Arbeitszeiten ist kein Einsatz möglich.
+- Keine Abwesenheit überschneidet sich mit dem Einsatz.
+
+### Serialisierung pro Techniker
+
+- Planungsoperationen nehmen eine Advisory-Transaktionssperre je Techniker (`private.lock_technician`), bei Umplanung auf einen anderen Techniker beide Sperren in fester Reihenfolge.
+- Der Trigger `employee_availability_check_bookings` nimmt bei jeder Änderung von Arbeitszeiten oder Abwesenheiten dieselbe Sperre und weist Änderungen ab, die einen künftigen aktiven Einsatz ungültig machen würden (`RW422`). Der Einsatz muss zuerst umgeplant oder storniert werden.
+- Zusätzlich garantiert der Exclusion Constraint `visits_no_overlap` überschneidungsfreie aktive Buchungen.
+- Geprüft: 10 parallele `schedule_visit`-Aufrufe für dasselbe Zeitfenster, genau 1 erfolgreich, 9 mit Terminkonflikt.
+
+Zusätzlicher Ereigniscode: `visit_rescheduled`.
+
+## Kontrollierte Operationen: Arbeitspositionen und Abschluss (task-2-3)
+
+Migration `20261007160000_work_operations.sql`. Tests: `supabase/tests/database/work_operations.test.sql`.
+
+`expected_version` ist die Version der Anfrage; jede Operation erhöht sie.
+
+### Wer darf erfassen?
+
+- Aktuell zugewiesener Techniker der Anfrage, Manager und Admin.
+- Ein früherer Techniker nur Positionen zu seinem **eigenen Einsatz** (Einsatzberechtigung), keine anfragebezogenen Positionen.
+- Dispatcher erfassen keine Arbeitspositionen.
+- Nicht bei abgelehnten oder stornierten Anfragen. Nach dem technischen Abschluss bleiben Korrekturen bis zur Abrechnung möglich.
+- **Abrechnungssperre:** Sobald die Rechnung der Anfrage ausgestellt ist, können Positionen weder angelegt, geändert noch im Status bewegt werden (Entwürfe sperren nicht, siehe task-2-4).
+
+### Operationen
+
+| Funktion | Wirkung | Ereignis |
+| --- | --- | --- |
+| `add_work_entry(request_id, expected_version, kind, description, quantity, item_status?, unit_price?, tax_rate?, visit_id?, service_rate_id?, billable?)` | Einheit folgt aus der Art. Preis und Steuersatz aus dem Tarif, sonst Eingabe; Steuersatz zuletzt aus `settings.default_tax_rate`. Teile brauchen einen Preis. Tarif muss aktiv sein, zur Art passen (stündlich → `labor`, pauschal → `fixed_service`, nie `part`) und zur Leistungsart der Anfrage. Einsatz muss zur Anfrage gehören. | `work_entry_added` |
+| `update_work_entry(work_entry_id, expected_version, description?, quantity?, unit_price?, billable?)` | Korrektur nicht stornierter, nicht abgerechneter Positionen; Art bleibt fest | `work_entry_changed` mit alten und neuen Werten |
+| `set_work_entry_status(work_entry_id, expected_version, new_status)` | Übergang laut Tabelle; setzt `ordered_at` bzw. `performed_at` | `work_entry_changed` |
+| `close_request(request_id, expected_version, completion_summary)` | Technischer Abschluss, siehe unten | `work_status_changed`, `work_completed` |
+
+Erlaubte Statusübergänge:
+
+| Art | Übergänge |
+| --- | --- |
+| `part` | `planned` → `ordered` / `used` / `cancelled`; `ordered` → `used` / `cancelled`; `used` → `cancelled` |
+| `labor`, `fixed_service` | `planned` → `performed` / `cancelled`; `performed` → `cancelled` |
+
+Neue Positionen können direkt im Zielstatus angelegt werden (z. B. Teil als `used`, Arbeit als `performed`). `cancelled` ist endgültig.
+
+Wartung wird pauschal abgerechnet: Es werden keine Stundenpositionen automatisch ergänzt; die tatsächliche Arbeitszeit steht in `visits.actual_work_minutes`. Zusätzliche Arbeit wird als eigene Position erfasst.
+
+### Abschluss der Anfrage
+
+`close_request` setzt `work_status = completed`, `completed_at` und `completion_summary`:
+
+- nur aktuell zugewiesener Techniker, Manager oder Admin,
+- nur `intake_status = processed` und nicht terminal,
+- Abschlussbericht ist Pflicht,
+- keine Einsätze in `scheduled`, `in_progress` oder `waiting_parts`,
+- mindestens ein abgeschlossener Einsatz,
+- erneuter Aufruf liefert das bestehende Ergebnis.
+
+Der Abschluss verändert keine Rechnung und markiert keine Zahlung; technischer Abschluss und Zahlung sind getrennt.
+
+Zusätzliche Ereigniscodes: `work_entry_added`, `work_entry_changed`.
+
+## Kontrollierte Operationen: Rechnungen, Zahlungen, E-Mail-Warteschlange (task-2-4)
+
+Migration `20261007170000_invoice_message_operations.sql`. Tests: `supabase/tests/database/invoice_message_operations.test.sql`.
+
+`expected_version` ist die Version der Anfrage; jede Operation erhöht sie.
+
+### Rechnungen
+
+| Funktion | Rollen | Wirkung | Ereignis |
+| --- | --- | --- | --- |
+| `create_invoice(request_id, expected_version)` | aktueller Techniker, Manager, Admin | nur technisch abgeschlossene, bearbeitete Anfragen; legt Entwurf mit Vorschau-Positionen an; gibt eine bestehende Rechnung zurück | `invoice_created` |
+| `issue_invoice(invoice_id, expected_version)` | dto. | baut Positionen neu aus den Arbeitspositionen, vergibt `RE-JJJJ-NNNNN` atomar, setzt Ausstellungsdatum (Europe/Berlin), Fälligkeit (+ `payment_terms_days`), `issued_by`, Verkäufer- und Kunden-Snapshot; ohne abrechenbare Positionen `RW422`; erneuter Aufruf liefert die ausgestellte Rechnung | `invoice_issued` |
+| `record_payment(invoice_id, expected_version, paid_at?)` | **nur Manager, Admin** | `issued`/`sent` → `paid`; Zahlungsdatum zwischen Ausstellung und jetzt; erneuter Aufruf liefert die bezahlte Rechnung | `invoice_paid` (management) |
+
+**Abrechenbar** sind ausschließlich `billable`-Positionen mit `labor`/`fixed_service` im Status `performed` und `part` im Status `used`. Bestellte, geplante, stornierte und nicht abrechenbare Positionen erscheinen nicht. Es werden keine Positionen automatisch ergänzt; insbesondere entstehen bei Wartung keine Stundenaufschläge aus `visits.actual_work_minutes`.
+
+**Entwurf als Vorschau:** Solange die Rechnung `draft` ist, bleiben Arbeitspositionen änderbar; die Ausstellung übernimmt den aktuellen Stand. Ab Ausstellung sind alle Arbeitspositionen der Anfrage gesperrt, auch neue.
+
+**Unveränderlichkeit** (Trigger, gilt für jede Rolle):
+
+- `guard_invoice_update`: Nach der Ausstellung ändern sich Beträge, Nummer, Daten, Snapshots und Notizen nicht mehr. Status nur `issued` → `sent`, `issued` → `paid`, `sent` → `paid`; kein Weg zurück zu `draft`.
+- `guard_invoice_items`: Positionen ausgestellter Rechnungen können weder angelegt, geändert noch gelöscht werden.
+
+**Doppelrechnung ausgeschlossen:** eine Rechnung je Anfrage (`UNIQUE`), Wiederholung liefert das bestehende Ergebnis, Versionsprüfung serialisiert. Geprüft: 10 parallele `issue_invoice`-Aufrufe ergeben genau eine Nummer; 9 Aufrufe erhalten `RW409`.
+
+Der Status `sent` entsteht erst durch bestätigten E-Mail-Versand (künftige Integration). Demo-PDFs tragen die Kennzeichnung „Musterrechnung / Demodaten“.
+
+### E-Mail-Warteschlange und Zuordnung
+
+| Funktion | Rollen | Wirkung | Ereignis |
+| --- | --- | --- | --- |
+| `create_message_draft(request_id, expected_version, kind, to_address, subject, body_text, invoice_id?)` | Dispatcher der Anfrage, Manager, Admin | ausgehender Entwurf; Arten `receipt`, `clarification`, `invoice`, `other`; `invoice` nur mit ausgestellter Rechnung derselben Anfrage | `message_drafted` (dispatch) |
+| `update_message_draft(message_id, expected_version, to_address?, subject?, body_text?)` | dto. | nur Entwürfe | – |
+| `queue_message(message_id, expected_version)` | dto. | `draft` → `queued`, setzt `approved_by`/`approved_at` | `message_queued` (dispatch) |
+| `link_message(message_id, request_id, expected_version)` | Inhaber des Posteingangs, Manager, Admin | verknüpft eine unzugeordnete eingehende Nachricht mit einer zugänglichen Anfrage; Anhänge erhalten dieselbe `request_id` | `message_linked` mit bisherigem Posteingang (dispatch) |
+
+Die Warteschlange setzt **weder** `messages.sent_at` noch einen Rechnungsstatus `sent`/`paid` noch `requests.first_substantive_response_at`. Diese Werte setzt erst der bestätigte Versand durch die spätere n8n/Gmail-Integration. Techniker schreiben keine Kunden-E-Mails.
+
+Zusätzliche Ereigniscodes: `invoice_created`, `message_drafted`.
+
+## Integration und Ereignisreihenfolge (task-2-5)
+
+Migrationen `20261007180000_confirm_message_sent.sql`, `20261007180100_request_event_sequence.sql`.
+
+**`confirm_message_sent(message_id, sent_at?, mailbox_key?, gmail_message_id?, gmail_thread_id?, mime_message_id?)`** – nur `service_role` (künftige n8n-Integration), nicht für Dashboard-Nutzer:
+
+- `queued` → `sent` mit Provider-IDs; erneute Bestätigung liefert das bestehende Ergebnis.
+- `clarification` und `other` setzen einmalig `requests.first_substantive_response_at`; `receipt` und `invoice` nicht.
+- Rechnungs-E-Mail: `issued` → `sent`; eine bereits bezahlte Rechnung bleibt `paid` und erhält nur `sent_at`.
+- Demo-Anfragen (`is_demo`) werden nicht versendet.
+- Ereignisse `message_sent` und ggf. `invoice_sent` mit `actor_type = automation`.
+
+**`request_events.seq`** (Identity) ordnet Ereignisse mit gleichem `occurred_at` (gleiche Transaktion). Historie und Analytik sortieren nach `(occurred_at, seq)`.
+
+Tests: siehe [testing.md](testing.md).
