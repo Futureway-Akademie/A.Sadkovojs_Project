@@ -135,3 +135,8 @@
 {"timestamp": "2026-10-08T11:00:04Z", "type": "task_completed", "taskId": "task-9-1", "summary": "Kennzahlen-Wörterbuch und n8n-Vertrag dokumentiert."}
 {"timestamp": "2026-10-08T11:00:04Z", "type": "task_ready", "taskId": "task-9-2", "summary": "Alle Abhängigkeiten abgeschlossen."}
 {"timestamp": "2026-10-08T11:00:04Z", "type": "task_ready", "taskId": "task-10-2", "summary": "Abhängigkeiten task-6-3 und task-9-1 abgeschlossen."}
+{"timestamp": "2026-10-08T11:09:15Z", "type": "roadmap_updated", "summary": "Nach Rücksprache: neuer task-10-3 (Überarbeitung des Dashboard-Designs). task-9-2 hängt zusätzlich von task-10-3 ab und geht als dokumentierte Roadmap-Korrektur von ready auf planned, damit die Gesamtprüfung den endgültigen Stand prüft."}
+{"timestamp": "2026-10-08T11:09:15Z", "type": "task_ready", "taskId": "task-10-3", "summary": "Abhängigkeiten task-7-3 und task-8-1 abgeschlossen."}
+{"timestamp": "2026-10-08T11:09:30Z", "type": "task_started", "taskId": "task-10-1", "summary": "Bereinigung der Testkonten gestartet."}
+{"timestamp": "2026-10-08T11:12:51Z", "type": "verification_passed", "taskId": "task-10-1", "summary": "demo:verify 18/18, test:api, test:auth, test:ui, test:unit 40/40 und lint erfolgreich; nach Testläufen keine aktiven Testkonten."}
+{"timestamp": "2026-10-08T11:12:51Z", "type": "task_completed", "taskId": "task-10-1", "summary": "Testkonten automatischer Tests werden bereinigt."}

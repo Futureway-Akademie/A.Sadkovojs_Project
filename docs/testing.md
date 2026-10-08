@@ -50,7 +50,7 @@ Legt pro Lauf eigene Nutzer über die Auth-Admin-API an (`api-…-<lauf>@example
 - **Szenario 1:** `anon` liest und ruft nichts auf; Techniker B liest weder Anfrage noch Dokument-Metadaten von A und lädt dessen Datei nicht herunter; direkte PATCH-/INSERT-Aufrufe mit gefälschtem Autor scheitern; keine Selbstbeförderung; Dispatcher A erreicht keine Anfrage von B; inaktive Profile handeln nicht; nur die Integration bestätigt E-Mail-Versand.
 - **Szenario 2 (Nebenläufigkeit über HTTP):** 10 gleichzeitige `schedule_visit`-Aufrufe für dasselbe Zeitfenster ergeben genau eine Buchung und 9 × `RW410`; in 10 Durchläufen wird jeweils gleichzeitig gebucht und eine Abwesenheit eingetragen – nie gelingen beide.
 
-Das Skript bricht ab, wenn `NEXT_PUBLIC_SUPABASE_URL` nicht auf `127.0.0.1`/`localhost` zeigt. Testdaten bleiben in der lokalen Datenbank, bis `supabase db reset` sie entfernt; wiederholte Läufe stören sich nicht.
+Das Skript bricht ab, wenn `NEXT_PUBLIC_SUPABASE_URL` nicht auf `127.0.0.1`/`localhost` zeigt. Testanfragen bleiben in der lokalen Datenbank, bis `npm run demo:seed` sie entfernt; die Testkonten werden am Ende deaktiviert und vom nächsten Seed gelöscht. Wiederholte Läufe stören sich nicht.
 
 ## Anmelde-Tests (`npm run test:auth`)
 
@@ -102,7 +102,7 @@ Voraussetzung wie bei `test:auth` sowie Google Chrome (anderer Pfad über `CHROM
 
 Mit `UI_SCREENSHOTS=<Ordner>` wird je Seite und Breite ein Screenshot gespeichert, zusätzlich Aktionen und Rechnungsabschnitt (390, 1440) sowie das erzeugte PDF.
 
-`test:ui` und `test:api` legen Testanfragen mit `is_demo = true` an; `npm run demo:seed` entfernt sie samt Einsatzfotos wieder (Testnutzer bleiben bis `supabase db reset`).
+`test:ui` und `test:api` legen Testanfragen mit `is_demo = true` an; `npm run demo:seed` entfernt sie samt Einsatzfotos wieder und löscht die Testkonten (`api-…`, `ui-…`, `e2e-…@example.com`). Beide Skripte deaktivieren ihre Konten am Ende selbst und sperren den Login, damit sie nicht als aktives Personal in Planung, Vertretungsauswahl oder Team-Auswertung erscheinen. `demo:verify` prüft, dass kein Testkonto aktiv ist und genau das Demo-Personal (1 Admin, 1 Manager, 3 Dispatcher, 3 Techniker) aktiv ist.
 
 ## Szenarien der Spezifikation (Abschnitt 10)
 

@@ -7,11 +7,13 @@
 //
 // The data is generated deterministically from the anchor and written by public.demo_seed_apply in a single
 // transaction that first removes previous demo data. Live data (is_demo = false, users without demo marker)
-// is never touched. No e-mails are sent.
+// is never touched. No e-mails are sent. Accounts of automated test runs (scripts/demo/test-accounts.mjs) are
+// removed afterwards; still referenced ones are deactivated and blocked.
 import { readdir, readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 import { DEMO_SEED_OWNER, DEMO_STAFF } from "./demo/staff.mjs";
 import { generateDemoData } from "./demo/generate.mjs";
+import { cleanupTestAccounts } from "./demo/test-accounts.mjs";
 import { berlinTime, isoDate } from "./demo/time.mjs";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -70,6 +72,7 @@ if (process.argv.includes("--purge")) {
   const { data, error } = await admin.rpc("demo_seed_purge");
   if (error) throw new Error(error.message);
   console.log("Demodaten entfernt:", { ...data, storage_files: files });
+  console.log("Testkonten:", await cleanupTestAccounts(admin));
   process.exit(0);
 }
 
@@ -172,3 +175,6 @@ for (const plan of attachmentsPlan) {
 const { error: attachmentError } = await admin.from("attachments").insert(attachments);
 if (attachmentError) throw new Error(`Anhänge: ${attachmentError.message}`);
 console.log(`Demo-Dateien: ${attachments.length} im privaten Bucket ${BUCKET}/${FILE_PREFIX}/`);
+
+// Accounts of earlier test runs: their test requests were removed with the demo data above
+console.log("Testkonten (api-/ui-/e2e-…@example.com):", await cleanupTestAccounts(admin));

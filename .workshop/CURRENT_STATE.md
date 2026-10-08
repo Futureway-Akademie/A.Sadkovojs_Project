@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v2 mit 11 Phasen und 33 Tasks. Fortschritt 92,73 % (Gewicht 102 von 110, 30 von 33 Tasks).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v2 mit 11 Phasen und 34 Tasks. Fortschritt 91,15 % (Gewicht 103 von 113, 31 von 34 Tasks).
 
 ## Aktive Phase
 
-Phasen 0–8 sind abgeschlossen; in Phase 9 fehlt nur die Gesamtprüfung `task-9-2`. Phase 10 (Erweiterungen) wurde nach Rücksprache ergänzt.
+Phasen 0–8 sind abgeschlossen; in Phase 9 fehlt nur die Gesamtprüfung `task-9-2`, die nach der Design-Überarbeitung `task-10-3` folgt. Phase 10 (Erweiterungen) wurde nach Rücksprache ergänzt.
 
 ## Aktive Aufgabe
 
@@ -14,13 +14,13 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-9-1`: Kennzahlen-Wörterbuch `docs/kpi-dictionary.md` und n8n-Vertrag `docs/n8n-contract.md` (nur dokumentiert, Gmail-Versand nicht funktionsfähig); Unit-Test hält beide mit Code und Migrationen synchron. Anfrageseite zeigt fehlende Fristen als „Nicht vereinbart“.
+`task-10-1`: Testkonten automatischer Tests (`api-`/`ui-`/`e2e-…@example.com`) löscht `demo:seed`; `test:api` und `test:ui` deaktivieren ihre Konten am Ende; `demo:verify` prüft aktives Personal (18 Prüfungen). Davor `task-9-1` (Kennzahlen-Wörterbuch, n8n-Vertrag).
 
 ## Bereite nächste Aufgaben
 
-- `task-9-2`: Gesamtprüfung.
-- `task-10-1`: Testkonten aus automatischen Tests bereinigen (sinnvoll vor `task-9-2`).
+- `task-10-3`: Überarbeitung des Dashboard-Designs (Vorgaben des Nutzers).
 - `task-10-2`: Zahlungserinnerungen für offene Rechnungen.
+- Danach `task-9-2`: Gesamtprüfung (hängt von `task-10-3` ab).
 
 ## Blockiert
 

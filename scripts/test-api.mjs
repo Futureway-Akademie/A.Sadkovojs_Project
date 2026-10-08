@@ -1,8 +1,10 @@
 // Direct API checks against the local Supabase stack (REST, RPC, Storage) with real logins.
 // Covers foreign-role access (scenario 1), concurrent bookings and booking vs. availability races (scenario 2).
 // Usage: npm run test:api   (requires `supabase start` and .env.local)
-// Each run creates its own users and records (suffix = run id); `supabase db reset` removes them.
+// Each run creates its own users and records (suffix = run id). The users are deactivated at the end; `npm run demo:seed`
+// removes them together with the test records.
 import { createClient } from "@supabase/supabase-js";
+import { deactivateTestAccounts } from "./demo/test-accounts.mjs";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -37,10 +39,13 @@ async function must(promise) {
   return result.data;
 }
 
+const createdAccounts = [];
+
 async function createEmployee(key, role, isActive = true) {
   const email = `api-${key}-${runId}@example.com`;
   const user = await must(admin.auth.admin.createUser({ email, password, email_confirm: true }));
   await must(admin.from("profiles").insert({ id: user.user.id, display_name: `API ${key}`, role, is_active: isActive }));
+  createdAccounts.push(user.user.id);
   const client = createClient(url, publishableKey, options);
   await must(client.auth.signInWithPassword({ email, password }));
   return { id: user.user.id, client };
@@ -244,6 +249,8 @@ for (let i = 0; i < raceRequests.length; i += 1) {
 check("Buchung und gleichzeitige Abwesenheit nie beide erfolgreich (10 Durchläufe)", bothSucceeded === 0, `beide: ${bothSucceeded}`);
 check("jeweils genau eine Seite erfolgreich", neitherSucceeded === 0, `keine: ${neitherSucceeded}`);
 
+
+await deactivateTestAccounts(admin, createdAccounts);
 
 console.log(`\n${failures === 0 ? "Alle API-Prüfungen bestanden." : `${failures} Prüfung(en) fehlgeschlagen.`}`);
 process.exit(failures === 0 ? 0 : 1);

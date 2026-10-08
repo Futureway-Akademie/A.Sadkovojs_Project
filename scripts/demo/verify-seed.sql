@@ -67,7 +67,15 @@ with checks(name, failures) as (
        and (select count(distinct visibility) from public.attachments where storage_path like 'demo/%') = 3
        then 0 else 1 end)),
   ('Genau ein Abschluss der Erstbearbeitung je Anfrage',
-    (select count(*) from (select request_id from public.request_events where event_type = 'intake_completed' group by 1 having count(*) > 1) x))
+    (select count(*) from (select request_id from public.request_events where event_type = 'intake_completed' group by 1 having count(*) > 1) x)),
+  ('Keine aktiven Testkonten automatischer Tests (api-/ui-/e2e-…@example.com)',
+    (select count(*) from public.profiles p join auth.users u on u.id = p.id
+      where p.is_active and u.email ~ '^(api|ui|e2e)-[a-z0-9-]+@example\.com$')),
+  ('Aktives Demo-Personal: 1 Admin, 1 Manager, 3 Dispatcher, 3 Techniker',
+    (select case when count(*) filter (where p.role = 'admin') = 1 and count(*) filter (where p.role = 'manager') = 1
+       and count(*) filter (where p.role = 'dispatcher') = 3 and count(*) filter (where p.role = 'technician') = 3 then 0 else 1 end
+     from public.profiles p join auth.users u on u.id = p.id
+     where p.is_active and u.raw_app_meta_data ->> 'demo_seed' is not null))
 )
 select case when failures = 0 then 'ok  ' else 'FAIL' end || ' ' || name || case when failures = 0 then '' else ' (' || failures || ')' end
 from checks;

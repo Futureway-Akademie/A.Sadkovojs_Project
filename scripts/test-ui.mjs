@@ -11,6 +11,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { deactivateTestAccounts } from "./demo/test-accounts.mjs";
 
 const BASE = process.env.APP_URL ?? "http://localhost:3000";
 const CHROME = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -120,6 +121,8 @@ const profile = await mkdtemp(path.join(tmpdir(), "rw-ui-"));
 const port = 9300 + Math.floor(Math.random() * 500);
 const chrome = spawn(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
 let page;
+const testAccounts = [];
+let cleanupClient = null;
 try {
   let target;
   for (let attempt = 0; attempt < 50 && !target; attempt += 1) {
@@ -279,10 +282,12 @@ try {
   check("  Status „Gespeichert … HH:MM“, keine Fehlermarkierung", /Gespeichert .*\d{2}:\d{2}/.test(state.status) && state.invalid.length === 0, JSON.stringify(state));
   console.log("\nPrüfaktionen auf der Anfrageseite");
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
+  cleanupClient = admin;
   const runId = Date.now().toString(36);
   const dispoEmail = `ui-dispo-${runId}@example.com`;
   const { data: created } = await admin.auth.admin.createUser({ email: dispoEmail, password, email_confirm: true });
   const dispoId = created.user.id;
+  testAccounts.push(dispoId);
   await admin.from("profiles").insert({ id: dispoId, display_name: `UI-Test Dispatcher ${runId}`, role: "dispatcher" });
   const newRequest = async (key, overrides = {}) => {
     const { data, error } = await admin.from("requests").insert({
@@ -426,6 +431,7 @@ try {
   const techEmail = `ui-tech-${runId}@example.com`;
   const { data: techUser } = await admin.auth.admin.createUser({ email: techEmail, password, email_confirm: true });
   const techId = techUser.user.id;
+  testAccounts.push(techId);
   await admin.from("profiles").insert({ id: techId, display_name: `UI-Test Techniker ${runId}`, role: "technician" });
   await admin.from("employee_availability").insert([1, 2, 3, 4, 5].map((weekday) => ({ employee_id: techId, kind: "working_hours", weekday, local_start: "07:00", local_end: "16:00" })));
   const job = await newRequest("einsatz", { ...processed, service_kind: "diagnosis_repair", technician_id: techId, work_status: "scheduled" });
@@ -693,6 +699,8 @@ try {
   console.error(error);
   failures += 1;
 } finally {
+  // Temporary accounts no longer appear as active staff; demo:seed removes them
+  if (cleanupClient) await deactivateTestAccounts(cleanupClient, testAccounts).catch(() => {});
   page?.socket.close();
   chrome.kill();
   await rm(profile, { recursive: true, force: true }).catch(() => {});

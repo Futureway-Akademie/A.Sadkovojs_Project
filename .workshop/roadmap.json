@@ -1142,10 +1142,10 @@
         {
           "id": "task-9-2",
           "title": "Gesamtprüfung und Responsive-Check",
-          "description": "Prüfung der Szenarien 1-8 und der Hauptansichten bei 390x844, 768x1024 und 1440x900.",
+          "description": "Prüfung der Szenarien 1-8 und der Hauptansichten bei 390x844, 768x1024 und 1440x900. Erfolgt nach der Überarbeitung des Designs (task-10-3), damit die Sichtprüfung den endgültigen Stand abdeckt.",
           "order": 2,
           "weight": 4,
-          "status": "ready",
+          "status": "planned",
           "dependsOn": [
             "task-2-5",
             "task-3-3",
@@ -1155,7 +1155,8 @@
             "task-7-3",
             "task-8-1",
             "task-9-1",
-            "task-6-4"
+            "task-6-4",
+            "task-10-3"
           ],
           "definitionOfDone": [
             "Alle Szenarien mit Ergebnis dokumentiert",
@@ -1177,9 +1178,9 @@
     {
       "id": "phase-10",
       "title": "Erweiterungen",
-      "description": "Nachträge nach Rücksprache: Bereinigung der Testkonten und Zahlungserinnerungen.",
+      "description": "Nachträge nach Rücksprache: Bereinigung der Testkonten, Zahlungserinnerungen und Überarbeitung des Designs.",
       "order": 11,
-      "weight": 4,
+      "weight": 7,
       "status": "ready",
       "tasks": [
         {
@@ -1188,7 +1189,7 @@
           "description": "test:api, test:ui und test:auth hinterlassen temporäre Mitarbeitende (api-…, ui-…, e2e-…@example.com), die in Verwaltung, Einsatzplanung, Vertretungsauswahl und Team-Auswertung erscheinen. demo:seed entfernt sie nach den Testanfragen (Profil und Auth-Konto); noch referenzierte Konten werden deaktiviert und gesperrt. Die Tests deaktivieren ihre Konten am Ende selbst.",
           "order": 1,
           "weight": 1,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-8-1"
           ],
@@ -1198,13 +1199,21 @@
             "Wiederholte Testläufe erzeugen keine aktiven Testkonten mehr",
             "demo:verify prüft die Bereinigung"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T11:09:30Z",
+          "completedAt": "2026-10-08T11:12:51Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "scripts/demo/test-accounts.mjs erkennt Testkonten nur an festen Präfixen (api-/ui-/e2e-…@example.com) ohne Demo-Kennzeichnung. demo:seed löscht sie nach den Testanfragen (Arbeitszeiten, Profil, Auth-Konto), noch referenzierte werden deaktiviert und gesperrt; erster Lauf: 56 Konten gelöscht, danach nur 8 aktive Demo-Mitarbeitende. test:api und test:ui deaktivieren ihre Konten am Ende (nach einem Lauf 10 Testkonten, alle inaktiv; nächster Seed löscht sie). demo:verify um zwei Prüfungen erweitert (keine aktiven Testkonten, genau 1/1/3/3 aktives Demo-Personal): 18/18 ok. test:api, test:auth, test:ui, test:unit 40/40, lint erfolgreich.",
+            "commands": [
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run test:api",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui",
+              "npm run test:unit",
+              "npm run lint"
+            ],
+            "checkedAt": "2026-10-08T11:12:51Z"
           }
         },
         {
@@ -1223,6 +1232,32 @@
             "Keine Erinnerung für bezahlte oder ausgesetzte Rechnungen, je Stufe höchstens eine",
             "Erinnerung als Entwurf/Warteschlange, kein Versand ohne Integration",
             "Mahnstufe und Verlauf in der Oberfläche sichtbar; Tests für Fälligkeit, Wiederholung und Zahlung zwischen den Stufen"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-10-3",
+          "title": "Überarbeitung des Dashboard-Designs",
+          "description": "Gestalterische Überarbeitung des Mitarbeiterbereichs nach Vorgaben des Nutzers (z. B. Entwurf aus Claude Design unter docs/design/): Layout, Navigation, Listen, Kacheln, Formulare und Diagramme im RheinWerk-Design. Funktion, Rechte und Datenflüsse bleiben unverändert; test:ui sichert jeden Schritt ab.",
+          "order": 3,
+          "weight": 3,
+          "status": "ready",
+          "dependsOn": [
+            "task-7-3",
+            "task-8-1"
+          ],
+          "definitionOfDone": [
+            "Vereinbarte Gestaltung auf allen Hauptansichten umgesetzt",
+            "Kein horizontales Scrollen bei 390, 768 und 1440 px",
+            "Kontraste und Tastaturbedienung erhalten",
+            "test:ui, test:auth, lint, typecheck und build erfolgreich"
           ],
           "startedAt": null,
           "completedAt": null,
