@@ -37,6 +37,7 @@ export function databaseErrorMessage(error: DatabaseError): string {
       return "Keine Berechtigung für diese Aktion.";
     case "RW409":
       return "Der Datensatz wurde inzwischen von jemand anderem geändert. Ihre Eingaben bleiben erhalten; bitte die Seite neu laden und erneut prüfen.";
+    case "RW404":
     case "RW410":
     case "RW422":
       return error.message || "Die Aktion ist im aktuellen Zustand nicht möglich.";

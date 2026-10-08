@@ -542,6 +542,129 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"admin_add_absence":
+{ Args: { "employee_id": string,"ends_at": string,"label"?: string,"starts_at": string }; Returns: {
+              "created_at": string,
+"employee_id": string,
+"ends_at": string | null,
+"id": string,
+"kind": Database["public"]['Enums']["availability_kind"],
+"label": string | null,
+"local_end": string | null,
+"local_start": string | null,
+"starts_at": string | null,
+"updated_at": string,
+"valid_from": string | null,
+"valid_to": string | null,
+"weekday": number | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "employee_availability"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"admin_deactivate_employee":
+{ Args: { "employee_id": string,"replacement_id"?: string }; Returns: Json
+                           },
+"admin_delete_absence":
+{ Args: { "absence_id": string }; Returns: undefined
+                           },
+"admin_employee_assignments":
+{ Args: { "employee_id": string }; Returns: {
+              "assignment": string,"company_name": string,"request_id": string,"request_number": string,"scheduled_end": string,"scheduled_start": string,"visit_id": string,"visit_status": Database["public"]['Enums']["visit_status"]
+            }[]
+                           },
+"admin_reactivate_employee":
+{ Args: { "employee_id": string }; Returns: {
+              "created_at": string,
+"display_name": string,
+"id": string,
+"is_active": boolean,
+"role": Database["public"]['Enums']["employee_role"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "profiles"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"admin_save_service_rate":
+{ Args: { "billing_model": Database["public"]['Enums']["billing_model"],"code": string,"display_name": string,"is_active": boolean,"rate_id": string,"service_kind": Database["public"]['Enums']["service_kind"],"tax_rate": number,"unit_price": number }; Returns: {
+              "billing_model": Database["public"]['Enums']["billing_model"],
+"code": string,
+"created_at": string,
+"display_name": string,
+"id": string,
+"is_active": boolean,
+"service_kind": Database["public"]['Enums']["service_kind"],
+"tax_rate": number,
+"unit_price": number,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "service_rates"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"admin_set_working_hours":
+{ Args: { "employee_id": string,"hours": Json }; Returns: {
+              "created_at": string,
+"employee_id": string,
+"ends_at": string | null,
+"id": string,
+"kind": Database["public"]['Enums']["availability_kind"],
+"label": string | null,
+"local_end": string | null,
+"local_start": string | null,
+"starts_at": string | null,
+"updated_at": string,
+"valid_from": string | null,
+"valid_to": string | null,
+"weekday": number | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "employee_availability"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"admin_update_employee":
+{ Args: { "display_name": string,"employee_id": string,"role": Database["public"]['Enums']["employee_role"] }; Returns: {
+              "created_at": string,
+"display_name": string,
+"id": string,
+"is_active": boolean,
+"role": Database["public"]['Enums']["employee_role"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "profiles"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"admin_update_settings":
+{ Args: { "company_details": Json,"default_tax_rate": number,"manual_intake_minutes": number,"payment_terms_days": number }; Returns: {
+              "company_details": NonNullable<Json>,
+"created_at": string,
+"currency": string,
+"default_tax_rate": number,
+"id": number,
+"manual_intake_minutes": number,
+"payment_terms_days": number,
+"timezone": string,
+"updated_at": string,
+"updated_by": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "settings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "analytics_automation":
 { Args: { "anchor"?: string,"as_of"?: string,"kind"?: string }; Returns: {
               "corrected": number,"decision": Database["public"]['Enums']["automation_decision"],"runs": number,"status": Database["public"]['Enums']["automation_status"],"step": Database["public"]['Enums']["automation_step"]

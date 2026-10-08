@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 31 Tasks. Fortschritt 90,57 % (Gewicht 96 von 106, 28 von 31 Tasks).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v2 mit 11 Phasen und 33 Tasks. Fortschritt 92,73 % (Gewicht 102 von 110, 30 von 33 Tasks).
 
 ## Aktive Phase
 
-Phasen 0–7 sind abgeschlossen. Startbar sind Phase 8 (Verwaltung, `task-8-1`) und `task-9-1`; die Gesamtprüfung `task-9-2` folgt danach.
+Phasen 0–8 sind abgeschlossen; in Phase 9 fehlt nur die Gesamtprüfung `task-9-2`. Phase 10 (Erweiterungen) wurde nach Rücksprache ergänzt.
 
 ## Aktive Aufgabe
 
@@ -14,12 +14,13 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-7-3`: Auswertung `/dashboard/auswertung` mit sieben Diagrammen (Recharts 3.10.1) aus Datenbankdaten, Automatisierungsbereich, Tooltip der Zeitersparnis mit Anzahl und Basiswert; `analytics_series` liefert die Zeitersparnis je Abschnitt (Migration `20261008110000`).
+`task-9-1`: Kennzahlen-Wörterbuch `docs/kpi-dictionary.md` und n8n-Vertrag `docs/n8n-contract.md` (nur dokumentiert, Gmail-Versand nicht funktionsfähig); Unit-Test hält beide mit Code und Migrationen synchron. Anfrageseite zeigt fehlende Fristen als „Nicht vereinbart“.
 
 ## Bereite nächste Aufgaben
 
-- `task-8-1`: Benutzer, Tarife, Arbeitszeiten und Einstellungen.
-- `task-9-1`: Kennzahlen-Wörterbuch und n8n-Vertrag.
+- `task-9-2`: Gesamtprüfung.
+- `task-10-1`: Testkonten aus automatischen Tests bereinigen (sinnvoll vor `task-9-2`).
+- `task-10-2`: Zahlungserinnerungen für offene Rechnungen.
 
 ## Blockiert
 
@@ -27,6 +28,8 @@ Nichts.
 
 ## Wichtige Entscheidungen
 
+- n8n-Vertrag: n8n schreibt nur über RPC-Funktionen mit Idempotenzschlüsseln (`source_event_key`, `operation_key`, `(mailbox_key, gmail_message_id)`, `messages.id`) und `expected_version`; vorhanden ist nur `confirm_message_sent`, die übrigen Integrationsfunktionen sind als „zu bauen“ markiert. Team-Kennzahlen zählen nach aktueller Zuweisung.
+- Verwaltung: Mitarbeitende werden deaktiviert, nie gelöscht; aktive Zuweisungen gehen dabei in einer Transaktion an eine Vertretung derselben Rolle, der Login wird gesperrt. Rollenwechsel nur ohne aktive Zuweisungen, eigenes Konto weder Rollenwechsel noch Deaktivierung. Öffentliche Registrierung aus (`[auth] enable_signup = false`; `[auth.email]` bleibt an, sonst ist die E-Mail-Anmeldung lokal aus). Einstellungen wirken nur auf spätere Vorgänge.
 - Diagramme: Recharts, Farben `lib/chart-colors.ts` (Dataviz-validiert, feste Reihenfolge), je Abbildung Datentabelle; nur helle Darstellung.
 - Manager-Übersicht verlinkt jede Kennzahl auf Anfrage- oder Rechnungsliste (`feld`/`von`/`bis`, `modus`, `status`); Definitionen in `lib/analytics.ts`.
 - Analytik: laufende Zeiträume vergleichen dieselbe verstrichene Zeit ab Beginn des Vorzeitraums (begrenzt auf dessen Ende), abgeschlossene den ganzen Vorzeitraum; Ereignis-Kennzahlen nach eigenem Zeitstempel, Momentaufnahmen am Periodenende; `change_percent` nie bei Null-Basis. Warteschlangenhistorie aus `request_events` rekonstruiert.

@@ -283,5 +283,21 @@ for (const email of ["technik1.demo@example.com", "technik2.demo@example.com", "
 const dispoCalendar = await get(dispoJar, "/dashboard/kalender");
 check("Dispatcher hat keinen Techniker-Kalender", dispoCalendar.status === 307);
 
+// Administration (task-8-1): no public registration, admin-only pages
+const publicClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+const signup = await publicClient.auth.signUp({ email: `e2e-signup-${run}@example.com`, password: `${pw}x` });
+check("Öffentliche Registrierung abgewiesen", Boolean(signup.error) && !signup.data.user, signup.error?.code ?? "angelegt");
+const adminJar = (await login("admin.demo@example.com", pw)).jar;
+const adminId = userId("admin.demo@example.com");
+for (const page of ["/dashboard/verwaltung/arbeitszeiten", "/dashboard/verwaltung/tarife", "/dashboard/verwaltung/einstellungen", `/dashboard/verwaltung/mitarbeitende/${adminId}`]) {
+  const own = await get(adminJar, page);
+  const other = await get(managerJar, page);
+  check(`${page}: Admin 200, Manager → eigene Startseite`, own.status === 200 && other.status === 307 && path(other.loc) === "/dashboard/uebersicht", `${own.status} ${other.status} ${other.loc}`);
+}
+const ownPage = await get(adminJar, `/dashboard/verwaltung/mitarbeitende/${adminId}`);
+check("  eigenes Konto: keine Deaktivierung angeboten", !ownPage.html.includes('id="deaktivieren-title"'));
+const unknown = await get(adminJar, "/dashboard/verwaltung/mitarbeitende/00000000-0000-0000-0000-000000000000");
+check("  unbekannte Person → 404", unknown.status === 404, String(unknown.status));
+
 console.log(fail ? `${fail} fehlgeschlagen` : "Alle Prüfungen bestanden");
 process.exit(fail ? 1 : 0);

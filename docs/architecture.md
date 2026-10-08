@@ -6,7 +6,7 @@
 - **Daten:** Supabase Postgres mit 13 Kerntabellen (`profiles`, `requests`, `messages`, `visits`, `work_entries`, `invoices`, `invoice_items`, `attachments`, `request_events`, `automation_runs`, `service_rates`, `employee_availability`, `settings`).
 - **Berechtigung:** Supabase Auth; Rolle und Aktivstatus in `profiles`; Durchsetzung über RLS und kontrollierte RPC-Funktionen. Ausgeblendete UI-Elemente gelten nicht als Berechtigung.
 - **Dateien:** privater Supabase-Storage-Bucket für Dashboard-Dateien; Website-Formularanhänge bleiben vorerst in Vercel Blob.
-- **Integrationen:** Website-Formular → Make (bestehend, unverändert). n8n und Gmail folgen in einer späteren Stufe; der Vertrag wird in Phase 9 dokumentiert.
+- **Integrationen:** Website-Formular → Make (bestehend, unverändert). n8n und Gmail folgen in einer späteren Stufe; der Vertrag steht in [n8n-contract.md](n8n-contract.md) (nur dokumentiert, nicht angebunden). Kennzahlen: [kpi-dictionary.md](kpi-dictionary.md).
 
 ## Supabase-Anbindung
 
@@ -193,3 +193,17 @@ Vorlage: `docs/design/RheinWerk Rechnungsvorlage.html` (Claude Design, gebündel
 | Automatisierungsläufe je Schritt, Status, Entscheidung | `analytics_automation` | gewählter Zeitraum |
 
 Jede Abbildung hat Titel, Textzusammenfassung, Legende bei mindestens zwei Reihen (Linien- bzw. Flächenschlüssel), Tooltip (Fadenkreuz bei Linien, Wert vor Reihenname) und eine aufklappbare Datentabelle. Darstellung nach den Dataviz-Regeln: 2-px-Linien, Säulen höchstens 24 px mit 4-px-Rundung am Datenende und 2 px Abstand, Haarlinien-Raster, Achsentexte in Textfarben. Farben `lib/chart-colors.ts` (feste Reihenfolge, nie zyklisch).
+
+## Verwaltung (task-8-1)
+
+Nur Admin (`/dashboard/verwaltung`, Startseite der Rolle). Unternavigation `components/dashboard/admin-nav.tsx`; jede Seite prüft die Rolle selbst.
+
+| Seite | Inhalt |
+| --- | --- |
+| `/dashboard/verwaltung` | Mitarbeitende mit Rolle, Status, Wochenarbeitszeit und letzter Anmeldung; Formular „Mitarbeitende anlegen“ (Name, E-Mail, Rolle, Startpasswort ≥ 12 Zeichen) |
+| `/dashboard/verwaltung/mitarbeitende/[id]` | Name und Rolle, Wochenarbeitszeit (Techniker), Abwesenheiten, aktive Zuweisungen, Deaktivieren mit Auswahl der Vertretung bzw. Wieder aktivieren |
+| `/dashboard/verwaltung/arbeitszeiten` | Wochenzeiten und kommende Abwesenheiten aller aktiven Techniker |
+| `/dashboard/verwaltung/tarife` | Tarife anlegen, ändern, deaktivieren |
+| `/dashboard/verwaltung/einstellungen` | Basiswert, Standard-Steuersatz, Zahlungsziel, Firmenangaben der Rechnung |
+
+Daten: `lib/dashboard/admin.ts` (Profile, Tarife, Verfügbarkeiten, Einstellungen mit Nutzerrechten; E-Mail und letzte Anmeldung aus Supabase Auth mit dem Admin-Client). Aktionen: `app/(dashboard)/dashboard/verwaltung/actions.ts` rufen die `admin_*`-Operationen mit den Rechten des Admins auf; nur Anlegen, Sperren und Freigeben des Logins nutzen den Secret Key. Das Passwort wird nie an den Browser zurückgegeben. Deaktivierung und Reaktivierung leiten mit dem Ergebnis in der URL auf die Personenseite (`?ergebnis=deaktiviert&anfragen=…&einsaetze=…`), weil der Formularabschnitt danach verschwindet. Reine Hilfen (Wochenformular, Zusammenfassung „Mo–Fr 07:00–16:00“, Abwesenheit als ganze Tage in Europe/Berlin, Firmenangaben zusammenführen) in `lib/admin.ts`.

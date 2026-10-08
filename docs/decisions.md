@@ -236,3 +236,21 @@ task-7-3 verlangt Diagramme aus Datenbankdaten und eine gegen React 19 geprüfte
 ### Begründung
 
 SVG-Ausgabe ist im Browser-Test prüfbar (Markierungen, Tooltip), die Bibliothek ist verbreitet und MIT-lizenziert. Ein Vergleich mit Grau (`#7A8B99`) fiel durch (zu geringer Unterschied zu Blau), daher Blau gegen Orange für aktuellen und Vorzeitraum.
+
+## 2026-10-08 – Deaktivierung mit Neuzuweisung in einem Schritt
+
+### Kontext
+
+Mitarbeitende werden nicht gelöscht (Verlauf, Einsätze und Rechnungen verweisen auf sie). Offene Anfragen und geplante Einsätze einer deaktivierten Person wären sonst verwaist.
+
+### Entscheidung
+
+`admin_deactivate_employee` zeigt vorher die aktiven Zuweisungen und überträgt sie in derselben Transaktion auf eine gewählte aktive Vertretung derselben Rolle; geplante Einsätze nur, wenn sie in deren Arbeitszeit passen. Laufende Einsätze blockieren die Deaktivierung. Zusätzlich wird der Login in Supabase Auth gesperrt; ohne aktives Profil liefert RLS ohnehin keine Daten. Rollenwechsel sind nur ohne aktive Zuweisungen möglich, das eigene Konto kann weder die Rolle wechseln noch deaktiviert werden.
+
+### Begründung
+
+Ein Schritt statt „erst manuell umplanen, dann deaktivieren“ verhindert Zwischenzustände und ist für den Admin nachvollziehbar (Liste, Vertretung, Ergebnis mit Anzahl). Scheitert ein Einsatz an der Verfügbarkeit, ändert sich nichts und die Meldung nennt Einsatz und Grund.
+
+## 2026-10-08 – Keine öffentliche Registrierung
+
+Konten entstehen nur über die Verwaltung (Auth-Admin-API mit Secret Key, bestätigte Adresse, kein E-Mail-Versand). Lokal ist `[auth] enable_signup = false` gesetzt; `[auth.email] enable_signup` bleibt `true`, weil die lokale CLI sonst die E-Mail-Anmeldung insgesamt abschaltet (`email_provider_disabled`). Im Cloud-Projekt ist die Registrierung im Supabase-Dashboard abzuschalten.

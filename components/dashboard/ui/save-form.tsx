@@ -97,11 +97,11 @@ function FieldFrame({ name, label, hint, required, error, children }: FieldProps
   );
 }
 
-export function TextField({ type = "text", inputMode, ...props }: FieldProps & { type?: "text" | "email" | "tel" | "number" | "date" | "datetime-local" | "time"; inputMode?: "decimal" | "numeric" | "text" }) {
+export function TextField({ type = "text", inputMode, autoComplete, ...props }: FieldProps & { type?: "text" | "email" | "tel" | "number" | "date" | "datetime-local" | "time" | "password"; inputMode?: "decimal" | "numeric" | "text"; autoComplete?: string }) {
   const { error, describedBy } = useField(props.name);
   return (
     <FieldFrame {...props} error={error}>
-      <input id={`field-${props.name}`} name={props.name} type={type} inputMode={inputMode} defaultValue={props.defaultValue} required={props.required} aria-invalid={!!error} aria-describedby={describedBy} />
+      <input id={`field-${props.name}`} name={props.name} type={type} inputMode={inputMode} autoComplete={autoComplete} defaultValue={props.defaultValue} required={props.required} aria-invalid={!!error} aria-describedby={describedBy} />
     </FieldFrame>
   );
 }

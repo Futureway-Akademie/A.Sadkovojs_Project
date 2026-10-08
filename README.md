@@ -5,6 +5,9 @@ Next.js-16-Website der RheinWerk Industrieservice mit geplantem Mitarbeiterberei
 - Website: Start, Prüfungen, Umgebungsvariablen und Make-Vertrag in [docs/website.md](docs/website.md)
 - Architektur: [docs/architecture.md](docs/architecture.md)
 - Entscheidungen: [docs/decisions.md](docs/decisions.md)
+- Datenbank und Tests: [docs/database.md](docs/database.md), [docs/testing.md](docs/testing.md)
+- Kennzahlen: [docs/kpi-dictionary.md](docs/kpi-dictionary.md)
+- Künftige n8n-/Gmail-Integration (nur dokumentiert, nicht angebunden): [docs/n8n-contract.md](docs/n8n-contract.md)
 
 ## Futureway Workshop Repository
 

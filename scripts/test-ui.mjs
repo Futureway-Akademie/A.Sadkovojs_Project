@@ -145,7 +145,7 @@ try {
     { name: "1440", width: 1440, height: 900, mobile: false },
   ];
   const roles = [
-    { email: "admin.demo@example.com", pages: ["/dashboard/bausteine", "/dashboard/verwaltung", "/dashboard/uebersicht", "/dashboard/anfragen"] },
+    { email: "admin.demo@example.com", pages: ["/dashboard/bausteine", "/dashboard/verwaltung", "detail:/dashboard/verwaltung", "detail:/dashboard/verwaltung/arbeitszeiten", "/dashboard/verwaltung/arbeitszeiten", "/dashboard/verwaltung/tarife", "/dashboard/verwaltung/einstellungen", "/dashboard/uebersicht", "/dashboard/anfragen"] },
     { email: "manager.demo@example.com", pages: ["/dashboard/uebersicht", "/dashboard/uebersicht?zeitraum=jahr", "/dashboard/rechnungen", "/dashboard/auswertung", "/dashboard/planung", "/dashboard/anfragen", "detail:/dashboard/anfragen?arbeit=completed", "detail:/dashboard/anfragen?erstbearbeitung=needs_review"] },
     { email: "dispo3.demo@example.com", pages: ["/dashboard/erstbearbeitung", "/dashboard/erstbearbeitung?tab=planung", "/dashboard/erstbearbeitung?tab=alle"] },
     { email: "technik1.demo@example.com", pages: ["/dashboard/heute", "/dashboard/kalender", "/dashboard/anfragen", "detail:/dashboard/anfragen", "einsatz:/dashboard/heute"] },
@@ -169,7 +169,7 @@ try {
         }
         await page.open(`${BASE}${pathname}`);
         const result = await page.eval(`({ path: location.pathname, scroll: document.documentElement.scrollWidth, width: window.innerWidth })`);
-        check(`${role.email.split(".")[0]} ${pathname} @${viewport.name}`, result.path === pathname.split("?")[0] && result.scroll <= result.width, JSON.stringify(result));
+        check(`${role.email.split(".")[0]} ${pathname} @${viewport.name}`, result.path === pathname.split(/[?#]/)[0] && result.scroll <= result.width, JSON.stringify(result));
         if (SHOTS) {
           const shot = await page.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
           await writeFile(path.join(SHOTS, `${role.email.split(".")[0]}-${entry.replace(/[^a-z0-9]+/gi, "_")}-${viewport.name}.png`), Buffer.from(shot.data, "base64"));
@@ -575,6 +575,119 @@ try {
       await writeFile(path.join(SHOTS, `rechnung-${viewport.width}.png`), Buffer.from(shot.data, "base64"));
     }
     await writeFile(path.join(SHOTS, `${invoice.invoice_number}.pdf`), firstPdf.bytes);
+  }
+
+  console.log("\nVerwaltung: Konten, Arbeitszeiten, Deaktivierung mit Neuzuweisung, Tarife, Einstellungen");
+  {
+    await page.send("Network.clearBrowserCookies");
+    await page.send("Network.setCookies", { cookies: await loginCookies("admin.demo@example.com") });
+    await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    const adminRun = Date.now().toString(36);
+    const accounts = { technician: `ui-technik-${adminRun}@example.com`, dispatcher: `ui-dispo-neu-${adminRun}@example.com` };
+    const created = {};
+    for (const [role, email] of Object.entries(accounts)) {
+      await page.open(`${BASE}/dashboard/verwaltung`);
+      await fillIn(actionForm("Mitarbeitende anlegen"), { display_name: `UI ${role} ${adminRun}`, email, role, password });
+      const moved = await page.until(`location.pathname.startsWith("/dashboard/verwaltung/mitarbeitende/")`, 10000);
+      created[role] = moved ? await page.eval(`location.pathname.split("/").pop()`) : null;
+      check(`${role} über das Formular angelegt, weiter zur Personenseite`, moved && await page.until(`document.querySelector(".notice")?.textContent.includes("Konto angelegt")`));
+    }
+    const { data: newProfile } = await admin.from("profiles").select("*").eq("id", created.technician).single();
+    check("  Profil mit Rolle, aktiv, ohne Passwortfeld", newProfile?.role === "technician" && newProfile.is_active && !Object.keys(newProfile).some((key) => /pass/i.test(key)), JSON.stringify(newProfile));
+    check("  neues Konto kann sich anmelden", await loginCookies(accounts.dispatcher).then(() => true, () => false));
+
+    await page.open(`${BASE}/dashboard/verwaltung`);
+    await fillIn(actionForm("Mitarbeitende anlegen"), { display_name: "Doppelt", email: accounts.technician, role: "technician", password });
+    let state = await settled(actionForm("Mitarbeitende anlegen"), "save-status--error");
+    check("doppelte E-Mail-Adresse abgewiesen", state?.status.includes("bereits ein Konto"), state?.status);
+    await fillIn(actionForm("Mitarbeitende anlegen"), { email: `ui-kurz-${adminRun}@example.com`, password: "kurz" });
+    state = await settled(actionForm("Mitarbeitende anlegen"), "save-status--error");
+    check("  zu kurzes Passwort abgewiesen, Eingaben bleiben", state?.values.display_name === "Doppelt" && (await page.eval(`!!document.getElementById("password-error")`)), JSON.stringify(state));
+
+    // Weekly hours of the new technician
+    const technicianUrl = `${BASE}/dashboard/verwaltung/mitarbeitende/${created.technician}`;
+    await page.open(technicianUrl);
+    const hoursForm = formWithButton("Arbeitszeiten speichern");
+    const setHours = (days, endOfWednesday) => page.eval(`(() => {
+      const form = ${hoursForm};
+      for (let day = 1; day <= 7; day += 1) {
+        form.querySelector('[name="day_' + day + '"]').checked = ${JSON.stringify(days)}.includes(day);
+        form.querySelector('[name="day_' + day + '_start"]').value = "07:00";
+        form.querySelector('[name="day_' + day + '_end"]').value = day === 3 ? ${JSON.stringify(endOfWednesday)} : "16:00";
+      }
+      form.dispatchEvent(new Event("input", { bubbles: true }));
+      form.requestSubmit();
+    })()`);
+    await setHours([1, 2, 3, 4, 5], "06:00");
+    state = await settled(hoursForm, "save-status--error");
+    check("Arbeitszeit mit Ende vor Beginn abgewiesen", Boolean(state) && (await page.eval(`!!document.getElementById("day_3_end-error")`)), state?.status);
+    await setHours([1, 2, 3, 4, 5], "15:00");
+    state = await settled(hoursForm, "save-status--success");
+    const { data: hours } = await admin.from("employee_availability").select("weekday, local_start, local_end").eq("employee_id", created.technician).eq("kind", "working_hours").order("weekday");
+    check("  Mo–Fr gespeichert, Mittwoch bis 15:00", Boolean(state) && hours.length === 5 && hours[2].local_end === "15:00:00", JSON.stringify(hours));
+    await page.open(`${BASE}/dashboard/verwaltung/arbeitszeiten`);
+    check("  Übersicht zeigt die Wochenzeiten", await page.eval(`document.body.textContent.includes("Mo–Di 07:00–16:00, Mi 07:00–15:00, Do–Fr 07:00–16:00")`));
+
+    // Deactivation of a dispatcher with an open request: reassignment in one step
+    const assigned = await newRequest(`verwaltung-${adminRun}`, { dispatcher_id: created.dispatcher, intake_status: "new", human_review_required: false });
+    const dispatcherUrl = `${BASE}/dashboard/verwaltung/mitarbeitende/${created.dispatcher}`;
+    await page.open(dispatcherUrl);
+    const { data: assignedRow } = await admin.from("requests").select("request_number").eq("id", assigned.id).single();
+    check("aktive Zuweisung wird vor der Deaktivierung angezeigt", await page.eval(`document.getElementById("zuweisungen-title").parentElement.textContent.includes(${JSON.stringify(assignedRow.request_number)})`));
+    const deactivateForm = formWithButton("Deaktivieren");
+    await page.eval(`${deactivateForm}.requestSubmit()`);
+    state = await settled(deactivateForm, "save-status--error");
+    check("  ohne Vertretung nicht möglich", state?.status.includes("Vertretung"), state?.status);
+    await page.eval(`(() => { const form = ${deactivateForm}; form.querySelector('[name="replacement_id"]').value = ${JSON.stringify(dispoId)}; form.requestSubmit(); })()`);
+    const done = await page.until(`location.search.includes("ergebnis=deaktiviert")`, 10000);
+    check("  deaktiviert, 1 Anfrage neu zugewiesen", done && await page.eval(`document.querySelector(".notice")?.textContent.includes("1 Anfragen") && document.querySelector(".notice").textContent.includes("Anmeldung ist gesperrt")`));
+    const after = (await admin.from("requests").select("dispatcher_id").eq("id", assigned.id).single()).data;
+    const deactivated = (await admin.from("profiles").select("is_active").eq("id", created.dispatcher).single()).data;
+    check("  Anfrage bei der Vertretung, Profil inaktiv statt gelöscht", after?.dispatcher_id === dispoId && deactivated?.is_active === false, JSON.stringify({ after, deactivated }));
+    check("  Anmeldung gesperrt", await loginCookies(accounts.dispatcher).then(() => false, () => true));
+    await page.eval(`${formWithButton("Aktivieren")}.requestSubmit()`);
+    check("Reaktivierung gibt die Anmeldung frei", await page.until(`location.search.includes("ergebnis=aktiviert")`, 10000) && await loginCookies(accounts.dispatcher).then(() => true, () => false));
+
+    // Service rates
+    await page.open(`${BASE}/dashboard/verwaltung/tarife`);
+    const code = `UI-${adminRun}`.toUpperCase();
+    await fillIn(actionForm("Tarif anlegen"), { code, display_name: "UI-Test Pauschale", service_kind: "inspection", billing_model: "fixed", unit_price: "99,5", tax_rate: "19" });
+    state = await settled(actionForm("Tarif anlegen"), "save-status--success");
+    const { data: newRate } = await admin.from("service_rates").select("*").eq("code", code).maybeSingle();
+    check("Tarif angelegt (Preis mit Komma)", Boolean(state) && Number(newRate?.unit_price) === 99.5 && newRate?.is_active, JSON.stringify(newRate));
+    await page.open(`${BASE}/dashboard/verwaltung/tarife`);
+    const rateForm = `[...document.querySelectorAll(".rate-list details.action")].find((d) => d.querySelector("summary").textContent.includes(${JSON.stringify(code)}))`;
+    await page.eval(`(() => { const host = ${rateForm}; host.open = true; const form = host.querySelector("form"); form.querySelector('[name="unit_price"]').value = "105"; form.querySelector('[name="is_active"]').checked = false; form.requestSubmit(); })()`);
+    await settled(rateForm, "save-status--success");
+    const { data: changedRate } = await admin.from("service_rates").select("unit_price, is_active").eq("id", newRate?.id).maybeSingle();
+    check("  Tarif geändert und deaktiviert", Number(changedRate?.unit_price) === 105 && changedRate?.is_active === false, JSON.stringify(changedRate));
+
+    // Settings: invalid value is rejected, a valid change is stored with author and then restored
+    const { data: before } = await admin.from("settings").select("*").eq("id", 1).single();
+    const settingsForm = formWithButton("Einstellungen speichern");
+    await page.open(`${BASE}/dashboard/verwaltung/einstellungen`);
+    await fillIn(settingsForm, { manual_intake_minutes: "0" });
+    state = await settled(settingsForm, "save-status--error");
+    check("Einstellungen: Basiswert 0 abgewiesen", Boolean(state) && (await page.eval(`!!document.getElementById("manual_intake_minutes-error")`)), state?.status);
+    await fillIn(settingsForm, { manual_intake_minutes: String(Number(before.manual_intake_minutes) + 1) });
+    state = await settled(settingsForm, "save-status--success");
+    const { data: changed } = await admin.from("settings").select("*").eq("id", 1).single();
+    const adminId = (await admin.from("profiles").select("id").eq("display_name", "Clara Becker").single()).data?.id;
+    check("  Basiswert gespeichert mit Autor, Firmenangaben unverändert", Number(changed.manual_intake_minutes) === Number(before.manual_intake_minutes) + 1 && changed.updated_by === adminId && JSON.stringify(changed.company_details) === JSON.stringify(before.company_details), JSON.stringify(changed));
+    await page.open(`${BASE}/dashboard/verwaltung/einstellungen`);
+    await fillIn(settingsForm, { manual_intake_minutes: String(Number(before.manual_intake_minutes)).replace(".", ",") });
+    await settled(settingsForm, "save-status--success");
+    const restored = (await admin.from("settings").select("manual_intake_minutes").eq("id", 1).single()).data;
+    check("  ursprünglicher Basiswert wiederhergestellt", Number(restored.manual_intake_minutes) === Number(before.manual_intake_minutes));
+
+    // Test accounts stay inactive (no assignments: no replacement needed)
+    for (const id of [created.technician, created.dispatcher]) {
+      await page.open(`${BASE}/dashboard/verwaltung/mitarbeitende/${id}`);
+      await page.eval(`${formWithButton("Deaktivieren")}.requestSubmit()`);
+      await page.until(`location.search.includes("ergebnis=deaktiviert")`, 10000);
+    }
+    const { data: leftovers } = await admin.from("profiles").select("id").in("id", [created.technician, created.dispatcher]).eq("is_active", true);
+    check("Testkonten ohne Zuweisungen direkt deaktiviert", leftovers.length === 0, JSON.stringify(leftovers));
   }
 } catch (error) {
   console.error(error);

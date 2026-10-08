@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "roadmapVersion": 1,
+  "roadmapVersion": 2,
   "status": "active",
   "phases": [
     {
@@ -1059,7 +1059,7 @@
       "description": "Verwaltung von Mitarbeitenden und Einstellungen.",
       "order": 9,
       "weight": 4,
-      "status": "ready",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-8-1",
@@ -1067,7 +1067,7 @@
           "description": "Admin legt Mitarbeitende an, ändert Rollen, deaktiviert statt zu löschen und pflegt Tarife, Arbeitszeiten und Einstellungen.",
           "order": 1,
           "weight": 4,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-4-2",
             "task-2-1"
@@ -1078,13 +1078,24 @@
             "Keine Passwörter in profiles",
             "Einstellungsänderungen wirken nur auf spätere Erstbearbeitungen"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T09:54:40Z",
+          "completedAt": "2026-10-08T10:14:33Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Verwaltung /dashboard/verwaltung (Mitarbeitende, Personenseite, Arbeitszeiten, Tarife, Einstellungen) über admin_*-Operationen (Migration 20261008120000). Keine öffentliche Registrierung ([auth] enable_signup = false, signUp → signup_disabled); Konten nur über Auth-Admin-API, keine Passwörter in profiles. Deaktivierung statt Löschen: aktive Zuweisungen werden angezeigt und in einer Transaktion an eine Vertretung derselben Rolle übertragen (Einsätze nur innerhalb ihrer Arbeitszeit, laufender Einsatz blockiert), Login gesperrt, Reaktivierung gibt ihn frei. Einstellungen wirken nur auf spätere Erstbearbeitungen (Basiswert je Anfrage eingefroren, pgTAP). test:db 521/521 (neu 47), test:unit 35/35, test:auth, test:ui (Anlegen, Arbeitszeiten, Deaktivierung mit Neuzuweisung, Tarife, Einstellungen, kein horizontales Scrollen 390/768/1440), test:api, demo:seed, demo:verify 16/16, lint, typecheck, build erfolgreich; Screenshots gesichtet.",
+            "commands": [
+              "npm run test:unit",
+              "npm run test:db",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "npm run test:api",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-08T10:14:33Z"
           }
         }
       ]
@@ -1103,7 +1114,7 @@
           "description": "Dokumentation aller Kennzahlen sowie des künftigen n8n-Ein-/Ausgabevertrags inklusive Idempotenz, Versionsprüfung, Warteschlange und Gmail-Zuordnung.",
           "order": 1,
           "weight": 2,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-7-1"
           ],
@@ -1112,13 +1123,20 @@
             "n8n-Vertrag deckt Abschnitt 8 ab",
             "Gmail-Versand nicht als funktionsfähig beschrieben"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T10:53:19Z",
+          "completedAt": "2026-10-08T11:00:04Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "docs/kpi-dictionary.md: alle 16 Kennzahlen der Übersicht mit Definition, Zeitstempel, Ereignis-/Momentaufnahme-Kennzeichnung, Einheit und Listen-Link; Grundregeln (Vergleichszeiträume, Null-Basis, Prozentpunkte), Zeitersparnis, Automatisierung, Zeitreihen, Team-Zuordnung, Fristen und dokumentierte Abweichungen von der Spezifikation. docs/n8n-contract.md: Einreichung, Analyse, eingehende und ausgehende Gmail-Nachrichten, Auslöser/Rekursion mit Idempotenzschlüsseln, Versionsprüfung, Warteschlange, Gmail-Zuordnung und Vorgehen bei unklarem Versandausgang; vorhandene vs. zu bauende Funktionen; Gmail-Versand ausdrücklich nicht funktionsfähig. Anfrageseite zeigt fehlende Fristen als „Nicht vereinbart“. Unit-Test kpi-dictionary.test.mjs hält Dokumentation und Code synchron. test:unit 40/40, lint, typecheck, build, test:auth, test:ui erfolgreich.",
+            "commands": [
+              "npm run test:unit",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui"
+            ],
+            "checkedAt": "2026-10-08T11:00:04Z"
           }
         },
         {
@@ -1127,7 +1145,7 @@
           "description": "Prüfung der Szenarien 1-8 und der Hauptansichten bei 390x844, 768x1024 und 1440x900.",
           "order": 2,
           "weight": 4,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-2-5",
             "task-3-3",
@@ -1144,6 +1162,67 @@
             "lint, typecheck und build erfolgreich",
             "Blockierte Prüfungen ehrlich benannt",
             "Setup- und Startanleitung vollständig"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "phase-10",
+      "title": "Erweiterungen",
+      "description": "Nachträge nach Rücksprache: Bereinigung der Testkonten und Zahlungserinnerungen.",
+      "order": 11,
+      "weight": 4,
+      "status": "ready",
+      "tasks": [
+        {
+          "id": "task-10-1",
+          "title": "Testkonten aus automatischen Tests bereinigen",
+          "description": "test:api, test:ui und test:auth hinterlassen temporäre Mitarbeitende (api-…, ui-…, e2e-…@example.com), die in Verwaltung, Einsatzplanung, Vertretungsauswahl und Team-Auswertung erscheinen. demo:seed entfernt sie nach den Testanfragen (Profil und Auth-Konto); noch referenzierte Konten werden deaktiviert und gesperrt. Die Tests deaktivieren ihre Konten am Ende selbst.",
+          "order": 1,
+          "weight": 1,
+          "status": "ready",
+          "dependsOn": [
+            "task-8-1"
+          ],
+          "definitionOfDone": [
+            "Nach demo:seed nur noch die 8 Demo-Mitarbeitenden aktiv",
+            "Echte Konten und Demo-Personal werden nie angefasst (nur feste Test-Präfixe)",
+            "Wiederholte Testläufe erzeugen keine aktiven Testkonten mehr",
+            "demo:verify prüft die Bereinigung"
+          ],
+          "startedAt": null,
+          "completedAt": null,
+          "verification": {
+            "status": "not_run",
+            "summary": null,
+            "commands": [],
+            "checkedAt": null
+          }
+        },
+        {
+          "id": "task-10-2",
+          "title": "Zahlungserinnerungen für offene Rechnungen",
+          "description": "Gestufte Erinnerungen bei überfälligen Rechnungen (Vorschlag: freundliche Zahlungserinnerung 7 Tage nach Fälligkeit, 1. Mahnung nach 14 weiteren Tagen, 2. Mahnung mit Hinweis auf Verzug nach weiteren 14 Tagen; Stufen und Abstände als Einstellung). Erinnerungen entstehen als E-Mail in der bestehenden Warteschlange (Versand durch die spätere n8n-Integration), nie bei bezahlten Rechnungen, je Stufe genau einmal (idempotent), mit Audit-Ereignis und Anzeige von Mahnstufe und nächster Erinnerung in Rechnungsliste und Anfrageseite. Manuelles Auslösen und Aussetzen je Rechnung durch Manager/Admin.",
+          "order": 2,
+          "weight": 3,
+          "status": "ready",
+          "dependsOn": [
+            "task-6-3",
+            "task-9-1"
+          ],
+          "definitionOfDone": [
+            "Stufen und Abstände in den Einstellungen änderbar, wirken nur auf künftige Erinnerungen",
+            "Keine Erinnerung für bezahlte oder ausgesetzte Rechnungen, je Stufe höchstens eine",
+            "Erinnerung als Entwurf/Warteschlange, kein Versand ohne Integration",
+            "Mahnstufe und Verlauf in der Oberfläche sichtbar; Tests für Fälligkeit, Wiederholung und Zahlung zwischen den Stufen"
           ],
           "startedAt": null,
           "completedAt": null,

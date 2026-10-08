@@ -706,3 +706,22 @@ a.plan-block--done:hover { background: var(--rw-color-steel-300); }
   .insights section[aria-labelledby="flow"], .insights section[aria-labelledby="automation"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .insights section[aria-labelledby="flow"] > h2, .insights section[aria-labelledby="automation"] > h2, .insights #runs, .insights #flow-chart { grid-column: 1 / -1; }
 }
+
+/* Administration (task-8-1) */
+.section-nav a[aria-current="page"] { color: var(--rw-color-navy-950); background: var(--rw-color-lime-100); border-color: var(--rw-color-lime-600); }
+.notice { padding: 10px 12px; font-size: 15px; color: var(--rw-color-success-800); background: var(--rw-color-success-surface); border: 1px solid var(--rw-color-success-border); }
+.hours-grid { display: grid; gap: var(--rw-space-12); border: 0; padding: 0; margin: 0; min-width: 0; }
+.hours-grid__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--rw-space-8) var(--rw-space-16); align-items: end; padding-bottom: var(--rw-space-12); border-bottom: 1px solid var(--rw-border-subtle); }
+.hours-grid__row .checkbox-field { grid-column: 1 / -1; font-weight: 600; }
+@media (min-width: 768px) {
+  .hours-grid__row { grid-template-columns: 160px minmax(0, 200px) minmax(0, 200px); }
+  .hours-grid__row .checkbox-field { grid-column: auto; }
+}
+.absence-list, .rate-list { display: grid; gap: var(--rw-space-8); }
+.absence-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--rw-space-8); padding: 8px 14px; background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); }
+.save-form--inline { padding: 0; border: 0; background: transparent; flex-direction: row; }
+@media (min-width: 768px) { .save-form--inline { padding: 0; } }
+.rate-list .action > summary { justify-content: space-between; gap: var(--rw-space-12); flex-wrap: wrap; }
+.rate-list__head { display: grid; gap: 2px; min-width: 0; }
+.rate-list__head .cell-sub { font-weight: 400; }
+.save-form > .request-section:first-child { border-top: 0; padding-top: 0; }

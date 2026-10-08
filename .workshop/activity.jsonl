@@ -124,3 +124,14 @@
 {"timestamp": "2026-10-08T09:44:41Z", "type": "verification_passed", "taskId": "task-7-3", "summary": "test:ui (7 Diagramme, DB-Abgleich, Tooltip Zeitersparnis, Responsive), test:auth, test:unit 29/29, test:db 474/474, test:api, demo:verify, lint, typecheck und build erfolgreich."}
 {"timestamp": "2026-10-08T09:44:41Z", "type": "task_completed", "taskId": "task-7-3", "summary": "Diagramme und Automatisierungsbereich auf /dashboard/auswertung mit Recharts."}
 {"timestamp": "2026-10-08T09:44:41Z", "type": "phase_completed", "taskId": "task-7-3", "summary": "Phase 7 Analytik abgeschlossen."}
+{"timestamp": "2026-10-08T09:54:40Z", "type": "task_started", "taskId": "task-8-1", "summary": "Verwaltung: Mitarbeitende, Tarife, Arbeitszeiten und Einstellungen."}
+{"timestamp": "2026-10-08T10:14:33Z", "type": "verification_passed", "taskId": "task-8-1", "summary": "test:db 521/521, test:unit 35/35, test:auth, test:ui (Verwaltung end-to-end), test:api, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-08T10:14:33Z", "type": "task_completed", "taskId": "task-8-1", "summary": "Verwaltung: Mitarbeitende anlegen, Rollen, Deaktivierung mit Neuzuweisung, Tarife, Arbeitszeiten, Abwesenheiten und Einstellungen."}
+{"timestamp": "2026-10-08T10:14:33Z", "type": "phase_completed", "taskId": "task-8-1", "summary": "Phase 8 Verwaltung abgeschlossen."}
+{"timestamp": "2026-10-08T10:37:11Z", "type": "roadmap_updated", "summary": "Roadmap v2: Phase 10 Erweiterungen nach Rücksprache mit task-10-1 (Testkonten bereinigen) und task-10-2 (Zahlungserinnerungen, abhängig von task-6-3 und task-9-1)."}
+{"timestamp": "2026-10-08T10:37:11Z", "type": "task_ready", "taskId": "task-10-1", "summary": "Abhängigkeit task-8-1 abgeschlossen."}
+{"timestamp": "2026-10-08T10:53:19Z", "type": "task_started", "taskId": "task-9-1", "summary": "Kennzahlen-Wörterbuch und n8n-Vertrag gestartet."}
+{"timestamp": "2026-10-08T11:00:04Z", "type": "verification_passed", "taskId": "task-9-1", "summary": "test:unit 40/40 (inkl. Dokumentations-Synchronität), lint, typecheck, build, test:auth und test:ui erfolgreich."}
+{"timestamp": "2026-10-08T11:00:04Z", "type": "task_completed", "taskId": "task-9-1", "summary": "Kennzahlen-Wörterbuch und n8n-Vertrag dokumentiert."}
+{"timestamp": "2026-10-08T11:00:04Z", "type": "task_ready", "taskId": "task-9-2", "summary": "Alle Abhängigkeiten abgeschlossen."}
+{"timestamp": "2026-10-08T11:00:04Z", "type": "task_ready", "taskId": "task-10-2", "summary": "Abhängigkeiten task-6-3 und task-9-1 abgeschlossen."}

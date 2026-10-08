@@ -10,6 +10,7 @@ export const EVENT_LABELS: Record<string, string> = {
   technician_assigned: "Techniker zugewiesen",
   visit_scheduled: "Einsatz eingeplant",
   visit_rescheduled: "Einsatz verschoben",
+  visit_reassigned: "Einsatz neu zugewiesen",
   visit_status_changed: "Einsatzstatus geändert",
   work_status_changed: "Arbeitsstatus geändert",
   work_completed: "Anfrage abgeschlossen",
@@ -82,7 +83,7 @@ function formatValue(event: EventLike, value: string | null, names: Map<string, 
   if (value === null || value === "") return null;
   const kind = STATUS_OF_EVENT[event.event_type];
   if (kind) return statusInfo(kind, value).label;
-  if (event.event_type === "dispatcher_assigned" || event.event_type === "technician_assigned") return names.get(value) ?? "Unbekannte Person";
+  if (event.event_type === "dispatcher_assigned" || event.event_type === "technician_assigned" || event.event_type === "visit_reassigned") return names.get(value) ?? "Unbekannte Person";
   if (event.event_type === "intake_completed") return label("intake_mode", value);
   if (event.event_type.startsWith("visit_")) return formatRange(value) ?? value;
   if (event.event_type === "deadline_changed") return formatDateTime(value);
