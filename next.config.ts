@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Fonts of the invoice PDF are read from disk at runtime (lib/invoice-pdf-fonts.ts)
+  outputFileTracingIncludes: {
+    "/dashboard/anfragen/\\[id\\]/rechnung/pdf": ["./assets/fonts/**/*"],
+  },
   experimental: {
     // Visit photos up to 10 MB are uploaded through a Server Action (plus multipart overhead)
     serverActions: { bodySizeLimit: "11mb" },

@@ -504,6 +504,7 @@ main > * { animation: rw-page-enter var(--rw-duration-slow) var(--rw-ease-out) b
 .totals { justify-self: end; width: min(100%, 320px); margin-left: auto; display: grid; gap: 4px; }
 .totals > div { display: flex; justify-content: space-between; gap: var(--rw-space-16); }
 .totals dt { color: var(--rw-text-secondary); }
+.invoice-download { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 var(--rw-space-16); }
 .totals__sum { padding-top: 6px; border-top: 2px solid var(--rw-border-strong); font-weight: 700; }
 .totals__sum dt { color: var(--rw-text-primary); }
 .timeline { display: grid; gap: 0; border-left: 2px solid var(--rw-border-default); margin-left: 6px; }

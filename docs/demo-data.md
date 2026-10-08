@@ -67,7 +67,7 @@ Optional `DEMO_SEED_ANCHOR=JJJJ-MM-TT` (Standard: heute, Europe/Berlin). Der See
 | --- | --- |
 | Anfragen und alle Kinddaten (Ereignisse, Nachrichten, Läufe, Einsätze, Positionen, Rechnungen) | `requests.is_demo = true` |
 | Tarife, Arbeitszeiten, Abwesenheiten, unzugeordnete E-Mails | `private.demo_seed_records` |
-| Einstellungen | nur befüllt, wenn unverändert (`company_details = {}`, `updated_by` leer); Originalwerte in `private.demo_seed_records`, beim Bereinigen wiederhergestellt |
+| Einstellungen | nur befüllt, wenn unverändert (`company_details = {}`, `updated_by` leer); Originalwerte in `private.demo_seed_records`, beim Bereinigen wiederhergestellt. Verkäuferdaten wie auf der Website (Mannheim, Geschäftsführung, Fiktiv-Hinweis), Zahlungsdaten als „(Demo)“ gekennzeichnet |
 | Demo-Nutzer | `app_metadata.demo_seed` (werden vom Seed nicht gelöscht) |
 
 `public.demo_seed_purge()` entfernt nur diese Daten. Append-only-Ereignisse und ausgestellte Rechnungen bleiben geschützt; nur während der Bereinigung erlaubt ein transaktionslokales Flag das Löschen von Zeilen **demo-gekennzeichneter** Anfragen. Danach setzen sich die Nummernzähler auf die höchste verbliebene Nummer, sodass ein erneuter Seed dieselben Nummern erhält. Geprüft: Eine Live-Anfrage mit Ereignis und ein Live-Tarif bleiben bei Seed und Bereinigung unverändert.

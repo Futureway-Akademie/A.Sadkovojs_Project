@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 30 Tasks. Fortschritt 75,0 % (Gewicht 78 von 104).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 31 Tasks. Fortschritt 83,96 % (Gewicht 89 von 106, 26 von 31 Tasks).
 
 ## Aktive Phase
 
-Phasen 0–5 sind abgeschlossen. Phase 6 (Techniker) läuft; startbar außerdem Phase 7 (Analytik) und Phase 8 (Verwaltung).
+Phasen 0–6 sind abgeschlossen. Phase 7 (Analytik) ist begonnen: die Datenbankfunktionen stehen, Manager-Übersicht und Diagramme folgen. Startbar außerdem Phase 8 (Verwaltung) und `task-9-1`.
 
 ## Aktive Aufgabe
 
@@ -14,13 +14,13 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-6-2`: Einsatz-Arbeitsbereich `/dashboard/einsatz/[visitId]` (Starten, Teile, Fortsetzen, Beenden mit Bericht und optionalem Folgeeinsatz, Arbeitszeit/Pauschale/Teile, Fotos). Migration: `complete_visit` mit `follow_up_reason`, `add_visit_photo`. Einsatz beenden schließt die Anfrage nie.
+`task-7-1`: Analytik in der Datenbank (Migration `20261008090000_analytics.sql`): `analytics_window`, `analytics_kpis`, `analytics_series`, `analytics_queue_history`, `analytics_automation`, `analytics_team`; security invoker, nur aktive Manager/Admins. Lese-Richtlinien mit vorgezogener Manager/Admin-Prüfung (gleiche Bedeutung, deutlich schneller). Definitionen in `docs/database.md`.
 
 ## Bereite nächste Aufgaben
 
-- `task-6-3`: Anfrage abschliessen und Rechnung erstellen.
-- `task-7-1`: Analytik in der Datenbank.
+- `task-7-2`: Manager-Übersicht.
 - `task-8-1`: Benutzer, Tarife, Arbeitszeiten und Einstellungen.
+- `task-9-1`: Kennzahlen-Wörterbuch und n8n-Vertrag.
 
 ## Blockiert
 
@@ -28,6 +28,9 @@ Nichts.
 
 ## Wichtige Entscheidungen
 
+- Analytik: Vergleich über dieselbe verstrichene Zeit ab Beginn des Vorzeitraums, begrenzt auf dessen Ende; Ereignis-Kennzahlen nach eigenem Zeitstempel, Momentaufnahmen am Periodenende; `change_percent` nie bei Null-Basis. Warteschlangenhistorie aus `request_events` rekonstruiert.
+- Rechnungs-PDF wird bei jedem Abruf deterministisch aus Positionen und Snapshots der ausgestellten Rechnung erzeugt (`lib/invoice-pdf.ts`, `pdf-lib`), nicht gespeichert; Entwürfe haben kein PDF. Für echte Rechnungen wäre eine Archivierung bei Ausstellung nötig.
+- Gestaltung des PDFs folgt der Maßtabelle in `docs/design/RheinWerk Rechnungsvorlage.html`; Schriften unter `assets/fonts/` (OFL), eingebettet mit festen Namen für byte-identische Ausgabe.
 - Website-Code wird aus `05_Export/RheinWerk Industrieservice Website` übernommen; das Dashboard entsteht im selben Next.js-Projekt.
 - Quelle der Website: `FuzzCube/rheinwerk-industrieservice`, Commit `39d9936`, ohne Git-Historie übernommen.
 - Markenname RheinWerk statt „Rheinberg“ aus der Spezifikation.
@@ -61,8 +64,9 @@ Nichts.
 - `supabase db lint` meldet `warning extra` zu Composite-OUT-Parametern der Hilfsfunktionen `private.lock_visit`, `lock_work_entry`, `lock_invoice`, `lock_outgoing_message` (stilistisch, ohne Auswirkung).
 - Kein Supabase-Cloud-Projekt verknüpft; für das spätere Deployment nötig (`supabase login`, `supabase link`).
 - `npm run test:api` und `npm run test:ui` legen Testnutzer und Testanfragen an. Die Anfragen (`is_demo`) entfernt `npm run demo:seed`; die Testnutzer erscheinen lokal in Namenslisten, bis `supabase db reset` sie entfernt.
+- Port 3000 kann lokal von einem anderen Projekt belegt sein; App dann z. B. mit `npx next start -p 3100` und `APP_URL=http://127.0.0.1:3100` für `test:auth`/`test:ui` starten.
 - Lokale Entwicklung setzt laufendes Docker und `supabase start` voraus; `.env.local` mit Werten aus `supabase status`.
 
 ## Empfohlener nächster Schritt
 
-`task-6-3` (Anfrage abschließen und Rechnung erstellen) starten; damit ist der Ablauf von der Anfrage bis zur Rechnung vollständig.
+`task-7-2` (Manager-Übersicht) auf Basis der neuen Analytik-Funktionen; danach `task-7-3` (Diagramme).

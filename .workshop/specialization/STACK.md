@@ -18,6 +18,11 @@ Der technische Stack ergänzt den zentralen Workshop-Workflow und darf ihn nicht
 - Lokaler Stack über Supabase CLI 2.120.0 (Docker): API `http://127.0.0.1:54321`, Studio `http://127.0.0.1:54323`
 - Umgebungsvariablen: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`
 
+## Rechnungs-PDF (Stand task-6-3)
+
+- `pdf-lib` 1.17.1 (MIT, reines JavaScript, nur serverseitig in `lib/invoice-pdf.ts`)
+- `@pdf-lib/fontkit` 1.1.1 (MIT) zum Einbetten von Inter und IBM Plex Mono (`assets/fonts/`, SIL OFL 1.1, Stand task-6-4)
+
 ## Geplant
 
 - Kalender- und Diagrammbibliothek: Auswahl in den jeweiligen Tasks nach Prüfung der React-19-Kompatibilität

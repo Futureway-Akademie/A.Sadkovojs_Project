@@ -178,7 +178,11 @@ const opTech = (await admin.from("requests").select("technician_id").eq("id", op
 const opTechJar = (await login(userList.users.find((user) => user.id === opTech).email, pw)).jar;
 const opResponse = await fetch(`${BASE}/dashboard/anfragen/${operational.request_id}/dokumente/${operational.id}`, { headers: { cookie: opTechJar.header } });
 check("Techniker lädt operatives Dokument seiner Anfrage", opResponse.status === 200 && Number(opResponse.headers.get("content-length")) > 0, String(opResponse.status));
-const opOther = await fetch(`${BASE}/dashboard/anfragen/${operational.request_id}/dokumente/${operational.id}`, { headers: { cookie: (opTech === tech1 ? (await login("technik2.demo@example.com", pw)).jar : techJar).header } });
+// "Other" technician: neither assigned nor planned on any visit of the request (visits grant read access)
+const { data: opVisits } = await admin.from("visits").select("technician_id").eq("request_id", operational.request_id);
+const linked = new Set([opTech, ...opVisits.map((visit) => visit.technician_id)]);
+const otherTech = ["technik1.demo@example.com", "technik2.demo@example.com", "technik3.demo@example.com"].map((email) => userList.users.find((user) => user.email === email)).find((user) => user && !linked.has(user.id));
+const opOther = await fetch(`${BASE}/dashboard/anfragen/${operational.request_id}/dokumente/${operational.id}`, { headers: { cookie: (await login(otherTech.email, pw)).jar.header } });
 check("Anderer Techniker lädt es nicht", opOther.status === 404, String(opOther.status));
 
 // Dispatcher queues (task-5-1): counts and order equal the view, other roles have no access

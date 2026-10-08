@@ -40,6 +40,8 @@ Jede Datei läuft in einer Transaktion mit `ROLLBACK` und hinterlässt keine Dat
 | `visit_follow_up_photos.test.sql` | Folgeeinsatz beim Beenden eines Einsatzes, Registrierung von Einsatzfotos |
 | `savings_fixture.test.sql` | Prüf-Fixture 100 × 15 Minuten = 25 h (Szenario 5, Teil) |
 
+`analytics.test.sql` (task-7-1) legt Fixtures im Jahr 2031 an und vergleicht Kennzahlen als Differenz vor und nach dem Anlegen, damit vorhandene Demodaten das Ergebnis nicht beeinflussen. Geprüft: Vergleichszeiträume, getrennte Zeitreihen nach `created_at`, `intake_completed_at` und `completed_at`, Zeitersparnis, Fristen, Rechnungs- und Zahlungsbeträge, Momentaufnahmen am Periodenende, Warteschlangenhistorie aus Ereignissen, Team, Automatisierung, Ablehnung für Dispatcher, Techniker und inaktive Manager, keine `security definer`-Funktion.
+
 ## API-Tests (`npm run test:api`)
 
 Legt pro Lauf eigene Nutzer über die Auth-Admin-API an (`api-…-<lauf>@example.com`), meldet sie mit Passwort an und prüft über die öffentliche API:
@@ -66,9 +68,11 @@ Voraussetzung: lokaler Supabase-Stack, Demo-Nutzer (`npm run demo:users`) und la
 
 Temporäre Konten (`e2e-…@example.com`) werden am Ende wieder gelöscht. Das Skript bricht ab, wenn App oder Supabase nicht lokal sind.
 
+Der „andere Techniker“ beim Dokument-Download ist ein Demo-Techniker ohne Bezug zur Anfrage (weder zugewiesen noch mit einem Einsatz darauf), da Einsätze Lesezugriff gewähren und die Demo-Daten vom Zeitpunkt des Seeds abhängen.
+
 ## Unit-Tests (`npm run test:unit`)
 
-Laufen ohne App und Datenbank (`node --test` mit dem Test-Resolver `tests/unit/ts-resolve.mjs`, der TypeScript-Importe ohne Endung auflöst). Prüfen die Formatierung in `Europe/Berlin` einschließlich Zeitumstellung und Jahreswechsel, Beträge, Dauer, leere Werte, dass jeder Status Text und Ton hat sowie die Formular- und Fehlerhilfen und die Beschreibung der Verlaufsereignisse. Ergebnis ist unabhängig von der Zeitzone des Rechners (geprüft mit `TZ=America/New_York`).
+Laufen ohne App und Datenbank (`node --test` mit dem Test-Resolver `tests/unit/ts-resolve.mjs`, der TypeScript-Importe ohne Endung auflöst). Prüfen die Formatierung in `Europe/Berlin` einschließlich Zeitumstellung und Jahreswechsel, Beträge, Dauer, leere Werte, dass jeder Status Text und Ton hat sowie die Formular- und Fehlerhilfen und die Beschreibung der Verlaufsereignisse. `invoice-pdf.test.mjs` prüft das Rechnungs-PDF über den Test-Hook `onText` (eingebettete Schriften kodieren Glyphen, der Text ist nicht direkt lesbar): Kennzeichnung und Rechnungsdaten, Folgeseiten mit Übertrag und Positionsbereich, byte-identische Ausgabe, kein PDF für Entwürfe, Zeichen außerhalb des Schrift-Subsets, Ergänzung der Anfragenummer bei älteren Snapshots. Ergebnis ist unabhängig von der Zeitzone des Rechners (geprüft mit `TZ=America/New_York`).
 
 ## UI-Prüfung (`npm run test:ui`)
 
@@ -83,7 +87,9 @@ Voraussetzung wie bei `test:auth` sowie Google Chrome (anderer Pfad über `CHROM
 
 - Einsatzaktionen (task-6-2) als temporärer Techniker, jeweils gegen die Datenbank: fremder Techniker erhält 404; Arbeit starten; 1,5 h Arbeitszeit nach Tarif; Teil bestellt mit 48,90 €, dann verbaut; JPEG-Foto landet im privaten Bucket mit Metadaten, ist nicht öffentlich abrufbar und über die App ladbar; PDF als Foto abgelehnt; auf Teile warten und fortsetzen; Beenden mit Folgeeinsatz ohne Grund scheitert (Bericht bleibt), mit Grund: Einsatz beendet, Anfrage nicht abgeschlossen und wieder in der Planung.
 
-Mit `UI_SCREENSHOTS=<Ordner>` wird je Seite und Breite ein Screenshot gespeichert.
+- Abschluss und Rechnung (task-6-3) auf derselben Anfrage als Techniker: „Anfrage abschließen“ ist mit dem Bericht des letzten Einsatzes vorbelegt; ohne Bericht abgelehnt; Abschluss durch den Techniker (Ereignis `work_completed` mit seiner ID, keine Managerfreigabe); PDF vor Rechnung und für den Entwurf 404, kein PDF-Link; Ausstellung vergibt `RE-JJJJ-NNNNN` mit Arbeitszeit und verbautem Teil; PDF-Download 200 `application/pdf`, `no-store`, Dateiname mit Nummer, Titel „Musterrechnung / Demodaten <Nummer>“; ohne Anmeldung 401, fremder Techniker 404; nach Erhöhung des Stundensatzes ist das PDF byte-identisch (Tarif wird danach zurückgesetzt).
+
+Mit `UI_SCREENSHOTS=<Ordner>` wird je Seite und Breite ein Screenshot gespeichert, zusätzlich Aktionen und Rechnungsabschnitt (390, 1440) sowie das erzeugte PDF.
 
 `test:ui` und `test:api` legen Testanfragen mit `is_demo = true` an; `npm run demo:seed` entfernt sie samt Einsatzfotos wieder (Testnutzer bleiben bis `supabase db reset`).
 
@@ -95,7 +101,7 @@ Mit `UI_SCREENSHOTS=<Ordner>` wird je Seite und Breite ein Screenshot gespeicher
 | 2 Planung, Konflikte, Nebenläufigkeit | `visit_operations.test.sql`, `scenarios.test.sql`, `test:api` |
 | 3 Warten auf Teile, Folgeeinsatz, Abschluss | `scenarios.test.sql`, `work_operations.test.sql` |
 | 4 Abrechnung, Wartung, Tarifänderung, Warteschlange, Versand nach Zahlung | `invoice_message_operations.test.sql`, `scenarios.test.sql` |
-| 5 Automatisierungskennzahlen, 100 × 15 Minuten | `savings_fixture.test.sql` (Formel); Analytik-Funktionen folgen in task-7-1 |
-| 6 Periodenvergleiche, Nullbasis | folgt mit Analytik (task-7-1) |
+| 5 Automatisierungskennzahlen, 100 × 15 Minuten | `savings_fixture.test.sql` (Formel), `analytics.test.sql` (Zeitersparnis nur für korrekte automatische Erstbearbeitung, Detail mit Anzahl und Basiswert) |
+| 6 Periodenvergleiche, Nullbasis | `analytics.test.sql` (unvollständige Monate, kürzerer Februar, Woche, Quartal, Nullbasis ohne Prozentwert) |
 | 7 Historie aus Ereignissen, Fristen, Wiedereröffnung, Stornierung | `intake_operations.test.sql`, `scenarios.test.sql` |
 | 8 Responsive-Prüfung | folgt mit den Oberflächen (Phasen 4–6, task-9-2) |

@@ -45,7 +45,7 @@ export default async function RequestPage({ params }: Props) {
     verlauf: () => <History detail={detail} names={names} />,
   };
 
-  const actions = availableActions(detail, employee.role);
+  const actions = availableActions(detail, employee);
   const hasActions = Object.values(actions).some(Boolean);
 
   return (
@@ -298,7 +298,13 @@ function Invoice({ detail }: { detail: RequestDetail }) {
   ];
   return (
     <>
-      {invoice.status === "draft" && <p className="section-note">Entwurf: Positionen und Beträge sind eine Vorschau und werden bei der Ausstellung neu berechnet.</p>}
+      {invoice.status === "draft" && <p className="section-note">Entwurf: Positionen und Beträge sind eine Vorschau und werden bei der Ausstellung neu berechnet. Das PDF gibt es erst nach der Ausstellung.</p>}
+      {invoice.status !== "draft" && invoice.invoice_number && (
+        <p className="invoice-download">
+          <a className="button button--secondary" href={`/dashboard/anfragen/${detail.request.id}/rechnung/pdf`} download>PDF herunterladen</a>
+          <span className="section-note">Musterrechnung / Demodaten · {invoice.invoice_number}</span>
+        </p>
+      )}
       <Facts items={[
         ["Status", <StatusBadge key="s" kind="invoice_status" value={invoice.status} />],
         ["Rechnungsnummer", invoice.invoice_number ? <span key="n" className="mono">{invoice.invoice_number}</span> : "Wird bei Ausstellung vergeben"],

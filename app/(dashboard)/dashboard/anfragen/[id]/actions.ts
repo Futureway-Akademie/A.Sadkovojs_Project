@@ -147,3 +147,36 @@ export async function queueDraft(_previous: FormState, formData: FormData): Prom
   return run(input.values, "In die Warteschlange gestellt – noch nicht versendet.", () =>
     supabase.rpc("queue_message", { message_id: input.values.message_id, expected_version: input.version }));
 }
+
+// Completion and invoicing (task-6-3): current technician, manager or admin, no manager approval.
+// close_request checks open visits, a completed visit and the report; issue_invoice rebuilds the items.
+const BILLING = ["technician", "manager", "admin"] as const;
+
+export async function closeRequest(_previous: FormState, formData: FormData): Promise<FormState> {
+  await requireRole(BILLING);
+  const input = context(formData);
+  if (!input) return invalid(formValues(formData));
+  const { values } = input;
+  if (!values.completion_summary?.trim()) return formError("Bitte den Abschlussbericht angeben.", values, { completion_summary: "Pflichtangabe für den Abschluss." });
+  const supabase = await createClient();
+  return run(values, "Anfrage abgeschlossen. Die Rechnung kann jetzt erstellt werden.", () =>
+    supabase.rpc("close_request", { request_id: input.id, expected_version: input.version, completion_summary: values.completion_summary.trim() }));
+}
+
+export async function createInvoice(_previous: FormState, formData: FormData): Promise<FormState> {
+  await requireRole(BILLING);
+  const input = context(formData);
+  if (!input) return invalid(formValues(formData));
+  const supabase = await createClient();
+  return run(input.values, "Rechnungsentwurf erstellt. Bitte Positionen prüfen und ausstellen.", () =>
+    supabase.rpc("create_invoice", { request_id: input.id, expected_version: input.version }));
+}
+
+export async function issueInvoice(_previous: FormState, formData: FormData): Promise<FormState> {
+  await requireRole(BILLING);
+  const input = context(formData);
+  if (!input || !UUID.test(input.values.invoice_id ?? "")) return invalid(formValues(formData));
+  const supabase = await createClient();
+  return run(input.values, "Rechnung ausgestellt. Das PDF steht zum Download bereit.", () =>
+    supabase.rpc("issue_invoice", { invoice_id: input.values.invoice_id, expected_version: input.version }));
+}

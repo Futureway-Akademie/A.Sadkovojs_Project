@@ -1,13 +1,19 @@
-import { completeIntake, correctAnalysis, createDraft, markAwaitingCustomer, queueDraft, rejectRequest, updateDraft } from "@/app/(dashboard)/dashboard/anfragen/[id]/actions";
+import { closeRequest, completeIntake, correctAnalysis, createDraft, createInvoice, issueInvoice, markAwaitingCustomer, queueDraft, rejectRequest, updateDraft } from "@/app/(dashboard)/dashboard/anfragen/[id]/actions";
 import { HiddenField, SaveForm, SelectField, TextAreaField, TextField } from "@/components/dashboard/ui/save-form";
 import type { Employee } from "@/lib/auth/session";
 import type { RequestDetail } from "@/lib/dashboard/requests";
+import { formatCurrency } from "@/lib/format";
 import { LABELS, STATUS, statusInfo } from "@/lib/status";
 
-// Which review actions are possible; the database operations enforce the same rules again.
-export function availableActions(detail: RequestDetail, role: Employee["role"]) {
+const OPEN_VISITS: readonly string[] = ["scheduled", "in_progress", "waiting_parts"];
+
+// Which actions are possible; the database operations enforce the same rules again.
+export function availableActions(detail: RequestDetail, employee: Pick<Employee, "id" | "role">) {
   const r = detail.request;
+  const role = employee.role;
   const staff = role !== "technician";
+  // Completion and invoicing: current technician, manager or admin (no manager approval needed)
+  const billing = role === "manager" || role === "admin" || (role === "technician" && r.technician_id === employee.id);
   const terminal = ["rejected", "cancelled"].includes(r.intake_status) || ["completed", "cancelled"].includes(r.work_status);
   const openIntake = ["new", "analyzing", "needs_review"].includes(r.intake_status);
   return {
@@ -16,6 +22,9 @@ export function availableActions(detail: RequestDetail, role: Employee["role"]) 
     email: staff && !terminal,
     await: staff && openIntake,
     reject: staff && !["rejected", "cancelled"].includes(r.intake_status) && ["not_planned", "scheduled"].includes(r.work_status),
+    close: billing && r.intake_status === "processed" && !terminal && detail.visits.some((visit) => visit.status === "completed"),
+    createInvoice: billing && r.intake_status === "processed" && r.work_status === "completed" && !detail.invoice,
+    issueInvoice: billing && r.work_status === "completed" && detail.invoice?.status === "draft",
   };
 }
 
@@ -33,7 +42,8 @@ function Context({ detail }: { detail: RequestDetail }) {
 
 export function RequestActions({ detail, employee }: { detail: RequestDetail; employee: Employee }) {
   const r = detail.request;
-  const can = availableActions(detail, employee.role);
+  const can = availableActions(detail, employee);
+  const openVisits = detail.visits.filter((visit) => OPEN_VISITS.includes(visit.status)).length;
   const lastRun = [...(detail.automationRuns ?? [])].reverse().find((run) => run.status === "succeeded" && !run.corrected_at && ["intake_analysis", "reply_analysis"].includes(run.step));
   const subject = `Rückfrage zu Ihrer Serviceanfrage ${r.request_number}`;
   const body = `Guten Tag ${r.contact_name},\n\nvielen Dank für Ihre Anfrage ${r.request_number}. Für die Planung des Einsatzes benötigen wir noch folgende Angaben:\n\n- \n\nMit freundlichen Grüßen\n${employee.displayName}\nRheinWerk Industrieservice`;
@@ -95,6 +105,48 @@ export function RequestActions({ detail, employee }: { detail: RequestDetail; em
           <SaveForm action={markAwaitingCustomer} submitLabel="Status setzen" submitVariant="secondary">
             <Context detail={detail} />
             <TextAreaField name="note" label="Notiz für den Verlauf" rows={2} />
+          </SaveForm>
+        </details>
+      )}
+      {can.close && (
+        <details className="action" open>
+          <summary>Anfrage abschließen</summary>
+          {openVisits > 0 ? (
+            <p className="section-note">Noch {openVisits === 1 ? "ein offener Einsatz" : `${openVisits} offene Einsätze`}. Abschließen ist erst möglich, wenn alle Einsätze beendet oder storniert sind.</p>
+          ) : (
+            <>
+              <p className="section-note">Schließt die Arbeit an dieser Anfrage technisch ab; eine Freigabe durch die Leitung ist nicht nötig. Danach kann die Rechnung erstellt werden. Arbeitspositionen bleiben bis zur Ausstellung der Rechnung korrigierbar.</p>
+              <SaveForm action={closeRequest} submitLabel="Anfrage abschließen">
+                <Context detail={detail} />
+                <TextAreaField name="completion_summary" label="Abschlussbericht" required rows={4} defaultValue={[...detail.visits].reverse().find((visit) => visit.status === "completed")?.summary ?? ""} />
+              </SaveForm>
+            </>
+          )}
+        </details>
+      )}
+      {can.createInvoice && (
+        <details className="action" open>
+          <summary>Rechnung erstellen</summary>
+          <p className="section-note">Legt einen Rechnungsentwurf aus den abrechenbaren Positionen an (geleistete Arbeit und Pauschalen, verbaute Teile). Der Entwurf ist eine Vorschau und hat noch keine Rechnungsnummer.</p>
+          <SaveForm action={createInvoice} submitLabel="Rechnungsentwurf erstellen">
+            <Context detail={detail} />
+          </SaveForm>
+        </details>
+      )}
+      {can.issueInvoice && detail.invoice && (
+        <details className="action" open>
+          <summary>Rechnung ausstellen</summary>
+          {detail.invoiceItems.length === 0 ? (
+            <p className="section-note">Der Entwurf enthält keine abrechenbaren Positionen. Bitte unter „Arbeit“ geleistete Arbeit oder verbaute Teile erfassen.</p>
+          ) : (
+            <p className="section-note">
+              Vergibt die Rechnungsnummer und übernimmt den aktuellen Stand der Arbeitspositionen (Vorschau: {formatCurrency(detail.invoice.total, detail.invoice.currency)} brutto).
+              Danach sind Rechnung und Positionen unveränderlich, und das PDF (Musterrechnung / Demodaten) steht bereit. Versendet wird nichts.
+            </p>
+          )}
+          <SaveForm action={issueInvoice} submitLabel="Rechnung ausstellen">
+            <Context detail={detail} />
+            <HiddenField name="invoice_id" value={detail.invoice.id} />
           </SaveForm>
         </details>
       )}

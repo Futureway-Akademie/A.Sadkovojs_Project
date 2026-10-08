@@ -450,6 +450,80 @@ try {
   const finished = await visitRow();
   check("Einsatz beendet mit Bericht und 95 min", completed && finished.actual_work_minutes === 95 && finished.summary === "Dichtung getauscht, Probelauf ok");
   check("  Anfrage nicht abgeschlossen, Folgeeinsatz in der Planung", jobAfter.work_status === "not_planned" && jobAfter.completed_at === null && jobQueue === "planning", `${jobAfter.work_status} ${jobQueue}`);
+
+  console.log("\nAnfrage abschließen und Rechnung");
+  // The technician closes without any manager step; drafts have no PDF; the issued PDF is frozen
+  const jobUrl = `${BASE}/dashboard/anfragen/${job.id}`;
+  const techCookie = (await loginCookies(techEmail)).map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+  const pdfUrl = `${jobUrl}/rechnung/pdf`;
+  const getPdf = async (cookie = techCookie) => {
+    const response = await fetch(pdfUrl, { headers: cookie ? { cookie } : {}, redirect: "manual" });
+    return { status: response.status, type: response.headers.get("content-type"), disposition: response.headers.get("content-disposition"), cache: response.headers.get("cache-control"), bytes: Buffer.from(await response.arrayBuffer()) };
+  };
+  const invoiceRow = async () => (await admin.from("invoices").select("*").eq("request_id", job.id).maybeSingle()).data;
+  await page.open(jobUrl);
+  check("Techniker sieht „Anfrage abschließen“ mit Bericht des letzten Einsatzes", await page.eval(`(() => { const host = ${actionForm("Anfrage abschließen")}; return Boolean(host) && host.querySelector("textarea[name=completion_summary]").value === "Dichtung getauscht, Probelauf ok"; })()`));
+  if (SHOTS) {
+    await page.eval(`document.getElementById("aktionen").scrollIntoView({ behavior: "instant" })`);
+    await sleep(300);
+    await writeFile(path.join(SHOTS, "abschluss-390.png"), Buffer.from((await page.send("Page.captureScreenshot", { format: "png" })).data, "base64"));
+  }
+  await fillIn(actionForm("Anfrage abschließen"), { completion_summary: "" });
+  state = await settled(actionForm("Anfrage abschließen"), "save-status--error");
+  check("Abschluss ohne Bericht abgelehnt", Boolean(state) && (await dbRequest(job.id)).work_status === "not_planned", state?.status);
+  await fillIn(actionForm("Anfrage abschließen"), { completion_summary: "Pumpe instand gesetzt, Folgeprüfung nicht mehr nötig" });
+  const closed = await waitFor(async () => (await dbRequest(job.id)).work_status === "completed");
+  const closeEvents = (await admin.from("request_events").select("event_type, actor_id").eq("request_id", job.id).eq("event_type", "work_completed")).data;
+  check("Techniker schließt ab (close_request), ohne Managerfreigabe", closed && closeEvents.length === 1 && closeEvents[0].actor_id === techId, JSON.stringify(closeEvents));
+  check("PDF vor Rechnungserstellung: 404", (await getPdf()).status === 404);
+
+  await page.open(jobUrl);
+  await page.eval(`${formWithButton("Rechnungsentwurf erstellen")}.requestSubmit()`);
+  check("Rechnungsentwurf erstellt (create_invoice)", await waitFor(async () => (await invoiceRow())?.status === "draft"));
+  const draftPdf = await getPdf();
+  check("PDF eines Entwurfs: 404", draftPdf.status === 404, String(draftPdf.status));
+  await page.open(jobUrl);
+  check("  Seite zeigt keinen PDF-Link für den Entwurf", await page.eval(`!document.querySelector(".invoice-download")`));
+
+  await page.eval(`${formWithButton("Rechnung ausstellen")}.requestSubmit()`);
+  const issued = await waitFor(async () => (await invoiceRow())?.status === "issued");
+  const invoice = await invoiceRow();
+  check(`Rechnung ausgestellt (${invoice?.invoice_number})`, issued && /^RE-\d{4}-\d{5}$/.test(invoice.invoice_number ?? ""), JSON.stringify(invoice));
+  const items = (await admin.from("invoice_items").select("kind, quantity, unit_price, net_amount").eq("invoice_id", invoice.id).order("position")).data;
+  check("  Positionen: Arbeitszeit und verbautes Teil", items.length === 2 && items.some((item) => item.kind === "labor") && items.some((item) => item.kind === "part" && Number(item.unit_price) === 48.9), JSON.stringify(items));
+  await page.open(jobUrl);
+  check("  PDF-Link auf der Anfrageseite, keine Rechnungsaktionen mehr", await page.eval(`Boolean(document.querySelector(".invoice-download a[href$='/rechnung/pdf']")) && !${actionForm("Rechnung ausstellen")} && !${actionForm("Anfrage abschließen")}`));
+
+  const { PDFDocument } = await import("pdf-lib");
+  const firstPdf = await getPdf();
+  const parsed = firstPdf.status === 200 ? await PDFDocument.load(firstPdf.bytes) : null;
+  check("PDF-Download: 200, application/pdf, Anhang, nicht cachebar", firstPdf.status === 200 && firstPdf.type === "application/pdf" && firstPdf.disposition?.includes(`Musterrechnung-${invoice.invoice_number}.pdf`) && firstPdf.cache?.includes("no-store"), `${firstPdf.status} ${firstPdf.type} ${firstPdf.disposition}`);
+  check("  als Musterrechnung / Demodaten gekennzeichnet", parsed?.getTitle() === `Musterrechnung / Demodaten ${invoice.invoice_number}` && parsed?.getSubject() === "Musterrechnung / Demodaten", parsed?.getTitle());
+  check("  ohne Anmeldung nicht abrufbar", (await getPdf("")).status === 401);
+  const otherTechCookie = otherJar.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+  check("  fremder Techniker erhält kein PDF (404)", (await getPdf(otherTechCookie)).status === 404);
+
+  // Rate change after issuance must not change the PDF
+  const { data: labor } = await admin.from("work_entries").select("service_rate_id").eq("request_id", job.id).eq("kind", "labor").single();
+  const { data: rate } = await admin.from("service_rates").select("id, unit_price").eq("id", labor.service_rate_id).single();
+  const { error: rateError } = await admin.from("service_rates").update({ unit_price: Number(rate.unit_price) + 50 }).eq("id", rate.id);
+  try {
+    const secondPdf = await getPdf();
+    check("Tarifänderung ändert das ausgestellte PDF nicht (byte-identisch)", !rateError && secondPdf.status === 200 && Buffer.compare(firstPdf.bytes, secondPdf.bytes) === 0, rateError?.message ?? `${firstPdf.bytes.length} / ${secondPdf.bytes.length}`);
+  } finally {
+    await admin.from("service_rates").update({ unit_price: rate.unit_price }).eq("id", rate.id);
+  }
+  if (SHOTS) {
+    for (const viewport of [{ width: 390, height: 844, mobile: true }, { width: 1440, height: 900, mobile: false }]) {
+      await page.send("Emulation.setDeviceMetricsOverride", { ...viewport, deviceScaleFactor: 1 });
+      await page.open(jobUrl);
+      await page.eval(`document.getElementById("rechnung").scrollIntoView({ behavior: "instant" })`);
+      await sleep(300);
+      const shot = await page.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(path.join(SHOTS, `rechnung-${viewport.width}.png`), Buffer.from(shot.data, "base64"));
+    }
+    await writeFile(path.join(SHOTS, `${invoice.invoice_number}.pdf`), firstPdf.bytes);
+  }
 } catch (error) {
   console.error(error);
   failures += 1;

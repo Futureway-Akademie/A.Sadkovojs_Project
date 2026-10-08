@@ -542,6 +542,36 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"analytics_automation":
+{ Args: { "anchor"?: string,"as_of"?: string,"kind"?: string }; Returns: {
+              "corrected": number,"decision": Database["public"]['Enums']["automation_decision"],"runs": number,"status": Database["public"]['Enums']["automation_status"],"step": Database["public"]['Enums']["automation_step"]
+            }[]
+                           },
+"analytics_kpis":
+{ Args: { "anchor"?: string,"as_of"?: string,"kind"?: string }; Returns: {
+              "change_percent": number,"current_value": number,"detail": Json,"difference": number,"key": string,"label": string,"measure": string,"previous_value": number,"unit": string
+            }[]
+                           },
+"analytics_queue_history":
+{ Args: { "from_date": string,"to_date": string }; Returns: {
+              "day": string,"queue": string,"requests": number
+            }[]
+                           },
+"analytics_series":
+{ Args: { "from_date": string,"granularity": string,"to_date": string }; Returns: {
+              "automatic_completed": number,"bucket_start": string,"completed": number,"intake_completed": number,"invoiced_gross": number,"payments_received": number,"received": number
+            }[]
+                           },
+"analytics_team":
+{ Args: { "anchor"?: string,"as_of"?: string,"kind"?: string }; Returns: {
+              "display_name": string,"employee_id": string,"intake_completed": number,"is_active": boolean,"open_requests": number,"requests_completed": number,"role": Database["public"]['Enums']["employee_role"],"visits_completed": number,"work_minutes": number
+            }[]
+                           },
+"analytics_window":
+{ Args: { "anchor"?: string,"as_of"?: string,"kind"?: string }; Returns: {
+              "current_end": string,"current_start": string,"is_complete": boolean,"period_end": string,"period_kind": string,"previous_end": string,"previous_start": string,"time_zone": string
+            }[]
+                           },
 "assign_dispatcher":
 { Args: { "dispatcher_id": string,"expected_version": number,"request_id": string }; Returns: {
               "business_email": string,

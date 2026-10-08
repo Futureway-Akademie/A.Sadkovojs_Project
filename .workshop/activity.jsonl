@@ -101,3 +101,18 @@
 {"timestamp": "2026-10-07T14:19:46Z", "type": "verification_passed", "taskId": "task-6-2", "summary": "pgTAP 18/18 (gesamt 427), test:ui kompletter Einsatzablauf gegen die Datenbank, test:auth, test:unit, demo:verify, lint, typecheck und build erfolgreich."}
 {"timestamp": "2026-10-07T14:19:46Z", "type": "task_completed", "taskId": "task-6-2", "summary": "Einsatzaktionen, Arbeitserfassung, Folgeeinsatz und Fotos im privaten Storage."}
 {"timestamp": "2026-10-07T14:19:46Z", "type": "task_ready", "taskId": "task-6-3", "summary": "Task task-6-3 ist startbar."}
+{"timestamp": "2026-10-08T07:38:39Z", "type": "task_started", "taskId": "task-6-3", "summary": "Abschluss der Anfrage, Rechnungserstellung, Ausstellung und PDF-Download gestartet; Umsetzung nach Roadmap-Beschreibung."}
+{"timestamp": "2026-10-08T07:52:23Z", "type": "verification_passed", "taskId": "task-6-3", "summary": "test:unit 15/15, test:ui (Abschluss, Entwurf ohne PDF, Ausstellung, PDF-Download, Tarifänderung byte-identisch), test:auth, test:api, test:db 427/427, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-08T07:52:23Z", "type": "task_completed", "taskId": "task-6-3", "summary": "Anfrage abschließen, Rechnung erstellen und ausstellen, PDF-Download als Musterrechnung / Demodaten."}
+{"timestamp": "2026-10-08T07:52:23Z", "type": "phase_completed", "taskId": "task-6-3", "summary": "Phase 6 Techniker abgeschlossen."}
+{"timestamp": "2026-10-08T08:06:46Z", "type": "roadmap_updated", "summary": "Neuer Task task-6-4 (Rechnungs-PDF im RheinWerk-Design) nach Rücksprache ergänzt; task-9-2 hängt zusätzlich davon ab."}
+{"timestamp": "2026-10-08T08:06:46Z", "type": "task_ready", "taskId": "task-6-4", "summary": "Task task-6-4 ist startbar."}
+{"timestamp": "2026-10-08T08:24:23Z", "type": "task_started", "taskId": "task-6-4", "summary": "Umsetzung des Rechnungs-PDFs nach der Claude-Design-Vorlage docs/design/RheinWerk Rechnungsvorlage.html gestartet."}
+{"timestamp": "2026-10-08T08:38:55Z", "type": "verification_passed", "taskId": "task-6-4", "summary": "test:unit 17/17, test:ui, test:auth, test:api, test:db, demo:verify, lint, typecheck und build erfolgreich; PDF visuell mit der Vorlage verglichen."}
+{"timestamp": "2026-10-08T08:38:55Z", "type": "task_completed", "taskId": "task-6-4", "summary": "Rechnungs-PDF im RheinWerk-Design nach Claude-Design-Vorlage mit eingebetteten Schriften und Logo."}
+{"timestamp": "2026-10-08T08:38:55Z", "type": "phase_completed", "taskId": "task-6-4", "summary": "Phase 6 Techniker abgeschlossen."}
+{"timestamp": "2026-10-08T08:47:59Z", "type": "task_started", "taskId": "task-7-1", "summary": "Analytik in der Datenbank gestartet: Funktionen für KPIs mit Periodenvergleich, Zeitreihen, Warteschlangenhistorie, Automatisierung und Team (security invoker, nur Manager/Admin)."}
+{"timestamp": "2026-10-08T08:58:35Z", "type": "verification_passed", "taskId": "task-7-1", "summary": "pgTAP analytics 45/45, test:db 472/472 nach db reset, test:api, test:auth, test:ui, test:unit, demo:verify, lint, typecheck und build erfolgreich."}
+{"timestamp": "2026-10-08T08:58:35Z", "type": "task_completed", "taskId": "task-7-1", "summary": "Analytik in der Datenbank: KPIs mit Periodenvergleich, Zeitreihen, Warteschlangenhistorie, Automatisierung und Team mit Nutzerrechten."}
+{"timestamp": "2026-10-08T08:58:35Z", "type": "task_ready", "taskId": "task-7-2", "summary": "Task task-7-2 ist startbar."}
+{"timestamp": "2026-10-08T08:58:35Z", "type": "task_ready", "taskId": "task-9-1", "summary": "Task task-9-1 ist startbar."}

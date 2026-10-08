@@ -12,16 +12,19 @@ const TAX_RATE = 19;
 const BASELINE_MINUTES = 15;
 const SEASON = [0.85, 0.85, 1.05, 1.15, 1.1, 0.95, 1.05, 0.9, 1.15, 1.2, 1.0, 0.75];
 
+// Seller data as on the website (Impressum, Kontakt); fictional company, payment data marked as demo
 export const COMPANY_DETAILS = {
-  company_name: "RheinWerk Industrieservice GmbH (Demo)",
-  street_house_number: "Hafenstraße 12",
-  postal_code: "40213",
-  city: "Düsseldorf",
-  email: "service.demo@example.com",
-  phone: "+49 211 555 0100",
+  company_name: "RheinWerk Industrieservice GmbH",
+  street_house_number: "Rheinwerkstraße 12",
+  postal_code: "68169",
+  city: "Mannheim",
+  email: "service@rheinwerk-industrieservice.example",
+  phone: "+49 621 00000-0",
+  managing_director: "Dr. Lena Hartmann",
   vat_id: "DE000000000 (Demo)",
   iban: "DE00 0000 0000 0000 0000 00 (Demo)",
   bank: "Demo-Bank",
+  legal_note: "Fiktives Portfolio-Projekt. RheinWerk Industrieservice GmbH ist kein reales Unternehmen.",
   invoice_note: "Musterrechnung / Demodaten – keine echte Rechnung",
 };
 

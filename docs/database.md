@@ -542,3 +542,40 @@ Die bisherige Signatur von `complete_visit` (vier Parameter) wurde ersetzt; Aufr
 
 Zusätzliche Ereigniscodes: `follow_up_requested`, `photo_added`.
 
+## Analytik (task-7-1)
+
+Migration `20261008090000_analytics.sql`. Tests: `supabase/tests/database/analytics.test.sql`.
+
+Alle Funktionen sind `security invoker`: Es gilt RLS der Basistabellen. Datenfunktionen prüfen zusätzlich `private.analytics_require_access()` (nur aktive Manager und Admins, sonst `42501`). Zeiträume in `settings.timezone` (Europe/Berlin).
+
+| Funktion | Ergebnis |
+| --- | --- |
+| `analytics_window(kind, anchor?, as_of?)` | Zeitraum `week`/`month`/`quarter`/`year` um `anchor` (Standard: heute) und Vergleichszeitraum; für alle angemeldeten Nutzer |
+| `analytics_kpis(kind, anchor?, as_of?)` | 16 Kennzahlen mit `measure` (`event`/`snapshot`), `unit`, aktuellem und Vergleichswert, `difference`, `change_percent`, `detail` |
+| `analytics_series(granularity, from_date, to_date)` | je Tag/Woche/Monat: Eingänge, Erstbearbeitung abgeschlossen (davon automatisch), abgeschlossen, ausgestellt brutto, Zahlungseingang |
+| `analytics_queue_history(from_date, to_date)` | je Tag und Warteschlange (`analysis`, `review`, `awaiting_customer`, `planning`) die Anzahl am Tagesende |
+| `analytics_automation(kind, anchor?, as_of?)` | Automatisierungsläufe des Zeitraums je Schritt, Status, Entscheidung, davon korrigiert |
+| `analytics_team(kind, anchor?, as_of?)` | je Dispatcher und Techniker: manuelle Erstbearbeitungen, beendete Einsätze, Arbeitsminuten, abgeschlossene Anfragen, offene zugewiesene Anfragen am Periodenende |
+
+**Vergleichszeitraum:** aktueller Zeitraum `[Beginn, min(Ende, as_of))`; Vergleich ab Beginn des vorherigen Zeitraums über dieselbe verstrichene Zeit, begrenzt auf dessen Ende. 1.–8. Oktober 10:00 vergleicht mit 1.–8. September 10:00; ein vollständiger oder fast vollständiger März mit dem ganzen Februar. Wochen beginnen montags.
+
+**Ereignis-Kennzahlen** zählen jedes Ereignis nach seinem eigenen Zeitstempel: Eingang `created_at`, Erstbearbeitung `intake_completed_at`, Abschluss `completed_at`, Ausstellung `issued_at`, Zahlung `paid_at`, Läufe `started_at`.
+
+| Schlüssel | Definition |
+| --- | --- |
+| `received`, `intake_completed`, `completed` | Anzahl nach dem jeweiligen Zeitstempel |
+| `automatic_share` | automatische unter allen abgeschlossenen Erstbearbeitungen; korrigierte automatische Ergebnisse zählen als automatisch (erstes Ergebnis) |
+| `lead_time_days` | Ø Tage von Eingang bis Abschluss der im Zeitraum abgeschlossenen Anfragen |
+| `response_on_time` | Anfragen mit Antwortfrist im Zeitraum, bei denen erste inhaltliche Antwort oder Abschluss der Erstbearbeitung spätestens zur Frist lag |
+| `service_on_time` | im Zeitraum abgeschlossene Anfragen mit Servicefrist, abgeschlossen spätestens zur Frist |
+| `invoiced_gross`, `revenue_net` | ausgestellte Rechnungen brutto bzw. netto; ausgestellt ist nicht eingenommen |
+| `payments_received` | bezahlte Rechnungsbeträge brutto nach `paid_at` |
+| `time_saved_minutes` | Summe `manual_minutes_baseline` automatischer Erstabschlüsse ohne Korrektur (Ereignis `automatic_result_corrected` oder korrigierter Lauf); `detail`: Anzahl und Basiswert |
+
+**Momentaufnahmen** gelten für den Zustand am Ende des Zeitraums (und des Vergleichszeitraums): `open_requests`, `review_queue`, `planning_queue` aus der Statushistorie, `open_receivables` (ausgestellt, zu diesem Zeitpunkt nicht bezahlt) und `overdue_receivables` (zusätzlich Fälligkeit vor dem lokalen Stichtag).
+
+**Prozentwerte:** `change_percent` ist `null` bei Prozent-Kennzahlen (Änderung in Punkten über `difference`) und wenn der Vergleichswert `null` oder `0` ist; eine Null-Basis ergibt nie einen Prozentwert.
+
+**Statushistorie:** `private.analytics_status_segments()` rekonstruiert je Anfrage Abschnitte `[valid_from, valid_to)` aus `intake_status_changed` und `work_status_changed`; Ausgangszustand ist der `from_value` des ersten Ereignisses, ohne Ereignisse der aktuelle Status. Die Warteschlangen der Historie entsprechen `dispatcher_queue` ohne die Verfeinerungen „Kundenantwort eingegangen“ (zählt als Prüfung) und reservierender Einsatz (`planning` = bearbeitet und Arbeitsstatus `not_planned`/`waiting_parts`), zusätzlich `analysis` für `new`/`analyzing`.
+
+**RLS-Leistung:** Die Lese-Richtlinien von `requests`, `request_events`, `visits`, `invoices` und `automation_runs` prüfen zuerst einmal je Anweisung `(select private.is_manager_or_admin())`. Für Manager und Admins waren die zeilenweisen Prüfungen ohnehin immer wahr; die Bedeutung ändert sich nicht, Tabellenauswertungen werden aber um Größenordnungen schneller (Zählung aller Ereignisse 1,2 s → 2 ms).

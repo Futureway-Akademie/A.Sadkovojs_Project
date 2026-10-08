@@ -780,7 +780,7 @@
       "description": "Eigene Einsätze, Arbeitserfassung, Abschluss und Rechnung.",
       "order": 7,
       "weight": 11,
-      "status": "in_progress",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-6-1",
@@ -859,7 +859,7 @@
           "description": "Expliziter Abschluss, Rechnungserstellung, Ausstellung und PDF-Download mit Kennzeichnung Musterrechnung / Demodaten.",
           "order": 3,
           "weight": 4,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-6-2",
             "task-2-4"
@@ -870,13 +870,62 @@
             "PDF als Musterrechnung / Demodaten gekennzeichnet",
             "Tarifänderungen ändern ausgestellte PDFs nicht"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T07:38:39Z",
+          "completedAt": "2026-10-08T07:52:23Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Anfrageseite: „Anfrage abschließen“ (close_request, aktueller Techniker/Manager/Admin ohne Managerfreigabe; bei offenen Einsätzen nur Hinweis), „Rechnungsentwurf erstellen“ (create_invoice) und „Rechnung ausstellen“ (issue_invoice); PDF-Route /dashboard/anfragen/[id]/rechnung/pdf mit Nutzerrechten, 404 für Entwürfe und fremde Anfragen, 401 ohne Anmeldung, no-store. PDF (pdf-lib 1.17.1) nur aus eingefrorenen Positionen und Snapshots, deterministisch, Banner/Wasserzeichen/Fußzeile „Musterrechnung / Demodaten“ auf jeder Seite. test:unit 15/15 (inkl. invoice-pdf, auch TZ=America/New_York); test:ui gegen die Datenbank: Abschluss durch Techniker (work_completed mit Techniker-ID), Entwurf ohne PDF, Ausstellung RE-2026-…, PDF-Download mit Kennzeichnung, Stundensatz erhöht → PDF byte-identisch; test:auth, test:api, test:db 427/427, demo:seed + demo:verify 16/16 (Testanfragen samt Rechnungen entfernt); lint, typecheck, build erfolgreich; Screenshots 390/1440 und PDF gesichtet. Keine Migration nötig; test:ui lief gegen APP_URL=http://127.0.0.1:3100, da Port 3000 von einem anderen Projekt belegt war.",
+            "commands": [
+              "npm run test:unit",
+              "npm run build",
+              "next start -p 3100",
+              "APP_URL=http://127.0.0.1:3100 UI_SCREENSHOTS=… npm run test:ui",
+              "npm run test:auth",
+              "npm run test:api",
+              "npm run test:db",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run lint",
+              "npm run typecheck"
+            ],
+            "checkedAt": "2026-10-08T07:52:23Z"
+          }
+        },
+        {
+          "id": "task-6-4",
+          "title": "Rechnungs-PDF im RheinWerk-Design",
+          "description": "Rechnungs-PDF nach dem RheinWerk-Designsystem gestalten (Logo Strömungsschnitt, Navy/Lime, Inter und IBM Plex Mono) auf Grundlage einer in Claude Design erstellten A4-Vorlage; Demo-Kennzeichnung in Markenfarben; Verkäuferdaten der Demo mit der Website abgleichen.",
+          "order": 4,
+          "weight": 2,
+          "status": "completed",
+          "dependsOn": [
+            "task-6-3"
+          ],
+          "definitionOfDone": [
+            "Logo und Markenfarben gemäß _ds im PDF",
+            "Kennzeichnung Musterrechnung / Demodaten weiterhin auf jeder Seite",
+            "PDF bleibt deterministisch und nur aus der eingefrorenen Rechnung erzeugt",
+            "Mehrseitige Rechnungen mit Folgeseiten im gleichen Design"
+          ],
+          "startedAt": "2026-10-08T08:24:23Z",
+          "completedAt": "2026-10-08T08:38:55Z",
+          "verification": {
+            "status": "passed",
+            "summary": "lib/invoice-pdf.ts setzt die Maßtabelle der Claude-Design-Vorlage (docs/design/RheinWerk Rechnungsvorlage.html) um: Demo-Band, Wasserzeichen, Falz-/Lochmarken, Logo (Balken + Manrope-Wortmarke als Umrisse), Absender, Anschriftfeld DIN 5008, Informationsblock, Positionstabelle mit Umbruch, Folgeseiten mit Übertrag, Summenblock mit Gesamtbetrag-Fläche, Zahlungskasten, Fußzeilen. Inter/IBM Plex Mono als Latin-Subsets (assets/fonts, OFL) über @pdf-lib/fontkit 1.1.1 mit festen Namen eingebettet; Route lädt Schriften (outputFileTracingIncludes geprüft). Demo-Verkäuferdaten auf Website-Angaben (Mannheim) umgestellt; fehlende Anfragenummer älterer Snapshots wird aus der unveränderlichen Anfrage ergänzt. test:unit 17/17 (auch TZ=America/New_York), test:ui inkl. byte-identischem PDF nach Tarifänderung, test:auth (Testauswahl des fremden Technikers korrigiert, da Einsätze Lesezugriff gewähren), test:api, test:db, demo:seed + demo:verify 16/16, lint, typecheck, build erfolgreich; PDFs (1 Seite, 2 Seiten, 4 Seiten mit 75 Positionen, echte Rechnung aus der Datenbank) visuell mit der Vorlage verglichen. Tests gegen APP_URL=http://127.0.0.1:3100.",
+            "commands": [
+              "npm run test:unit",
+              "TZ=America/New_York npm run test:unit",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "npm run test:api",
+              "npm run test:db"
+            ],
+            "checkedAt": "2026-10-08T08:38:55Z"
           }
         }
       ]
@@ -895,7 +944,7 @@
           "description": "Views/RPCs für KPIs, Periodenvergleich, historische Warteschlangen aus Ereignissen und Automatisierungskennzahlen unter Wahrung von RLS.",
           "order": 1,
           "weight": 5,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-3-2"
           ],
@@ -906,13 +955,28 @@
             "Zeitersparnis nur für korrekte automatische Erstbearbeitung",
             "Analytik umgeht RLS nicht"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T08:47:59Z",
+          "completedAt": "2026-10-08T08:58:35Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "Migration 20261008090000_analytics.sql: analytics_window (Vergleich gleicher verstrichener Zeit, begrenzt auf das Ende des Vorzeitraums), analytics_kpis (16 Kennzahlen, measure event/snapshot, change_percent null bei Null-Basis und Prozentwerten), analytics_series (getrennt nach created_at, intake_completed_at, completed_at, issued_at, paid_at), analytics_queue_history (Statushistorie aus request_events), analytics_automation, analytics_team; alle security invoker, Zugriff nur aktive Manager/Admins. Lese-Richtlinien von requests, request_events, visits, invoices, automation_runs mit vorgezogener Manager/Admin-Prüfung (gleiche Bedeutung, KPI-Abfrage 1,3 s → 0,1 s). pgTAP analytics 45/45, test:db 472/472 nach supabase db reset; db lint ohne neue Hinweise; db:types; test:api, test:auth, test:ui, test:unit 17/17, demo:verify 16/16, lint, typecheck, build erfolgreich.",
+            "commands": [
+              "supabase db reset",
+              "npm run demo:users",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run db:types",
+              "supabase db lint",
+              "npm run test:db",
+              "npm run test:api",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui",
+              "npm run test:unit",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-08T08:58:35Z"
           }
         },
         {
@@ -921,7 +985,7 @@
           "description": "Zeitraumwahl, KPIs mit Definition und Listenverknüpfung, Aufmerksamkeitsliste, Teamübersicht und Finanzen.",
           "order": 2,
           "weight": 4,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-7-1",
             "task-4-3"
@@ -1008,7 +1072,7 @@
       "description": "Kennzahlen-Wörterbuch, n8n-Vertrag und Gesamtprüfung.",
       "order": 10,
       "weight": 6,
-      "status": "planned",
+      "status": "ready",
       "tasks": [
         {
           "id": "task-9-1",
@@ -1016,7 +1080,7 @@
           "description": "Dokumentation aller Kennzahlen sowie des künftigen n8n-Ein-/Ausgabevertrags inklusive Idempotenz, Versionsprüfung, Warteschlange und Gmail-Zuordnung.",
           "order": 1,
           "weight": 2,
-          "status": "planned",
+          "status": "ready",
           "dependsOn": [
             "task-7-1"
           ],
@@ -1049,7 +1113,8 @@
             "task-6-3",
             "task-7-3",
             "task-8-1",
-            "task-9-1"
+            "task-9-1",
+            "task-6-4"
           ],
           "definitionOfDone": [
             "Alle Szenarien mit Ergebnis dokumentiert",

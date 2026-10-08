@@ -160,3 +160,44 @@ Die Server Action lädt die geprüfte Datei mit dem Server-Schlüssel unter eine
 
 Berechtigung und Metadaten entstehen atomar in der Datenbank; der Server-Schlüssel schreibt nur unter einem Pfad, den die Datenbankfunktion anschließend validiert. Keine Storage-Schreibrechte für Clients, keine öffentlichen URLs.
 
+## 2026-10-08 – Rechnungs-PDF bei jedem Abruf aus der eingefrorenen Rechnung
+
+### Kontext
+
+Ausgestellte Rechnungen sollen als PDF (Musterrechnung / Demodaten) herunterladbar sein, und spätere Tarifänderungen dürfen ausgestellte PDFs nicht verändern. `issue_invoice` friert Positionen, Beträge sowie Verkäufer- und Kundendaten bereits ein; Trigger verhindern jede spätere Änderung.
+
+### Entscheidung
+
+Das PDF wird nicht gespeichert, sondern bei jedem Abruf deterministisch aus den eingefrorenen Daten erzeugt (`lib/invoice-pdf.ts`, Route mit Nutzerrechten). Bibliothek `pdf-lib` 1.17.1 (MIT, reines JavaScript ohne native Abhängigkeiten, keine React-Abhängigkeit, nur serverseitig genutzt).
+
+### Begründung
+
+Kein zweiter, nicht atomarer Schritt (Ausstellen und Hochladen) und keine Datei, die von der Datenbank abweichen kann. Unveränderlichkeit folgt aus den Datenbankgarantien und ist geprüft: `test:ui` vergleicht das PDF vor und nach einer Tarifänderung byte-genau. Eine Änderung der PDF-Vorlage im Code würde das Erscheinungsbild ausgestellter PDFs ändern, nicht aber deren Inhalt; für echte Rechnungen wäre eine Archivierung des PDFs bei Ausstellung (GoBD) nötig.
+
+## 2026-10-08 – Rechnungs-PDF im RheinWerk-Design mit eingebetteten Schriften
+
+### Kontext
+
+Das PDF aus task-6-3 nutzte Helvetica ohne Logo und Markenfarben; der Projektbrief verlangt das RheinWerk-Designsystem. Die Vorlage entstand in Claude Design mit einer Maßtabelle für pdf-lib.
+
+### Entscheidung
+
+Umsetzung der Maßtabelle in `lib/invoice-pdf.ts`. Inter (400/500/600) und IBM Plex Mono (500) werden als auf Latein verkleinerte TTF-Dateien (zusammen rund 140 KB, SIL OFL) unter `assets/fonts/` versioniert und mit `@pdf-lib/fontkit` 1.1.1 (MIT) eingebettet. Die Wortmarke „RheinWerk“ (Manrope 800) ist als Umrisspfad hinterlegt, damit keine dritte Schrift eingebettet wird. Schriften erhalten feste Namen (`customName`), weil pdf-lib sonst einen zufälligen Suffix vergibt. Die Verkäuferdaten der Demo folgen der Website (Rheinwerkstraße 12, 68169 Mannheim, Geschäftsführung Dr. Lena Hartmann, Fiktiv-Hinweis).
+
+### Begründung
+
+Das Erscheinungsbild entspricht der freigegebenen Vorlage; die Ausgabe bleibt byte-identisch reproduzierbar (Unit-Test und Tarifänderungsprüfung in `test:ui`). Bereits ausgestellte Rechnungen erscheinen beim nächsten Abruf in der neuen Gestaltung; ihr Inhalt (Positionen, Beträge, Snapshots) bleibt unverändert.
+
+## 2026-10-08 – Analytik als Datenbankfunktionen mit Nutzerrechten
+
+### Kontext
+
+Die Manager-Analytik (task-7-1) soll Kennzahlen mit Periodenvergleich, Zeitreihen und Warteschlangenhistorie liefern, ohne RLS zu umgehen. Unvollständige Zeiträume und kürzere Monate müssen fair verglichen werden.
+
+### Entscheidung
+
+`security invoker`-Funktionen im Schema `public`, nur für Manager und Admins. Vergleich über dieselbe verstrichene Zeit ab Beginn des vorherigen Zeitraums, begrenzt auf dessen Ende. Warteschlangenhistorie aus `request_events` rekonstruiert statt eigener Snapshot-Tabelle. Damit Auswertungen über alle Zeilen schnell sind, erhalten fünf Lese-Richtlinien eine vorgezogene, einmal je Anweisung ausgewertete Manager/Admin-Prüfung.
+
+### Begründung
+
+Keine zweite Datenquelle, die von den Ereignissen abweichen kann; RLS bleibt die einzige Berechtigungsquelle. Die Richtlinien behalten ihre Bedeutung (für Manager/Admins waren alle Prüfungen bereits wahr), was die bestehenden RLS-Tests bestätigen. Ohne die Änderung dauerte eine Kennzahlenabfrage rund 1,3 s, danach rund 0,1 s.

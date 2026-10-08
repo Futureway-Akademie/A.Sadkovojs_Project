@@ -136,6 +136,31 @@ Nur Techniker; Daten `lib/dashboard/technician.ts`, Karten `components/dashboard
 | Fotos | JPEG/PNG bis 10 MB hochladen, Vorschau | Upload + `add_visit_photo` |
 
 - **Fotos:** Die Server Action prüft Größe und Dateisignatur (JPEG/PNG), prüft per RLS den Zugriff auf den Einsatz, lädt die Datei mit dem Server-Schlüssel in den privaten Bucket `dashboard` (`visits/<request_id>/<visit_id>/<uuid>.jpg`) und lässt sie von `add_visit_photo` mit den Rechten des Nutzers registrieren; scheitert das, wird die Datei sofort gelöscht. Anzeige und Download über die App-Route mit Nutzerrechten. Server-Action- und Proxy-Limit: 11 MB (`next.config.ts`).
-- **Einsatz beenden schließt die Anfrage nicht;** der Abschluss folgt in task-6-3.
+- **Einsatz beenden schließt die Anfrage nicht;** der Abschluss erfolgt auf der Anfrageseite (task-6-3).
 - Nach ausgestellter Rechnung oder bei abgeschlossener Anfrage sind keine Positionen mehr änderbar (Datenbank-Sperre, Oberfläche blendet die Formulare aus).
 
+## Anfrage abschließen und Rechnung (task-6-3)
+
+Aktionen im Abschnitt „Aktionen“ der Anfrageseite für den aktuell zugewiesenen Techniker, Manager und Admins, ohne Freigabe durch die Leitung. Server Actions in `app/(dashboard)/dashboard/anfragen/[id]/actions.ts`, je Aktion genau eine RPC mit der angezeigten Version der Anfrage.
+
+| Aktion | Sichtbar, wenn | Operation |
+| --- | --- | --- |
+| Anfrage abschließen (Abschlussbericht, vorbelegt mit dem Bericht des letzten Einsatzes) | Erstbearbeitung `processed`, Anfrage nicht abgeschlossen/storniert, mindestens ein beendeter Einsatz; bei offenen Einsätzen nur ein Hinweis statt Formular | `close_request` |
+| Rechnungsentwurf erstellen | Anfrage technisch abgeschlossen, noch keine Rechnung | `create_invoice` |
+| Rechnung ausstellen | Rechnung im Entwurf; ohne abrechenbare Positionen Hinweis (Datenbank meldet `RW422`) | `issue_invoice` |
+
+- **PDF:** `GET /dashboard/anfragen/[id]/rechnung/pdf` liest Rechnung, Positionen sowie `completed_at` und `request_number` der Anfrage mit Nutzerrechten (RLS) und erzeugt das PDF bei jedem Abruf mit `lib/invoice-pdf.ts` (`pdf-lib`, Gestaltung siehe task-6-4). Entwürfe und fremde Anfragen: 404, ohne Anmeldung 401; Antwort `no-store`, Download als `Musterrechnung-<Nummer>.pdf`.
+- **Inhalt nur aus der eingefrorenen Rechnung:** Positionen, Beträge, `seller_snapshot` und `customer_snapshot`, die `issue_invoice` schreibt und die Trigger danach sperren; Leistungsdatum aus dem Abschluss der Anfrage. Tarife, Einstellungen oder Kundendaten werden nicht gelesen; feste Metadaten machen das PDF byte-identisch reproduzierbar.
+- **Kennzeichnung:** Demo-Band „Musterrechnung / Demodaten – keine echte Rechnung“, Wasserzeichen und Fußzeile mit Rechnungsnummer und Seitenzahl auf jeder Seite, Titel und Betreff der PDF-Metadaten.
+- Der Abschnitt „Rechnung“ zeigt nach der Ausstellung „PDF herunterladen“ für jede Rolle, die die Rechnung lesen darf. Versendet wird nichts; der Status `sent` entsteht weiterhin erst durch die spätere Integration.
+
+## Rechnungs-PDF im RheinWerk-Design (task-6-4)
+
+Vorlage: `docs/design/RheinWerk Rechnungsvorlage.html` (Claude Design, gebündelt; Seite 1, Folgeseite und Maßtabelle für pdf-lib). `lib/invoice-pdf.ts` setzt die Maßtabelle um: alle Positionen in mm ab linker oberer Blattecke, Texte auf der Grundlinie.
+
+- **Seitenrahmen jeder Seite:** Wasserzeichen „MUSTERRECHNUNG / DEMODATEN“ (zuerst gezeichnet, 35°), Navy-Band mit Lime-Quadrat, Lochmarke; Falzmarken nur auf Seite 1; Fußzeilen mit Bank, Firma/Geschäftsführung und Fiktiv-Hinweis aus `seller_snapshot`, darunter Demo-Fußzeile und „Seite x von n“.
+- **Seite 1:** Logo (Balken als Rechtecke, Wortmarke „RheinWerk“ als Umrisse aus Manrope 800 in `lib/invoice-pdf-brand.ts`, Deskriptor in Inter), Absenderblock, Anschriftfeld DIN 5008 B mit Rücksendezeile, Informationsblock (Rechnungs-, Leistungsdatum, Fälligkeit, Anfrage, Kundennummer, optional Standort; leere Zeilen entfallen), Titel und Einleitungssatz.
+- **Positionstabelle:** Raster Pos./Beschreibung (Umbruch bei 64 mm)/Menge/Einheit/Einzelpreis/USt./Netto; Zahlen in IBM Plex Mono. Zeilen bis y 258 mm; die Seite mit dem Summenblock endet spätestens bei y 230 mm, sonst wandert die letzte Zeile auf eine Folgeseite. Folgeseiten: Kopf mit kleinem Logo, wiederholter Tabellenkopf und Übertragszeile mit der bisherigen Nettosumme.
+- **Summenblock:** Summe netto (bei mehreren Seiten mit Positionsbereich), eine Zeile je Steuersatz, Gesamtbetrag auf Navy-Fläche mit Lime-Strich; daneben Zahlungskasten mit Fälligkeit und Rechnungsnummer.
+- **Schriften:** Inter 400/500/600 und IBM Plex Mono 500 unter `assets/fonts/` (Subset Latin-1, Latin Extended-A, Satzzeichen, €; SIL OFL 1.1), geladen von `lib/invoice-pdf-fonts.ts` und per `outputFileTracingIncludes` in die Route übernommen; Einbettung mit `@pdf-lib/fontkit` als Subset unter festem Namen (deterministisch). Zeichen außerhalb des Subsets werden vereinfacht oder durch „?“ ersetzt.
+- **Ältere Snapshots:** Fehlt `request_number` im `customer_snapshot` (Demo-Seed vor task-6-4), ergänzt die Route sie aus der Anfrage; die Anfragenummer ist per Trigger unveränderlich.
