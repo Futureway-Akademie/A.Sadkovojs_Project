@@ -2,7 +2,7 @@
 -- Fixtures live in 2031 inside this transaction; measures are compared as differences before/after the
 -- fixture, so existing (demo) data does not influence the result.
 begin;
-select plan(45);
+select plan(47);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0007-0000000000a1', 'an-manager@x.test'),
@@ -52,6 +52,11 @@ select is(
   (select row(current_start, previous_start, previous_end)::text from public.analytics_window('quarter', null, '2031-05-15 00:00+02')),
   row(timestamptz '2031-04-01 00:00+02', timestamptz '2031-01-01 00:00+01', timestamptz '2031-02-14 00:00+01')::text,
   'quarter to date compares with the same 44 days of the previous quarter'
+);
+select is(
+  (select row(previous_start, previous_end)::text from public.analytics_window('month', '2026-09-10', '2026-10-08 10:00+02')),
+  row(timestamptz '2026-08-01 00:00+02', timestamptz '2026-09-01 00:00+02')::text,
+  'complete September compares with all of August (31 days)'
 );
 select throws_ok($$select * from public.analytics_window('decade')$$, 'RW422', null, 'unknown period kind is rejected');
 
@@ -161,6 +166,13 @@ select is(
    from after_series a join before_series b using (bucket_start)),
   array[row(1, 0, 0)::text, row(4, 5, 0)::text, row(0, 0, 1)::text],
   'series Feb–Apr: received, intake completed and completed in separate months'
+);
+
+select is(
+  (select row(a.saved_requests - b.saved_requests, a.saved_minutes - b.saved_minutes, a.baseline_minutes)::text
+   from after_series a join before_series b using (bucket_start) where bucket_start = '2031-03-01'),
+  row(1, 15.00::numeric, 15.00::numeric)::text,
+  'series: time savings per month with count and baseline (March: A)'
 );
 
 -- Time savings only for correct automatic completions

@@ -936,7 +936,7 @@
       "description": "Kennzahlen, Aufmerksamkeitsliste, Team, Finanzen, Diagramme und Automatisierung.",
       "order": 8,
       "weight": 12,
-      "status": "ready",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-7-1",
@@ -985,7 +985,7 @@
           "description": "Zeitraumwahl, KPIs mit Definition und Listenverknüpfung, Aufmerksamkeitsliste, Teamübersicht und Finanzen.",
           "order": 2,
           "weight": 4,
-          "status": "ready",
+          "status": "completed",
           "dependsOn": [
             "task-7-1",
             "task-4-3"
@@ -995,13 +995,24 @@
             "Ereignis- und Momentaufnahme-Kennzahlen getrennt gekennzeichnet",
             "Ausgestellt ist nicht gleich eingenommen"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T09:03:23Z",
+          "completedAt": "2026-10-08T09:18:43Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "/dashboard/uebersicht: Zeitraumwahl (Woche/Monat/Quartal/Jahr, vor/zurück, Vergleichszeitraum sichtbar), 16 Kennzahlen in drei Abschnitten (Ereignisse, Momentaufnahmen, Finanzen) mit Definition, Änderung (Prozent/Punkte, Null-Basis ohne Prozentwert) und Listen-Link; Aufmerksamkeitsliste (6 Gründe); Teamübersicht. Anfrageliste um Zeitraum-, Modus- und Offen-Filter erweitert; neue Rechnungsliste /dashboard/rechnungen mit Summen. Migration 20261008100000: abgeschlossene Zeiträume vergleichen ganze Vorzeiträume. test:ui: Listen-Anzahl bzw. Bruttosumme = Kennzahl für 8 Kennzahlen, Kennzeichnung Ereignis/Momentaufnahme, Zeitraumnavigation, kein horizontales Scrollen (390/768/1440); test:auth: nur Manager/Admin; test:unit 23/23; test:db 473/473; test:api; demo:verify 16/16; lint, typecheck, build erfolgreich; Screenshots gesichtet.",
+            "commands": [
+              "npm run test:unit",
+              "npm run test:db",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "npm run test:api",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build"
+            ],
+            "checkedAt": "2026-10-08T09:18:43Z"
           }
         },
         {
@@ -1010,7 +1021,7 @@
           "description": "Getrennte Reihen für Eingang, Erstbearbeitung und Abschluss, Periodenvergleich, Saisonalität, Warteschlangenverlauf und Automatisierungsbereich.",
           "order": 3,
           "weight": 3,
-          "status": "planned",
+          "status": "completed",
           "dependsOn": [
             "task-7-2"
           ],
@@ -1019,13 +1030,25 @@
             "Tooltip zur Zeitersparnis zeigt Basiswert und Anzahl",
             "Diagrammbibliothek gegen React 19 geprüft"
           ],
-          "startedAt": null,
-          "completedAt": null,
+          "startedAt": "2026-10-08T09:31:32Z",
+          "completedAt": "2026-10-08T09:44:41Z",
           "verification": {
-            "status": "not_run",
-            "summary": null,
-            "commands": [],
-            "checkedAt": null
+            "status": "passed",
+            "summary": "/dashboard/auswertung: sieben Diagramme aus Datenbankdaten (Eingang/Erstbearbeitung/Abschluss als getrennte Reihen, kumulierter Periodenvergleich, Saisonalität ohne erfundene Nullen, Warteschlangenhistorie, ausgestellt vs. bezahlt, Anteil automatisch, Zeitersparnis mit Tooltip „N Anfragen × Basiswert“) und Tabelle der Automatisierungsläufe; je Abbildung Zusammenfassung, Legende, Datentabelle. Recharts 3.10.1 gegen React 19 geprüft (peerDependencies, Build, Browser-Test); Farben mit Dataviz-Validator geprüft. Migration 20261008110000 erweitert analytics_series um Zeitersparnis. test:ui: 7 Diagramme mit SVG und Tabelle, Monatswert = direkte DB-Zählung, Tooltip Zeitersparnis mit Anzahl und Basiswert, kein horizontales Scrollen (390/768/1440); test:auth; test:unit 29/29; test:db 474/474; test:api; demo:verify 16/16; lint, typecheck, build erfolgreich; Screenshots gesichtet.",
+            "commands": [
+              "npm run test:unit",
+              "npm run test:db",
+              "APP_URL=http://127.0.0.1:3100 npm run test:ui",
+              "APP_URL=http://127.0.0.1:3100 npm run test:auth",
+              "npm run test:api",
+              "npm run demo:seed",
+              "npm run demo:verify",
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "node validate_palette.js (dataviz)"
+            ],
+            "checkedAt": "2026-10-08T09:44:41Z"
           }
         }
       ]

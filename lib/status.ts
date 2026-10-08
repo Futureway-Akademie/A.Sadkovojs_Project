@@ -84,6 +84,8 @@ export const LABELS = {
   work_entry_kind: { labor: "Arbeitszeit", part: "Material", fixed_service: "Pauschale" },
   work_unit: { hour: "Std.", piece: "Stk.", service: "Pauschale" },
   visibility_level: { operational: "Technik", dispatch: "Disposition", management: "Leitung" },
+  automation_step: { intake_analysis: "Analyse der Anfrage", reply_analysis: "Analyse der Kundenantwort", email_matching: "E-Mail-Zuordnung", email_send: "E-Mail-Versand" },
+  automation_decision: { ready_for_planning: "Bereit zur Planung", ask_customer: "Rückfrage an Kunden", human_review: "Menschliche Prüfung", matched: "Zugeordnet", unmatched: "Nicht zugeordnet", sent: "Versendet" },
 } as const satisfies Record<string, Record<string, string>>;
 
 export function label(kind: keyof typeof LABELS, value: string | null | undefined): string {

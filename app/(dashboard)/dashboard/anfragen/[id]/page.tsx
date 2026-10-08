@@ -167,9 +167,9 @@ function Intake({ detail, person }: { detail: RequestDetail; person: PersonFn })
   const r = detail.request;
   const runs = detail.automationRuns ?? [];
   const columns: Column<(typeof runs)[number]>[] = [
-    { key: "step", header: "Schritt", cell: (run) => STEP_LABELS[run.step] ?? run.step, mobile: "title" },
+    { key: "step", header: "Schritt", cell: (run) => label("automation_step", run.step), mobile: "title" },
     { key: "status", header: "Status", cell: (run) => <StatusBadge kind="automation_status" value={run.status} /> },
-    { key: "decision", header: "Entscheidung", cell: (run) => (run.decision ? DECISION_LABELS[run.decision] ?? run.decision : EMPTY) },
+    { key: "decision", header: "Entscheidung", cell: (run) => (run.decision ? label("automation_decision", run.decision) : EMPTY) },
     { key: "confidence", header: "Konfidenz", cell: (run) => (run.confidence === null ? EMPTY : formatPercent(run.confidence * 100, 0)), align: "end" },
     { key: "started", header: "Start", cell: (run) => formatDateTime(run.started_at) },
     { key: "correction", header: "Korrektur", cell: (run) => (run.corrected_at ? `${person(run.corrected_by, "Unbekannt")}: ${run.correction_reason ?? ""}` : EMPTY) },
@@ -190,8 +190,6 @@ function Intake({ detail, person }: { detail: RequestDetail; person: PersonFn })
   );
 }
 
-const STEP_LABELS: Record<string, string> = { intake_analysis: "Analyse der Anfrage", reply_analysis: "Analyse der Kundenantwort", email_matching: "E-Mail-Zuordnung", email_send: "E-Mail-Versand" };
-const DECISION_LABELS: Record<string, string> = { ready_for_planning: "Bereit zur Planung", ask_customer: "Rückfrage an Kunden", human_review: "Menschliche Prüfung", matched: "Zugeordnet", unmatched: "Nicht zugeordnet", sent: "Versendet" };
 const MESSAGE_KIND_LABELS: Record<string, string> = { receipt: "Eingangsbestätigung", clarification: "Rückfrage", customer_reply: "Kundenantwort", invoice: "Rechnung", other: "Sonstige" };
 
 function Correspondence({ detail, person, editable }: { detail: RequestDetail; person: PersonFn; editable: boolean }) {

@@ -146,7 +146,7 @@ try {
   ];
   const roles = [
     { email: "admin.demo@example.com", pages: ["/dashboard/bausteine", "/dashboard/verwaltung", "/dashboard/uebersicht", "/dashboard/anfragen"] },
-    { email: "manager.demo@example.com", pages: ["/dashboard/planung", "/dashboard/anfragen", "detail:/dashboard/anfragen?arbeit=completed", "detail:/dashboard/anfragen?erstbearbeitung=needs_review"] },
+    { email: "manager.demo@example.com", pages: ["/dashboard/uebersicht", "/dashboard/uebersicht?zeitraum=jahr", "/dashboard/rechnungen", "/dashboard/auswertung", "/dashboard/planung", "/dashboard/anfragen", "detail:/dashboard/anfragen?arbeit=completed", "detail:/dashboard/anfragen?erstbearbeitung=needs_review"] },
     { email: "dispo3.demo@example.com", pages: ["/dashboard/erstbearbeitung", "/dashboard/erstbearbeitung?tab=planung", "/dashboard/erstbearbeitung?tab=alle"] },
     { email: "technik1.demo@example.com", pages: ["/dashboard/heute", "/dashboard/kalender", "/dashboard/anfragen", "detail:/dashboard/anfragen", "einsatz:/dashboard/heute"] },
   ];
@@ -176,6 +176,58 @@ try {
         }
       }
     }
+  }
+
+  console.log("\nManager-Übersicht: Kennzahlen führen zu passenden Listen");
+  {
+    await page.send("Network.clearBrowserCookies");
+    await page.send("Network.setCookies", { cookies: await loginCookies("manager.demo@example.com") });
+    await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    const overview = `${BASE}/dashboard/uebersicht?zeitraum=monat`;
+    await page.open(overview);
+    const tiles = await page.eval(`Object.fromEntries([...document.querySelectorAll(".kpi")].map((tile) => [tile.dataset.kpi, { value: tile.querySelector(".kpi__value").dataset.value, measure: tile.dataset.measure, href: tile.querySelector(".kpi__link")?.getAttribute("href") ?? null }]))`);
+    check("16 Kennzahlen, jede mit Listen-Link", Object.keys(tiles).length === 16 && Object.values(tiles).every((tile) => tile.href), Object.keys(tiles).join(","));
+    check("Ereignis- und Momentaufnahme-Kennzahlen gekennzeichnet", tiles.received?.measure === "event" && tiles.open_requests?.measure === "snapshot" && tiles.open_receivables?.measure === "snapshot");
+    const listCount = async (href) => {
+      await page.open(`${BASE}${href}`);
+      return page.eval(`(() => { const sum = document.querySelector("[data-sum=gross]"); if (sum) return sum.textContent.replace(/[^0-9,]/g, "").replace(",", "."); const text = document.querySelector(".result-count")?.textContent ?? ""; return (text.match(/^[\\d.]+/) ?? ["0"])[0].replace(/\\./g, ""); })()`);
+    };
+    // Counts and sums of the linked lists equal the KPI value (current period: snapshots equal the current lists)
+    for (const key of ["received", "intake_completed", "completed", "open_requests", "invoiced_gross", "payments_received", "open_receivables", "overdue_receivables"]) {
+      const tile = tiles[key];
+      const listed = tile?.href ? await listCount(tile.href) : null;
+      check(`  ${key}: Liste ${listed} = Kennzahl ${tile?.value}`, tile && Number(listed) === Number(tile.value), tile?.href);
+    }
+    await page.open(overview);
+    const title = await page.eval(`document.querySelector(".period-bar__step strong").textContent`);
+    await page.eval(`document.querySelector('.period-bar__step a[aria-label="Vorheriger Zeitraum"]').click()`);
+    const moved = await page.until(`location.search.includes("datum=") && !!document.querySelector(".period-bar__step strong") && document.querySelector(".period-bar__step strong").textContent !== ${JSON.stringify(title)}`);
+    check(`Zeitraum zurück: ${title} → vorheriger Monat`, moved, await page.eval(`location.search`));
+    check("  vergangener Monat ist vollständig, Weiter-Pfeil vorhanden", await page.eval(`!!document.querySelector('.period-bar__step a[aria-label="Nächster Zeitraum"]') && !document.querySelector(".period-bar__step span").textContent.includes("laufend")`));
+  }
+
+  console.log("\nAuswertung: Diagramme aus Datenbankdaten");
+  {
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
+    await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    await page.open(`${BASE}/dashboard/auswertung`);
+    await page.until(`document.querySelectorAll(".figure .recharts-surface").length >= 7`, 10000);
+    const figures = await page.eval(`[...document.querySelectorAll("figure.figure")].map((f) => ({ id: f.dataset.chart, svg: !!f.querySelector(".recharts-surface"), marks: f.querySelectorAll(".recharts-line-curve, .recharts-bar-rectangle").length, table: f.querySelectorAll(".figure__table tbody tr").length }))`);
+    check("7 Diagramme mit Datentabelle gezeichnet", figures.length === 7 && figures.every((f) => f.svg && f.marks > 0 && f.table > 0), JSON.stringify(figures));
+    // Current month in the flow table equals a direct count in the database (Europe/Berlin)
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit" }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+    const offset = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", timeZoneName: "longOffset" }).formatToParts(new Date(`${parts.year}-${parts.month}-01T12:00:00Z`)).find((p) => p.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
+    const monthStart = new Date(`${parts.year}-${parts.month}-01T00:00:00${offset}`).toISOString();
+    const { count } = await admin.from("requests").select("id", { count: "exact", head: true }).gte("created_at", monthStart);
+    const tableValue = await page.eval(`(() => { const rows = [...document.querySelectorAll("#flow-chart .figure__table tbody tr")]; const last = rows.at(-1); return last ? last.querySelectorAll("td")[1].textContent.replace(/\\D/g, "") : null; })()`);
+    check(`  Eingänge des laufenden Monats: Tabelle ${tableValue} = Datenbank ${count}`, Number(tableValue) === count);
+    // Tooltip of the time savings shows count and baseline
+    const box = await page.eval(`(() => { const bars = [...document.querySelectorAll("#savings-chart .recharts-bar-rectangle path, #savings-chart .recharts-bar-rectangle")].map((b) => b.getBoundingClientRect()).filter((r) => r.height > 2); const r = bars.at(-2) ?? bars.at(-1); if (!r) return null; document.querySelector("#savings-chart").scrollIntoView({ block: "center", behavior: "instant" }); return null; })()`);
+    await sleep(300);
+    const target = await page.eval(`(() => { const bars = [...document.querySelectorAll("#savings-chart .recharts-bar-rectangle path")].map((b) => b.getBoundingClientRect()).filter((r) => r.height > 2); const r = bars.at(-2) ?? bars.at(-1); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; })()`);
+    if (target) await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: target.x, y: target.y });
+    const tip = target && await page.until(`!!document.querySelector("#savings-chart [data-savings-detail]")`, 3000) ? await page.eval(`document.querySelector("#savings-chart [data-savings-detail]").textContent`) : "";
+    check("  Tooltip Zeitersparnis zeigt Anzahl und Basiswert", /\d+ Anfragen × Basiswert 15 min/.test(tip), `${tip} ${box ?? ""}`);
   }
 
   console.log("\nEingaben bleiben bei fehlgeschlagenem Speichern erhalten");

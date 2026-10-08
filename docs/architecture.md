@@ -164,3 +164,32 @@ Vorlage: `docs/design/RheinWerk Rechnungsvorlage.html` (Claude Design, gebündel
 - **Summenblock:** Summe netto (bei mehreren Seiten mit Positionsbereich), eine Zeile je Steuersatz, Gesamtbetrag auf Navy-Fläche mit Lime-Strich; daneben Zahlungskasten mit Fälligkeit und Rechnungsnummer.
 - **Schriften:** Inter 400/500/600 und IBM Plex Mono 500 unter `assets/fonts/` (Subset Latin-1, Latin Extended-A, Satzzeichen, €; SIL OFL 1.1), geladen von `lib/invoice-pdf-fonts.ts` und per `outputFileTracingIncludes` in die Route übernommen; Einbettung mit `@pdf-lib/fontkit` als Subset unter festem Namen (deterministisch). Zeichen außerhalb des Subsets werden vereinfacht oder durch „?“ ersetzt.
 - **Ältere Snapshots:** Fehlt `request_number` im `customer_snapshot` (Demo-Seed vor task-6-4), ergänzt die Route sie aus der Anfrage; die Anfragenummer ist per Trigger unveränderlich.
+
+## Manager-Übersicht und Rechnungsliste (task-7-2)
+
+`/dashboard/uebersicht` (Manager, Admin): Daten aus `lib/dashboard/overview.ts` über die Analytik-Funktionen (`analytics_window`, `analytics_kpis`, `analytics_team`) mit Nutzerrechten; Darstellung, Definitionen und Links in `lib/analytics.ts` (rein, Unit-Tests).
+
+- **Zeitraum:** `?zeitraum=woche|monat|quartal|jahr&datum=JJJJ-MM-TT`; Pfeile zum vorherigen und (bei abgeschlossenen Zeiträumen) nächsten Zeitraum, Anzeige des Vergleichszeitraums. Laufender Zeitraum mit „(laufend)“.
+- **Kennzahlen** in drei Abschnitten: „Ereignisse im Zeitraum“, „Stand am Ende des Zeitraums“ (Momentaufnahmen) und „Finanzen“ (Hinweis „Ausgestellt ist nicht eingenommen“). Jede Kachel zeigt Wert, Änderung (Prozent; bei Prozent-Kennzahlen Punkte; bei Vorperiode 0 nur die absolute Änderung mit Hinweis), Vorperiodenwert, Definition und einen Link auf die passende Liste. Farbe der Änderung nach fachlicher Richtung (z. B. kürzere Durchlaufzeit gut).
+- **Listen-Links:** Anfrageliste mit `feld=eingang|erstbearbeitung|abschluss|antwortfrist`, `von`, `bis` (ISO-Zeitpunkte des Zeitraums), `modus=automatic`, `status=offen`; Rechnungsliste mit `feld=ausgestellt|bezahlt`, `status=offen|ueberfaellig|bezahlt|entwurf`. Momentaufnahmen verlinken den aktuellen Stand („Aktuelle Liste“). Die Listen zeigen die Auswahl als Hinweis mit „Auswahl entfernen“ und behalten sie beim weiteren Filtern.
+- **Aufmerksamkeit:** offene Sicherheitsgefahr, Antwortfrist überschritten (ohne Antwort und ohne Abschluss der Erstbearbeitung), Servicefrist überschritten, Prüfung wartet über 24 h, Einsatz wartet über 5 Tage auf Teile, Rechnung überfällig; je Grund höchstens 50 Einträge (Anzeige „50+“), sortiert nach Dringlichkeit und Alter, die 25 dringendsten sichtbar.
+- **Team:** `analytics_team`; angezeigt werden Mitarbeitende mit Tätigkeit oder offenen Anfragen im Zeitraum, die übrigen als Anzahl.
+
+`/dashboard/rechnungen` (Manager, Admin, neuer Navigationspunkt): alle Rechnungen mit Kunde, Anfrage, Status, Überfällig-Kennzeichen, Daten und Beträgen; Summe brutto und netto über alle gefilterten Rechnungen. Daten `lib/dashboard/invoices.ts` mit Nutzerrechten.
+
+## Auswertung: Diagramme und Automatisierung (task-7-3)
+
+`/dashboard/auswertung` (Manager, Admin, Navigationspunkt „Auswertung“): Daten aus `lib/dashboard/insights.ts` (Analytik-Funktionen mit Nutzerrechten), Umformung in `lib/insights.ts` (rein, Unit-Tests), Diagramme mit Recharts in `components/dashboard/charts.tsx` (Client-Komponente). Gemeinsame Zeitraumleiste `components/dashboard/period-bar.tsx` (auch in der Übersicht).
+
+| Diagramm | Quelle | Zeitraum |
+| --- | --- | --- |
+| Eingang, Erstbearbeitung, Abschluss je Monat (drei getrennte Reihen) | `analytics_series('month')` | 24 Monate |
+| Eingänge kumuliert gegenüber Vorzeitraum | `analytics_series('day')` für aktuellen und Vergleichszeitraum | gewählter Zeitraum |
+| Saisonalität: Eingänge je Kalendermonat und Jahr | `analytics_series('month')` | Kalenderjahre ab Jahr −2; Monate ohne Daten bleiben leer |
+| Warteschlangen am Tagesende | `analytics_queue_history` | 90 Tage |
+| Ausgestellt und bezahlt je Monat | `analytics_series('month')` | 12 Monate |
+| Anteil automatischer Erstbearbeitung je Monat | `analytics_series('month')` | 24 Monate |
+| Geschätzte Zeitersparnis je Monat, Tooltip „N Anfragen × Basiswert“ | `analytics_series('month')` (`saved_requests`, `saved_minutes`, `baseline_minutes`) | 24 Monate |
+| Automatisierungsläufe je Schritt, Status, Entscheidung | `analytics_automation` | gewählter Zeitraum |
+
+Jede Abbildung hat Titel, Textzusammenfassung, Legende bei mindestens zwei Reihen (Linien- bzw. Flächenschlüssel), Tooltip (Fadenkreuz bei Linien, Wert vor Reihenname) und eine aufklappbare Datentabelle. Darstellung nach den Dataviz-Regeln: 2-px-Linien, Säulen höchstens 24 px mit 4-px-Rundung am Datenende und 2 px Abstand, Haarlinien-Raster, Achsentexte in Textfarben. Farben `lib/chart-colors.ts` (feste Reihenfolge, nie zyklisch).

@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, PageHeader } from "@/components/dashboard/ui/st
 import { StatusBadge } from "@/components/dashboard/ui/status-badge";
 import { rolesFor } from "@/lib/auth/roles";
 import { requireRole } from "@/lib/auth/session";
-import { filterQuery, getEmployeeNames, listRequests, PAGE_SIZE, parseRequestFilters, type RequestListItem } from "@/lib/dashboard/requests";
+import { DATE_FIELDS, filterQuery, getEmployeeNames, listRequests, PAGE_SIZE, parseRequestFilters, type RequestFilters, type RequestListItem } from "@/lib/dashboard/requests";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { label, STATUS } from "@/lib/status";
 
@@ -23,7 +23,8 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   const filters = parseRequestFilters(await searchParams);
   const [{ rows, total, error }, names] = await Promise.all([listRequests(filters), getEmployeeNames()]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const filtered = Boolean(filters.q || filters.intake || filters.work || filters.priority);
+  const filtered = Boolean(filters.q || filters.intake || filters.work || filters.priority || filters.field || filters.mode || filters.open);
+  const selection = describeSelection(filters);
 
   const columns: Column<RequestListItem>[] = [
     { key: "number", header: "Nummer", cell: (row) => <span className="mono">{row.request_number}</span>, mobile: "title" },
@@ -48,11 +49,22 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
         <FilterSelect name="erstbearbeitung" label="Erstbearbeitung" value={filters.intake} options={STATUS.intake_status} />
         <FilterSelect name="arbeit" label="Arbeit" value={filters.work} options={STATUS.work_status} />
         <FilterSelect name="prioritaet" label="Priorität" value={filters.priority} options={STATUS.request_priority} />
+        {/* Selection from the overview stays active when filtering further */}
+        {filters.field && <><input type="hidden" name="feld" value={filters.field} /><input type="hidden" name="von" value={filters.from} /><input type="hidden" name="bis" value={filters.to} /></>}
+        {filters.mode && <input type="hidden" name="modus" value={filters.mode} />}
+        {filters.open && <input type="hidden" name="status" value="offen" />}
         <div className="filter-bar__actions">
           <button className="button button--primary" type="submit">Filtern</button>
           {filtered && <Link className="button button--secondary" href="/dashboard/anfragen">Zurücksetzen</Link>}
         </div>
       </form>
+
+      {selection.length > 0 && (
+        <p className="active-selection">
+          <span>Auswahl: {selection.join(" · ")}</span>
+          <Link href={`/dashboard/anfragen${filterQuery({ ...filters, field: "", from: "", to: "", mode: "", open: false, page: 1 })}`}>Auswahl entfernen</Link>
+        </p>
+      )}
 
       {error ? (
         <ErrorState><p>Bitte die Seite neu laden.</p></ErrorState>
@@ -86,6 +98,15 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
       )}
     </div>
   );
+}
+
+// Readable description of filters that only come from links (overview KPIs)
+function describeSelection(filters: RequestFilters): string[] {
+  const parts: string[] = [];
+  if (filters.field) parts.push(`${DATE_FIELDS[filters.field].label} ${formatDateTime(filters.from)} bis vor ${formatDateTime(filters.to)}`);
+  if (filters.mode) parts.push(`Bearbeitungsart: ${label("intake_mode", filters.mode)}`);
+  if (filters.open) parts.push("nur offene Anfragen");
+  return parts;
 }
 
 function FilterSelect({ name, label: text, value, options }: { name: string; label: string; value: string; options: Record<string, { label: string }> }) {

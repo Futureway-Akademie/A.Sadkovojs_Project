@@ -17,8 +17,23 @@ export type RequestFilters = {
   intake: Enums["intake_status"] | "";
   work: Enums["work_status"] | "";
   priority: Enums["request_priority"] | "";
+  // Time range on one timestamp column (links from the manager overview, task-7-2)
+  field: DateField | "";
+  from: string;
+  to: string;
+  mode: Enums["intake_mode"] | "";
+  open: boolean;
   page: number;
 };
+
+export const DATE_FIELDS = {
+  eingang: { column: "created_at", label: "Eingang" },
+  erstbearbeitung: { column: "intake_completed_at", label: "Erstbearbeitung abgeschlossen" },
+  abschluss: { column: "completed_at", label: "Abgeschlossen" },
+  antwortfrist: { column: "response_due_at", label: "Antwortfrist" },
+} as const;
+type DateField = keyof typeof DATE_FIELDS;
+const MODES: readonly string[] = ["automatic", "human_review", "manual"];
 
 const INTAKE: readonly string[] = ["new", "analyzing", "needs_review", "awaiting_customer", "processed", "rejected", "cancelled"];
 const WORK: readonly string[] = ["not_planned", "scheduled", "in_progress", "waiting_parts", "completed", "cancelled"];
@@ -34,13 +49,30 @@ export function parseRequestFilters(params: Record<string, string | string[] | u
   const work = single(params.arbeit);
   const priority = single(params.prioritaet);
   const page = Number.parseInt(single(params.seite), 10);
+  const field = single(params.feld);
+  const from = isoInstant(single(params.von));
+  const to = isoInstant(single(params.bis));
+  const mode = single(params.modus);
+  const ranged = field in DATE_FIELDS && from && to;
   return {
     q: single(params.suche).slice(0, 100),
     intake: INTAKE.includes(intake) ? (intake as Enums["intake_status"]) : "",
     work: WORK.includes(work) ? (work as Enums["work_status"]) : "",
     priority: PRIORITY.includes(priority) ? (priority as Enums["request_priority"]) : "",
+    field: ranged ? (field as DateField) : "",
+    from: ranged ? from : "",
+    to: ranged ? to : "",
+    mode: MODES.includes(mode) ? (mode as Enums["intake_mode"]) : "",
+    open: single(params.status) === "offen",
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
+}
+
+// Accepts ISO timestamps only and returns them normalized (UTC), otherwise ""
+export function isoInstant(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/.test(value)) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 export function filterQuery(filters: RequestFilters, overrides: Partial<RequestFilters> = {}): string {
@@ -50,6 +82,13 @@ export function filterQuery(filters: RequestFilters, overrides: Partial<RequestF
   if (merged.intake) params.set("erstbearbeitung", merged.intake);
   if (merged.work) params.set("arbeit", merged.work);
   if (merged.priority) params.set("prioritaet", merged.priority);
+  if (merged.field) {
+    params.set("feld", merged.field);
+    params.set("von", merged.from);
+    params.set("bis", merged.to);
+  }
+  if (merged.mode) params.set("modus", merged.mode);
+  if (merged.open) params.set("status", "offen");
   if (merged.page > 1) params.set("seite", String(merged.page));
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -65,6 +104,9 @@ export async function listRequests(filters: RequestFilters): Promise<{ rows: Req
   if (filters.intake) query = query.eq("intake_status", filters.intake);
   if (filters.work) query = query.eq("work_status", filters.work);
   if (filters.priority) query = query.eq("priority", filters.priority);
+  if (filters.field) query = query.gte(DATE_FIELDS[filters.field].column, filters.from).lt(DATE_FIELDS[filters.field].column, filters.to);
+  if (filters.mode) query = query.eq("intake_mode", filters.mode);
+  if (filters.open) query = query.not("intake_status", "in", "(rejected,cancelled)").not("work_status", "in", "(completed,cancelled)");
   if (filters.q) {
     // Characters with meaning in PostgREST filter syntax or LIKE patterns are removed
     const term = filters.q.replace(/[,()*%_\\:"']/g, " ").replace(/\s+/g, " ").trim();

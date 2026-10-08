@@ -2,11 +2,11 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 31 Tasks. Fortschritt 83,96 % (Gewicht 89 von 106, 26 von 31 Tasks).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v1 mit 10 Phasen und 31 Tasks. Fortschritt 90,57 % (Gewicht 96 von 106, 28 von 31 Tasks).
 
 ## Aktive Phase
 
-Phasen 0–6 sind abgeschlossen. Phase 7 (Analytik) ist begonnen: die Datenbankfunktionen stehen, Manager-Übersicht und Diagramme folgen. Startbar außerdem Phase 8 (Verwaltung) und `task-9-1`.
+Phasen 0–7 sind abgeschlossen. Startbar sind Phase 8 (Verwaltung, `task-8-1`) und `task-9-1`; die Gesamtprüfung `task-9-2` folgt danach.
 
 ## Aktive Aufgabe
 
@@ -14,11 +14,10 @@ Keine.
 
 ## Zuletzt abgeschlossen
 
-`task-7-1`: Analytik in der Datenbank (Migration `20261008090000_analytics.sql`): `analytics_window`, `analytics_kpis`, `analytics_series`, `analytics_queue_history`, `analytics_automation`, `analytics_team`; security invoker, nur aktive Manager/Admins. Lese-Richtlinien mit vorgezogener Manager/Admin-Prüfung (gleiche Bedeutung, deutlich schneller). Definitionen in `docs/database.md`.
+`task-7-3`: Auswertung `/dashboard/auswertung` mit sieben Diagrammen (Recharts 3.10.1) aus Datenbankdaten, Automatisierungsbereich, Tooltip der Zeitersparnis mit Anzahl und Basiswert; `analytics_series` liefert die Zeitersparnis je Abschnitt (Migration `20261008110000`).
 
 ## Bereite nächste Aufgaben
 
-- `task-7-2`: Manager-Übersicht.
 - `task-8-1`: Benutzer, Tarife, Arbeitszeiten und Einstellungen.
 - `task-9-1`: Kennzahlen-Wörterbuch und n8n-Vertrag.
 
@@ -28,7 +27,9 @@ Nichts.
 
 ## Wichtige Entscheidungen
 
-- Analytik: Vergleich über dieselbe verstrichene Zeit ab Beginn des Vorzeitraums, begrenzt auf dessen Ende; Ereignis-Kennzahlen nach eigenem Zeitstempel, Momentaufnahmen am Periodenende; `change_percent` nie bei Null-Basis. Warteschlangenhistorie aus `request_events` rekonstruiert.
+- Diagramme: Recharts, Farben `lib/chart-colors.ts` (Dataviz-validiert, feste Reihenfolge), je Abbildung Datentabelle; nur helle Darstellung.
+- Manager-Übersicht verlinkt jede Kennzahl auf Anfrage- oder Rechnungsliste (`feld`/`von`/`bis`, `modus`, `status`); Definitionen in `lib/analytics.ts`.
+- Analytik: laufende Zeiträume vergleichen dieselbe verstrichene Zeit ab Beginn des Vorzeitraums (begrenzt auf dessen Ende), abgeschlossene den ganzen Vorzeitraum; Ereignis-Kennzahlen nach eigenem Zeitstempel, Momentaufnahmen am Periodenende; `change_percent` nie bei Null-Basis. Warteschlangenhistorie aus `request_events` rekonstruiert.
 - Rechnungs-PDF wird bei jedem Abruf deterministisch aus Positionen und Snapshots der ausgestellten Rechnung erzeugt (`lib/invoice-pdf.ts`, `pdf-lib`), nicht gespeichert; Entwürfe haben kein PDF. Für echte Rechnungen wäre eine Archivierung bei Ausstellung nötig.
 - Gestaltung des PDFs folgt der Maßtabelle in `docs/design/RheinWerk Rechnungsvorlage.html`; Schriften unter `assets/fonts/` (OFL), eingebettet mit festen Namen für byte-identische Ausgabe.
 - Website-Code wird aus `05_Export/RheinWerk Industrieservice Website` übernommen; das Dashboard entsteht im selben Next.js-Projekt.
@@ -69,4 +70,4 @@ Nichts.
 
 ## Empfohlener nächster Schritt
 
-`task-7-2` (Manager-Übersicht) auf Basis der neuen Analytik-Funktionen; danach `task-7-3` (Diagramme).
+`task-8-1` (Verwaltung: Benutzer, Tarife, Arbeitszeiten, Einstellungen); danach `task-9-1` und die Gesamtprüfung `task-9-2`.

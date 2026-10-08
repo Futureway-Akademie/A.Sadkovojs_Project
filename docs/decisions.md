@@ -201,3 +201,38 @@ Die Manager-Analytik (task-7-1) soll Kennzahlen mit Periodenvergleich, Zeitreihe
 ### Begründung
 
 Keine zweite Datenquelle, die von den Ereignissen abweichen kann; RLS bleibt die einzige Berechtigungsquelle. Die Richtlinien behalten ihre Bedeutung (für Manager/Admins waren alle Prüfungen bereits wahr), was die bestehenden RLS-Tests bestätigen. Ohne die Änderung dauerte eine Kennzahlenabfrage rund 1,3 s, danach rund 0,1 s.
+
+## 2026-10-08 – Abgeschlossene Zeiträume vergleichen ganze Vorzeiträume
+
+### Kontext
+
+Mit der Regel „gleiche verstrichene Zeit“ (task-7-1) verglich ein abgeschlossener September (30 Tage) nur mit dem 1.–30. August; der 31. August fehlte. Aufgefallen in der Manager-Übersicht (task-7-2).
+
+### Entscheidung
+
+Laufende Zeiträume behalten den Vergleich über die gleiche verstrichene Zeit; abgeschlossene Zeiträume vergleichen mit dem vollständigen Vorzeitraum. Umgesetzt als neue Migration, da die ursprüngliche bereits veröffentlicht war.
+
+### Begründung
+
+Für einen laufenden Monat ist nur der gleich lange Abschnitt fair; für abgeschlossene Monate erwartet die Leitung „September gegen August“. pgTAP prüft beide Fälle.
+
+## 2026-10-08 – Diagramme mit Recharts, validierte Diagrammfarben
+
+### Kontext
+
+task-7-3 verlangt Diagramme aus Datenbankdaten und eine gegen React 19 geprüfte Bibliothek. Geprüft am 08.10.2026 (npm-Metadaten):
+
+| Bibliothek | React 19 (peerDependencies) | Lizenz | Ergebnis |
+| --- | --- | --- | --- |
+| `recharts` 3.10.1 | `^16.8 … ^19.0` (react, react-dom, react-is) | MIT | gewählt: SVG, eigene Tooltip-Inhalte, Tastaturbedienung (`accessibilityLayer`) |
+| `@visx/xychart` 4.0.0 | `^18 \|\| ^19`, zusätzlich `@react-spring/web` | MIT | kompatibel, mehr Eigenbau |
+| `react-chartjs-2` 5.3.1 + `chart.js` 4.5.1 | `^16.8 … ^19` | MIT | kompatibel, Canvas (schlechter prüfbar, keine SVG-Elemente) |
+| `@nivo/line` 0.99.0 | `^16.14 … ^19` | MIT | kompatibel, viele Pakete je Diagrammart |
+
+### Entscheidung
+
+`recharts` 3.10.1 als Client-Komponente; Daten werden serverseitig geladen und als einfache Arrays übergeben. Kategoriale Farben: RheinWerk blue-500 `#2F80C9`, danach `#EB6834`, `#4A3AA7`, `#008300` aus der Dataviz-Referenzpalette, weil die Markenrampen keine weiteren Töne mittlerer Helligkeit haben (Navy zu dunkel, Lime und Blau-300 auf der Fläche unter 3:1). Validiert mit dem Dataviz-Validator auf `#FCFBF7`: alle Prüfungen bestanden (benachbart CVD ΔE ≥ 21,9, Normalsicht ≥ 31,3, Kontrast ≥ 3:1); die ersten drei Farben bestehen auch alle Paare. Nur helle Darstellung, da das Dashboard kein dunkles Theme hat.
+
+### Begründung
+
+SVG-Ausgabe ist im Browser-Test prüfbar (Markierungen, Tooltip), die Bibliothek ist verbreitet und MIT-lizenziert. Ein Vergleich mit Grau (`#7A8B99`) fiel durch (zu geringer Unterschied zu Blau), daher Blau gegen Orange für aktuellen und Vorzeitraum.

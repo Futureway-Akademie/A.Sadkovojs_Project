@@ -648,3 +648,61 @@ a.plan-block--done:hover { background: var(--rw-color-steel-300); }
 .entry-actions .save-form { padding: 0; background: none; border: 0; gap: 4px; }
 .entry-actions .button { min-height: 36px; padding: 0 12px; font-size: 13px; }
 .visit-card__open { justify-self: start; font-weight: 600; }
+
+/* Manager overview (task-7-2) */
+.period-bar { display: grid; gap: var(--rw-space-12); padding: var(--rw-space-12) var(--rw-space-16); background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); }
+.period-bar__kinds { display: flex; flex-wrap: wrap; gap: var(--rw-space-8); }
+.period-bar__kinds a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--rw-text-primary); border: 1px solid var(--rw-border-default); border-radius: var(--rw-radius-full); }
+.period-bar__kinds a[aria-current="page"] { color: var(--rw-color-navy-950); background: var(--rw-color-lime-100); border-color: var(--rw-color-lime-600); }
+.period-bar__step { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: var(--rw-space-8); }
+.period-bar__step > a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; font-size: 20px; text-decoration: none; color: var(--rw-text-primary); border: 1px solid var(--rw-border-default); }
+.period-bar__step p { display: grid; gap: 2px; text-align: center; min-width: 0; }
+.period-bar__step strong { font-size: var(--rw-type-body-l-size); }
+.period-bar__step span { font-size: 13px; color: var(--rw-text-secondary); overflow-wrap: anywhere; }
+.period-bar__today { justify-self: center; font-size: 14px; }
+.kpi-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--rw-space-12); }
+.kpi { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px 16px; background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); border-top: 3px solid var(--rw-color-navy-800); }
+.kpi[data-measure="snapshot"] { border-top-color: var(--rw-color-steel-300); }
+.kpi__label { display: flex; flex-direction: column-reverse; gap: 2px; font-size: 14px; font-weight: 600; }
+.kpi__measure { font-family: var(--rw-font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rw-text-secondary); }
+.kpi__value { font-family: var(--rw-font-mono); font-size: 26px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.kpi__change { display: flex; flex-wrap: wrap; gap: var(--rw-space-8); align-items: baseline; font-size: 13px; color: var(--rw-text-secondary); }
+.kpi__delta { font-family: var(--rw-font-mono); font-weight: 600; padding: 0 6px; border: 1px solid var(--rw-color-steel-300); }
+.kpi__delta--good { color: var(--rw-color-success-800); background: var(--rw-color-success-surface); border-color: var(--rw-color-success-border); }
+.kpi__delta--bad { color: var(--rw-color-danger-800); background: var(--rw-color-danger-surface); border-color: var(--rw-color-danger-border); }
+.kpi__note { font-size: 13px; color: var(--rw-text-secondary); }
+.kpi__definition { font-size: 13px; color: var(--rw-text-secondary); flex: 1; }
+.kpi__link { align-self: flex-start; font-size: 14px; font-weight: 600; }
+.attention-counts { display: flex; flex-wrap: wrap; gap: var(--rw-space-8); }
+.attention-counts li { padding: 4px 10px; font-size: 13px; background: var(--rw-surface-default); border: 1px solid var(--rw-border-subtle); }
+.active-selection { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--rw-space-8); padding: 10px 14px; font-size: 14px; background: var(--rw-color-lime-100); border: 1px solid var(--rw-color-lime-600); overflow-wrap: anywhere; }
+.overdue-tag { padding: 2px 8px; font-size: 13px; font-weight: 600; color: var(--rw-color-danger-800); background: var(--rw-color-danger-surface); border: 1px solid var(--rw-color-danger-border); }
+@media (min-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Charts of the analysis page (task-7-3) */
+.figure { display: flex; flex-direction: column; gap: var(--rw-space-12); min-width: 0; margin: 0; padding: 16px; background: #FCFBF7; border: 1px solid var(--rw-border-subtle); }
+.figure h3 { font-size: var(--rw-type-body-l-size); }
+.figure figcaption { display: grid; gap: 4px; }
+.chart { width: 100%; min-width: 0; }
+.chart svg { overflow: visible; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--rw-text-secondary); }
+.chart-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend__key { display: inline-block; flex: none; }
+.chart-legend__key--line { width: 16px; height: 2px; border-radius: 1px; }
+.chart-legend__key--rect { width: 10px; height: 10px; border-radius: 2px; }
+.chart-tooltip { min-width: 160px; padding: 8px 10px; font-size: 13px; color: var(--rw-text-primary); background: #FFFFFF; border: 1px solid var(--rw-border-default); box-shadow: 0 2px 8px rgba(11, 31, 51, 0.12); }
+.chart-tooltip__label { margin-bottom: 4px; font-size: 12px; color: var(--rw-text-secondary); }
+.chart-tooltip ul { display: grid; gap: 2px; }
+.chart-tooltip li { display: grid; grid-template-columns: 12px auto 1fr; align-items: center; gap: 6px; }
+.chart-tooltip li strong { font-variant-numeric: tabular-nums; }
+.chart-tooltip li span:last-child { color: var(--rw-text-secondary); }
+.chart-tooltip__key { width: 12px; height: 2px; border-radius: 1px; }
+.chart-tooltip__note { margin-top: 4px; font-size: 12px; color: var(--rw-text-secondary); }
+.figure__table summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--rw-text-link); }
+.figure__table[open] summary { margin-bottom: var(--rw-space-8); }
+.insights .dash-section { gap: var(--rw-space-16); }
+@media (min-width: 1200px) {
+  .insights section[aria-labelledby="flow"], .insights section[aria-labelledby="automation"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .insights section[aria-labelledby="flow"] > h2, .insights section[aria-labelledby="automation"] > h2, .insights #runs, .insights #flow-chart { grid-column: 1 / -1; }
+}

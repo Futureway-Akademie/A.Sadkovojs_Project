@@ -552,12 +552,12 @@ Alle Funktionen sind `security invoker`: Es gilt RLS der Basistabellen. Datenfun
 | --- | --- |
 | `analytics_window(kind, anchor?, as_of?)` | Zeitraum `week`/`month`/`quarter`/`year` um `anchor` (Standard: heute) und Vergleichszeitraum; für alle angemeldeten Nutzer |
 | `analytics_kpis(kind, anchor?, as_of?)` | 16 Kennzahlen mit `measure` (`event`/`snapshot`), `unit`, aktuellem und Vergleichswert, `difference`, `change_percent`, `detail` |
-| `analytics_series(granularity, from_date, to_date)` | je Tag/Woche/Monat: Eingänge, Erstbearbeitung abgeschlossen (davon automatisch), abgeschlossen, ausgestellt brutto, Zahlungseingang |
+| `analytics_series(granularity, from_date, to_date)` | je Tag/Woche/Monat: Eingänge, Erstbearbeitung abgeschlossen (davon automatisch), abgeschlossen, ausgestellt brutto, Zahlungseingang; seit Migration `20261008110000_analytics_series_savings.sql` (task-7-3) zusätzlich `saved_requests`, `saved_minutes`, `baseline_minutes` der Zeitersparnis |
 | `analytics_queue_history(from_date, to_date)` | je Tag und Warteschlange (`analysis`, `review`, `awaiting_customer`, `planning`) die Anzahl am Tagesende |
 | `analytics_automation(kind, anchor?, as_of?)` | Automatisierungsläufe des Zeitraums je Schritt, Status, Entscheidung, davon korrigiert |
 | `analytics_team(kind, anchor?, as_of?)` | je Dispatcher und Techniker: manuelle Erstbearbeitungen, beendete Einsätze, Arbeitsminuten, abgeschlossene Anfragen, offene zugewiesene Anfragen am Periodenende |
 
-**Vergleichszeitraum:** aktueller Zeitraum `[Beginn, min(Ende, as_of))`; Vergleich ab Beginn des vorherigen Zeitraums über dieselbe verstrichene Zeit, begrenzt auf dessen Ende. 1.–8. Oktober 10:00 vergleicht mit 1.–8. September 10:00; ein vollständiger oder fast vollständiger März mit dem ganzen Februar. Wochen beginnen montags.
+**Vergleichszeitraum:** aktueller Zeitraum `[Beginn, min(Ende, as_of))`. Laufender Zeitraum: Vergleich ab Beginn des vorherigen Zeitraums über dieselbe verstrichene Zeit, begrenzt auf dessen Ende (1.–8. Oktober 10:00 mit 1.–8. September 10:00; ein fast vollständiger März mit dem ganzen Februar). Abgeschlossener Zeitraum: Vergleich mit dem ganzen vorherigen Zeitraum (September mit allen 31 Tagen des August; Migration `20261008100000_analytics_complete_periods.sql`, task-7-2). Wochen beginnen montags.
 
 **Ereignis-Kennzahlen** zählen jedes Ereignis nach seinem eigenen Zeitstempel: Eingang `created_at`, Erstbearbeitung `intake_completed_at`, Abschluss `completed_at`, Ausstellung `issued_at`, Zahlung `paid_at`, Läufe `started_at`.
 

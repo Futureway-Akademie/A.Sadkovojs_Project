@@ -36,12 +36,12 @@ async function login(email, password) { const jar = new Jar(); const page = awai
 const path = (loc) => (loc ? new URL(loc, BASE).pathname : null);
 
 const roles = [
-  ["admin.demo@example.com", "Clara Becker", "/dashboard/verwaltung", ["Übersicht", "Anfragen", "Verwaltung"], "/dashboard/heute"],
-  ["manager.demo@example.com", "Jonas Hoffmann", "/dashboard/uebersicht", ["Übersicht", "Einsatzplanung", "Anfragen"], "/dashboard/verwaltung"],
+  ["admin.demo@example.com", "Clara Becker", "/dashboard/verwaltung", ["Übersicht", "Auswertung", "Anfragen", "Rechnungen", "Verwaltung"], "/dashboard/heute"],
+  ["manager.demo@example.com", "Jonas Hoffmann", "/dashboard/uebersicht", ["Übersicht", "Auswertung", "Einsatzplanung", "Anfragen", "Rechnungen"], "/dashboard/verwaltung"],
   ["dispo1.demo@example.com", "Lea Schneider", "/dashboard/erstbearbeitung", ["Erstbearbeitung", "Einsatzplanung", "Anfragen"], "/dashboard/uebersicht"],
   ["technik1.demo@example.com", "Tobias Krüger", "/dashboard/heute", ["Mein Tag", "Kalender", "Anfragen"], "/dashboard/planung"],
 ];
-const ALL = ["Übersicht", "Erstbearbeitung", "Mein Tag", "Kalender", "Einsatzplanung", "Anfragen", "Verwaltung"];
+const ALL = ["Übersicht", "Auswertung", "Erstbearbeitung", "Mein Tag", "Kalender", "Einsatzplanung", "Anfragen", "Rechnungen", "Verwaltung"];
 for (const [email, name, start, nav, forbidden] of roles) {
   const { jar, res } = await login(email, pw);
   check(`${email}: Login leitet zu /dashboard`, res.status === 303 && path(res.loc) === "/dashboard", `${res.status} ${res.loc}`);
@@ -65,6 +65,22 @@ for (const [email, name, start, nav, forbidden] of roles) {
   check(`  Abmelden → /login`, out.status === 303 && path(out.loc) === "/login", `${out.status} ${out.loc}`);
   const after = await get(jar, start);
   check(`  nach Abmelden kein Zugriff`, after.status === 307 && path(after.loc) === "/login", `${after.status} ${after.loc}`);
+}
+
+// Manager overview and invoices (task-7-2): managers only, no data for other roles
+{
+  const manager = (await login("manager.demo@example.com", pw)).jar;
+  for (const target of ["/dashboard/uebersicht?zeitraum=quartal", "/dashboard/rechnungen?status=offen", "/dashboard/auswertung?zeitraum=jahr"]) {
+    const page = await get(manager, target);
+    check(`Manager: ${target} 200`, page.status === 200 && !page.html.includes("Daten konnten nicht geladen werden"), String(page.status));
+  }
+  for (const [email, start] of [["dispo1.demo@example.com", "/dashboard/erstbearbeitung"], ["technik1.demo@example.com", "/dashboard/heute"]]) {
+    const jar = (await login(email, pw)).jar;
+    for (const target of ["/dashboard/uebersicht", "/dashboard/rechnungen", "/dashboard/auswertung"]) {
+      const page = await get(jar, target);
+      check(`${email.split(".")[0]}: ${target} → eigene Startseite`, page.status === 307 && path(page.loc) === start, `${page.status} ${page.loc}`);
+    }
+  }
 }
 
 // Wrong password and unknown address: same message, no session

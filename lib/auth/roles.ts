@@ -19,11 +19,13 @@ export type DashboardArea = {
 // Order = order in the navigation
 export const DASHBOARD_AREAS: readonly DashboardArea[] = [
   { href: "/dashboard/uebersicht", label: "Übersicht", roles: ["manager", "admin"] },
+  { href: "/dashboard/auswertung", label: "Auswertung", roles: ["manager", "admin"] },
   { href: "/dashboard/erstbearbeitung", label: "Erstbearbeitung", roles: ["dispatcher"] },
   { href: "/dashboard/heute", label: "Mein Tag", roles: ["technician"] },
   { href: "/dashboard/kalender", label: "Kalender", roles: ["technician"] },
   { href: "/dashboard/planung", label: "Einsatzplanung", roles: ["dispatcher", "manager"] },
   { href: "/dashboard/anfragen", label: "Anfragen", roles: ["admin", "manager", "dispatcher", "technician"] },
+  { href: "/dashboard/rechnungen", label: "Rechnungen", roles: ["manager", "admin"] },
   { href: "/dashboard/verwaltung", label: "Verwaltung", roles: ["admin"] },
 ];
 

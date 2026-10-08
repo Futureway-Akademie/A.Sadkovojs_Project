@@ -559,7 +559,7 @@ isOneToOne: false
                            },
 "analytics_series":
 { Args: { "from_date": string,"granularity": string,"to_date": string }; Returns: {
-              "automatic_completed": number,"bucket_start": string,"completed": number,"intake_completed": number,"invoiced_gross": number,"payments_received": number,"received": number
+              "automatic_completed": number,"baseline_minutes": number,"bucket_start": string,"completed": number,"intake_completed": number,"invoiced_gross": number,"payments_received": number,"received": number,"saved_minutes": number,"saved_requests": number
             }[]
                            },
 "analytics_team":

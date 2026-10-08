@@ -23,9 +23,10 @@ Der technische Stack ergänzt den zentralen Workshop-Workflow und darf ihn nicht
 - `pdf-lib` 1.17.1 (MIT, reines JavaScript, nur serverseitig in `lib/invoice-pdf.ts`)
 - `@pdf-lib/fontkit` 1.1.1 (MIT) zum Einbetten von Inter und IBM Plex Mono (`assets/fonts/`, SIL OFL 1.1, Stand task-6-4)
 
-## Geplant
+## Diagramme (Stand task-7-3)
 
-- Kalender- und Diagrammbibliothek: Auswahl in den jeweiligen Tasks nach Prüfung der React-19-Kompatibilität
+- `recharts` 3.10.1 (MIT, React 19 laut peerDependencies), nur in `components/dashboard/charts.tsx`
+- Kalender: eigene Komponente ohne Bibliothek (task-5-3)
 
 ## Externe Dienste
 
