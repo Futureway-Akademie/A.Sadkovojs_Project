@@ -247,6 +247,48 @@ try {
     check("  Tooltip Zeitersparnis zeigt Anzahl und Basiswert", /\d+ Anfragen × Basiswert 15 min/.test(tip), `${tip} ${box ?? ""}`);
   }
 
+  console.log("\nAnfrage aus Sicht des Technikers: eigener Einsatz oben, nur technische Angaben");
+  {
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
+    const { data: anna } = await admin.from("profiles").select("id").eq("display_name", "Anna Lehmann").single();
+    const { data: visit } = await admin.from("visits").select("id, request_id").eq("technician_id", anna.id).neq("status", "cancelled").order("scheduled_start", { ascending: false }).limit(1).maybeSingle();
+    if (!visit) check("Einsatz von Anna Lehmann vorhanden", false);
+    else {
+      await page.send("Network.clearBrowserCookies");
+      await page.send("Network.setCookies", { cookies: await loginCookies("technik2.demo@example.com") });
+      await page.open(`${BASE}/dashboard/anfragen/${visit.request_id}`);
+      const view = await page.eval(`({
+        hero: document.querySelector(".request-visit .request-visit__open")?.getAttribute("href"),
+        first: document.querySelector(".request-visit")?.compareDocumentPosition(document.getElementById("zusammenfassung")) === Node.DOCUMENT_POSITION_FOLLOWING,
+        fristen: !!document.getElementById("fristen-heading"),
+        slaCheck: document.getElementById("anlage")?.textContent.includes("SLA geprüft"),
+        intern: document.getElementById("kontakt")?.textContent.includes("(Dispatcher)"),
+        history: document.querySelector("#verlauf details") ? !document.querySelector("#verlauf details").open : false,
+      })`);
+      check("Einsatz-Karte vor dem Anliegen, verlinkt den eigenen Einsatz", view.hero?.startsWith("/dashboard/einsatz/") && view.first, JSON.stringify(view));
+      check("  ohne Zuständigkeit/Fristen und SLA-Prüfung, Dispatcher im Kontakt, Verlauf zugeklappt", !view.fristen && !view.slaCheck && view.intern && view.history, JSON.stringify(view));
+      const { data: state } = await admin.from("requests").select("work_status, technician_id, invoices(id)").eq("id", visit.request_id).single();
+      const laterExpected = state.technician_id === anna.id && !["completed", "cancelled"].includes(state.work_status) && !(state.invoices ?? []).length;
+      const later = await page.eval(`(() => { const b = document.querySelector(".request-next--later button"); return b ? b.disabled : null; })()`);
+      check(`  Rechnung erstellen ${laterExpected ? "sichtbar, aber inaktiv" : "nicht als inaktiver Schritt"} (Arbeit: ${state.work_status})`, laterExpected ? later === true : later === null, String(later));
+      // Completed request with an invoice: the slot of the next step says the work is done
+      const { data: tobias } = await admin.from("profiles").select("id").eq("display_name", "Tobias Krüger").single();
+      const { data: done } = await admin.from("requests").select("id, invoices!inner(invoice_number)").eq("technician_id", tobias.id).eq("work_status", "completed").neq("invoices.status", "draft").limit(1).maybeSingle();
+      if (done) {
+        await page.send("Network.clearBrowserCookies");
+        await page.send("Network.setCookies", { cookies: await loginCookies("technik1.demo@example.com") });
+        await page.open(`${BASE}/dashboard/anfragen/${done.id}`);
+        const closed = await page.eval(`document.getElementById("aktionen")?.textContent ?? ""`);
+        const number = (Array.isArray(done.invoices) ? done.invoices[0] : done.invoices).invoice_number;
+        check("  abgeschlossene Anfrage: „Arbeit abgeschlossen“ mit Rechnungsstatus", closed.includes("Arbeit abgeschlossen") && closed.includes(number), closed);
+      }
+      await page.send("Network.clearBrowserCookies");
+      await page.send("Network.setCookies", { cookies: await loginCookies("manager.demo@example.com") });
+      await page.open(`${BASE}/dashboard/anfragen/${visit.request_id}`);
+      check("  Manager sieht die Anfrage unverändert (Fristen, keine Einsatz-Karte)", await page.eval(`!!document.getElementById("fristen-heading") && !document.querySelector(".request-visit")`));
+    }
+  }
+
   console.log("\nÜbersicht Admin: Handlungsbedarf als Kacheln mit aufklappbaren Details");
   {
     await page.send("Network.clearBrowserCookies");

@@ -36,21 +36,30 @@ export default async function RequestPage({ params }: Props) {
   const sections = sectionsFor(employee.role);
   const person = (personId: string | null | undefined, fallback = "Nicht zugewiesen") => (personId ? names.get(personId) ?? "Unbekannte Person" : fallback);
   const failed = (section: SectionId) => detail.failed.includes(section);
+  // Technician view (user request 09.10.2026): own visit first, only the technical facts, history folded
+  const technician = employee.role === "technician";
+  const heroVisit = technician ? ownNextVisit(detail.visits, employee.id) : undefined;
   const render: Record<SectionId, () => ReactNode> = {
     zusammenfassung: () => <Summary detail={detail} />,
-    kontakt: () => <Contact detail={detail} />,
-    anlage: () => <Equipment detail={detail} />,
+    kontakt: () => <Contact detail={detail} dispatcher={technician ? person(request.dispatcher_id, "nicht zugewiesen") : undefined} />,
+    anlage: () => <Equipment detail={detail} technical={technician} />,
     erstbearbeitung: () => <Intake detail={detail} person={person} />,
     korrespondenz: () => <Correspondence detail={detail} person={person} editable={employee.role !== "technician"} />,
     einsaetze: () => <Visits detail={detail} person={person} employee={employee} />,
     arbeit: () => <Work detail={detail} person={person} />,
     dokumente: () => <Documents detail={detail} person={person} />,
     rechnung: () => <Invoice detail={detail} canPay={employee.role === "manager" || employee.role === "admin"} />,
-    verlauf: () => <History detail={detail} names={names} />,
+    verlauf: () => <History detail={detail} names={names} folded={technician} />,
   };
 
   const actions = availableActions(detail, employee);
   const hasActions = Object.values(actions).some(Boolean);
+  const closedFor = !technician ? null
+    : request.work_status === "completed" ? "completed"
+    : request.intake_status === "rejected" ? "rejected"
+    : request.intake_status === "cancelled" || request.work_status === "cancelled" ? "cancelled" : null;
+  const invoiceLater = technician && request.technician_id === employee.id && !detail.invoice
+    && !["rejected", "cancelled"].includes(request.intake_status) && !["completed", "cancelled"].includes(request.work_status);
   const progress = requestProgress(request.intake_status, request.work_status);
   const status = requestDisplayStatus(request.intake_status, request.work_status);
   const lastAnalysis = [...(detail.automationRuns ?? [])].reverse().find((run) => run.step === "intake_analysis" && run.confidence !== null);
@@ -63,7 +72,8 @@ export default async function RequestPage({ params }: Props) {
     dokumente: detail.attachments.length === 0 ? "keine Dokumente" : undefined,
     rechnung: !detail.invoice ? "keine Rechnung" : undefined,
   };
-  const side: readonly SectionId[] = ["kontakt"];
+  // A technician sees the own visit on top; the visit table only adds value with further visits
+  const side: readonly SectionId[] = technician && heroVisit && detail.visits.length === 1 ? ["kontakt", "einsaetze"] : ["kontakt"];
   const main = sections.filter((section) => !side.includes(section.id) && !(empty[section.id] && !failed(section.id)));
   const collapsed = sections.filter((section) => empty[section.id] && !failed(section.id));
   const section = (id: SectionId, sectionLabel: string) => (
@@ -118,7 +128,10 @@ export default async function RequestPage({ params }: Props) {
         <p className="rw-banner rw-banner--info">Menschliche Prüfung erforderlich{lastAnalysis?.confidence != null ? <> – Konfidenz der automatischen Analyse <span className="mono">{formatPercent(lastAnalysis.confidence * 100, 0)}</span></> : ""}.</p>
       )}
 
-      <div className="request-layout">
+      {technician && <VisitHero visit={heroVisit} request={request} />}
+
+      {/* Technician: one column on every width (as on tablets); next step and contact share one row */}
+      <div className={`request-layout${technician ? " request-layout--single" : ""}`}>
         <div className="request-layout__main">
           {main.map((item) => section(item.id, item.label))}
           {collapsed.length > 0 && (
@@ -134,6 +147,36 @@ export default async function RequestPage({ params }: Props) {
         </div>
 
         <aside className="request-layout__side">
+          {!hasActions && closedFor && (
+            // Technician: nothing left to do, so the slot says how the request ended
+            <section id="aktionen" className={`rw-card ${closedFor === "completed" ? "rw-card--success" : "rw-card--neutral"} request-next`} aria-labelledby="aktionen-title">
+              <p className="request-next__eyebrow">Stand</p>
+              <h2 id="aktionen-title" className="request-next__title request-next__title--done">
+                {closedFor === "completed" ? "Arbeit abgeschlossen" : closedFor === "rejected" ? "Anfrage abgelehnt" : "Anfrage storniert"}
+              </h2>
+              <p className="rw-card__note">
+                {closedFor === "completed"
+                  ? <>Abgeschlossen am <span className="mono">{formatDateTime(request.completed_at)}</span>. Für Sie ist nichts mehr zu tun.</>
+                  : request.rejection_reason ?? request.cancellation_reason ?? "Für Sie ist nichts mehr zu tun."}
+              </p>
+              {closedFor === "completed" && (
+                <p className="request-next__invoice">
+                  {detail.invoice
+                    ? <><a className="mono" href="#rechnung">{detail.invoice.invoice_number ?? "Rechnungsentwurf"}</a><InvoiceStatusChip status={invoiceDisplayStatus(detail.invoice.status, detail.invoice.payment_due_date, berlinDayKey(new Date()))} /></>
+                    : <span className="rw-card__note">Noch keine Rechnung erstellt.</span>}
+                </p>
+              )}
+            </section>
+          )}
+          {!hasActions && invoiceLater && (
+            // Technician: the invoice step is shown ahead, but inactive until the work is completed
+            <section id="aktionen" className="rw-card rw-card--neutral request-next request-next--later" aria-labelledby="aktionen-title">
+              <p className="request-next__eyebrow">Nächster Schritt</p>
+              <h2 id="aktionen-title" className="request-next__title">Rechnung erstellen</h2>
+              <p className="rw-card__note">Möglich, sobald die Arbeit abgeschlossen ist: Einsatz durchführen und die Anfrage abschließen.</p>
+              <button type="button" className="button button--primary" disabled>Rechnungsentwurf erstellen</button>
+            </section>
+          )}
           {hasActions && (
             <section id="aktionen" className="rw-card rw-card--action request-next" aria-labelledby="aktionen-title">
               <p className="request-next__eyebrow">Nächster Schritt</p>
@@ -142,10 +185,12 @@ export default async function RequestPage({ params }: Props) {
             </section>
           )}
           {sections.some((item) => item.id === "kontakt") && section("kontakt", "Kontakt")}
-          <section className="rw-card rw-card--meta request-card" aria-labelledby="fristen-heading">
-            <h2 id="fristen-heading">Zuständigkeit und Fristen</h2>
-            <Responsibility detail={detail} person={person} />
-          </section>
+          {!technician && (
+            <section className="rw-card rw-card--meta request-card" aria-labelledby="fristen-heading">
+              <h2 id="fristen-heading">Zuständigkeit und Fristen</h2>
+              <Responsibility detail={detail} person={person} />
+            </section>
+          )}
         </aside>
       </div>
     </div>
@@ -201,7 +246,7 @@ function Responsibility({ detail, person }: { detail: RequestDetail; person: Per
   );
 }
 
-function Contact({ detail }: { detail: RequestDetail }) {
+function Contact({ detail, dispatcher }: { detail: RequestDetail; dispatcher?: string }) {
   const r = detail.request;
   return (
     <>
@@ -216,16 +261,18 @@ function Contact({ detail }: { detail: RequestDetail }) {
         <a className="rw-button-secondary" href={`mailto:${r.business_email}`}><Icon name="mail" size={16} />E-Mail</a>
       </p>
       <p className="rw-card__note">{r.business_email}</p>
+      {dispatcher && <p className="request-contact__internal">Intern: <strong>{dispatcher}</strong> (Dispatcher)</p>}
     </>
   );
 }
 
-function Equipment({ detail }: { detail: RequestDetail }) {
+// technical: only what matters on site (no intake gaps, no SLA checks of the dispatcher)
+function Equipment({ detail, technical = false }: { detail: RequestDetail; technical?: boolean }) {
   const r = detail.request;
   const gaps = [r.manufacturer, r.model_type, r.machine_number].filter((value) => !value).length;
   return (
     <>
-      {gaps > 0 && <p className="rw-gaps"><Icon name="alert" size={16} />{gaps === 1 ? "1 Angabe fehlt" : `${gaps} Angaben fehlen`}</p>}
+      {gaps > 0 && !technical && <p className="rw-gaps"><Icon name="alert" size={16} />{gaps === 1 ? "1 Angabe fehlt" : `${gaps} Angaben fehlen`}</p>}
       <Facts items={[
         ["Anlagenart", label("equipment_kind", r.equipment_kind)],
         ["Leistungsart", label("service_kind", r.service_kind)],
@@ -234,8 +281,10 @@ function Equipment({ detail }: { detail: RequestDetail }) {
         ["Maschinennummer", r.machine_number ? <span key="m" className="mono">{r.machine_number}</span> : missing],
         ["Sicherheitsgefahr", label("safety_risk", r.safety_risk)],
         ["SLA-Vertrag", r.sla_contract_number ? <span key="sla" className="mono">{r.sla_contract_number}</span> : "Keiner"],
-        ["24/7-Notfall-SLA angegeben", yesNo(r.emergency_sla_claimed)],
-        ["SLA geprüft", yesNo(r.sla_verified)],
+        ...(technical ? [] : [
+          ["24/7-Notfall-SLA angegeben", yesNo(r.emergency_sla_claimed)],
+          ["SLA geprüft", yesNo(r.sla_verified)],
+        ] as Array<[string, ReactNode]>),
       ]} />
     </>
   );
@@ -316,7 +365,7 @@ function Visits({ detail, person, employee }: { detail: RequestDetail; person: P
     { key: "actual", header: "Tatsächlich", cell: (visit) => (visit.actual_start ? `${formatDateTime(visit.actual_start)}${visit.actual_end ? ` – ${formatDateTime(visit.actual_end)}` : ""}` : EMPTY), mobile: "hide" },
     { key: "minutes", header: "Arbeitszeit", cell: (visit) => (visit.actual_work_minutes === null ? EMPTY : formatMinutes(visit.actual_work_minutes)), align: "end" },
     { key: "note", header: "Bemerkung", cell: (visit) => visit.summary ?? visit.waiting_reason ?? visit.cancellation_reason ?? EMPTY },
-    { key: "open", header: "Einsatz", cell: (visit) => (canOpen(visit) ? <Link href={`/dashboard/einsatz/${visit.id}`}>Öffnen</Link> : EMPTY) },
+    { key: "open", header: "Einsatz", cell: (visit) => (canOpen(visit) ? <Link className="rw-nowrap" href={`/dashboard/einsatz/${visit.id}`}>Öffnen</Link> : EMPTY) },
   ];
   return <DataTable caption="Einsätze" columns={columns} rows={detail.visits} rowKey={(visit) => visit.id} empty={<EmptyState title="Noch kein Einsatz geplant." />} />;
 }
@@ -327,7 +376,7 @@ function Work({ detail, person }: { detail: RequestDetail; person: PersonFn }) {
   const net = active.reduce((sum, entry) => sum + Math.round(entry.quantity * entry.unit_price * 100) / 100, 0);
   const columns: Column<(typeof entries)[number]>[] = [
     { key: "description", header: "Position", cell: (entry) => entry.description, mobile: "title" },
-    { key: "kind", header: "Art", cell: (entry) => label("work_entry_kind", entry.kind) },
+    { key: "kind", header: "Art", cell: (entry) => <span className="rw-nowrap">{label("work_entry_kind", entry.kind)}</span> },
     { key: "quantity", header: "Menge", cell: (entry) => `${formatNumber(entry.quantity, entry.unit === "hour" ? 2 : 0)} ${label("work_unit", entry.unit)}`, align: "end" },
     { key: "price", header: "Einzelpreis", cell: (entry) => formatCurrency(entry.unit_price), align: "end" },
     { key: "status", header: "Status", cell: (entry) => <StatusBadge kind="work_item_status" value={entry.item_status} /> },
@@ -410,7 +459,7 @@ function Invoice({ detail, canPay }: { detail: RequestDetail; canPay: boolean })
 
 const ACTOR_LABELS = { automation: "Automatisierung", system: "System" } as const;
 
-function History({ detail, names }: { detail: RequestDetail; names: Map<string, string> }) {
+function History({ detail, names, folded = false }: { detail: RequestDetail; names: Map<string, string>; folded?: boolean }) {
   if (detail.events.length === 0) return <EmptyState title="Keine Ereignisse sichtbar." />;
   const item = (event: RequestDetail["events"][number]) => {
     const { title, change } = describeEvent(event, names);
@@ -427,6 +476,14 @@ function History({ detail, names }: { detail: RequestDetail; names: Map<string, 
       </li>
     );
   };
+  if (folded) {
+    return (
+      <details className="rw-more">
+        <summary>{detail.events.length === 1 ? "1 Eintrag anzeigen" : `${detail.events.length} Einträge anzeigen`}</summary>
+        <ol className="timeline">{detail.events.map(item)}</ol>
+      </details>
+    );
+  }
   const first = detail.events.slice(0, 5);
   const rest = detail.events.slice(5);
   return (
@@ -439,5 +496,46 @@ function History({ detail, names }: { detail: RequestDetail; names: Map<string, 
         </details>
       )}
     </>
+  );
+}
+
+type Visit = RequestDetail["visits"][number];
+
+// The technician's own visit to show on top: the next open one, otherwise the most recent
+function ownNextVisit(visits: Visit[], technicianId: string): Visit | undefined {
+  const own = visits.filter((visit) => visit.technician_id === technicianId && visit.status !== "cancelled");
+  const open = own.filter((visit) => visit.status !== "completed").sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start));
+  return open[0] ?? own.sort((a, b) => b.scheduled_start.localeCompare(a.scheduled_start))[0];
+}
+
+function VisitHero({ visit, request }: { visit: Visit | undefined; request: RequestDetail["request"] }) {
+  if (!visit) {
+    return (
+      <section className="rw-card rw-card--neutral request-visit" aria-labelledby="visit-title">
+        <h2 id="visit-title" className="request-next__eyebrow">Ihr Einsatz</h2>
+        <p>Für Sie ist bei dieser Anfrage kein Einsatz geplant.</p>
+      </section>
+    );
+  }
+  const done = visit.status === "completed";
+  return (
+    <section className={`rw-card ${done ? "rw-card--neutral" : "rw-card--action"} request-visit`} aria-labelledby="visit-title">
+      <p className="request-next__eyebrow">{done ? "Ihr letzter Einsatz" : "Ihr Einsatz"}</p>
+      <div className="request-visit__row">
+        <div className="request-visit__when">
+          <h2 id="visit-title">{formatTimeRange(visit.scheduled_start, visit.scheduled_end)}</h2>
+          <StatusBadge kind="visit_status" value={visit.status} />
+          {visit.waiting_reason && <p className="rw-card__note">{visit.waiting_reason}</p>}
+        </div>
+        <address className="request-visit__where">
+          <span>{request.street_house_number}</span>
+          <span><span className="mono">{request.postal_code}</span> {request.city}</span>
+          {request.site_label && <span>Standort: {request.site_label}</span>}
+        </address>
+        <Link className={`button ${done ? "button--secondary" : "button--primary"} request-visit__open`} href={`/dashboard/einsatz/${visit.id}`}>
+          {done ? "Einsatz ansehen" : "Einsatz öffnen"}
+        </Link>
+      </div>
+    </section>
   );
 }
