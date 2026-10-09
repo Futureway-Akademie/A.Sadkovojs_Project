@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AgingBars } from "@/components/dashboard/aging-bars";
 import { PaymentForm } from "@/components/dashboard/payment-form";
 import { Card } from "@/components/dashboard/ui/card";
 import { DataTable, type Column } from "@/components/dashboard/ui/data-table";
@@ -29,7 +30,6 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const aging = overdueAging(summary.open, today);
   const openTotal = Math.round(summary.open.reduce((sum, row) => sum + row.total, 0) * 100) / 100;
   const overdueTotal = Math.round(aging.reduce((sum, bucket) => sum + bucket.total, 0) * 100) / 100;
-  const maxBucket = Math.max(1, ...aging.map((bucket) => bucket.total));
 
   const columns: Column<InvoiceListItem>[] = [
     { key: "number", header: "Rechnung", cell: (row) => <span className="mono">{row.invoice_number ?? "Entwurf"}</span>, mobile: "title" },
@@ -79,48 +79,37 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
 
       {summary.error && <ErrorState title="Die Übersicht der Forderungen konnte nicht vollständig geladen werden." action={<Link className="rw-button-secondary" href="/dashboard/rechnungen">Erneut versuchen</Link>}>Die Liste unten ist davon nicht betroffen.</ErrorState>}
 
-      <div className="rw-split">
-        <div className="rw-split__side">
-          {summary.todo.length === 0 ? (
-            <Card stripe="success" title="Zu erledigen">
-              <EmptyState tone="good" title="Keine Entwürfe und kein offener Versand">Überfällige Forderungen stehen rechts.</EmptyState>
-            </Card>
-          ) : (
-            <Card stripe="action" title="Zu erledigen" count={summary.counts.erledigen} description="Entwurf ausstellen, Versand vermerken." action={<Link className="rw-link-btn" href="/dashboard/rechnungen?status=erledigen">Alle<Icon name="chevron-right" size={16} /></Link>}>
-              <ul className="rw-rows rw-rows--two">
-                {summary.todo.map((row) => (
-                  <li key={row.id}>
-                    <span className="rw-rows__label"><Link href={`/dashboard/anfragen/${row.request_id}#rechnung`}>{row.company_name}</Link><span className="rw-sub mono">{row.invoice_number ?? row.request_number}</span></span>
-                    <span className="rw-rows__value"><span className="mono">{formatCurrency(row.total, row.currency)}</span><InvoiceStatusChip status={invoiceDisplayStatus(row.status, row.payment_due_date, today)} /></span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-        </div>
-        <div className="rw-split__main">
-          <Card stripe={overdueTotal > 0 ? "attention" : "success"} title="Offene Forderungen" action={<span className="rw-card__aside"><span className="mono">{formatNumber(summary.counts.offen ?? 0)}</span> Rechnungen</span>}>
-            <div className="rw-figures">
-              <div><span className="rw-card__note">Offen gesamt (brutto)</span><span className="rw-figure mono">{formatCurrency(openTotal)}</span></div>
-              <div><span className="rw-card__note">davon überfällig</span><span className="rw-figure mono">{formatCurrency(overdueTotal)}</span></div>
-            </div>
-            <h4 className="rw-subhead">Überfällig nach Alter</h4>
-            <ul className="rw-bars rw-bars--aging">
-              {aging.map((bucket) => (
-                <li key={bucket.key}>
-                  <span className="rw-bars__row">
-                    <span>{bucket.label} <span className="rw-sub">{formatNumber(bucket.count)} {bucket.count === 1 ? "Rechnung" : "Rechnungen"}</span></span>
-                    <span className="mono rw-bars__value">{formatCurrency(bucket.total)}</span>
-                    <span className="rw-bars__track rw-bars__track--warn" aria-hidden="true"><span style={{ width: `${(bucket.total / maxBucket) * 100}%` }} /></span>
-                  </span>
+      <div className="rw-pair">
+        {summary.todo.length === 0 ? (
+          <Card stripe="success" title="Zu erledigen">
+            <EmptyState tone="good" title="Keine Entwürfe und kein offener Versand">Überfällige Forderungen stehen rechts.</EmptyState>
+          </Card>
+        ) : (
+          <Card stripe="action" title="Zu erledigen" count={summary.counts.erledigen} description="Entwurf ausstellen, Versand vermerken." action={<Link className="rw-link-btn" href="/dashboard/rechnungen?status=erledigen#rechnungsliste">Alle<Icon name="chevron-right" size={16} /></Link>}>
+            <ul className="rw-rows rw-rows--todo">
+              {summary.todo.map((row) => (
+                // Two lines: customer and amount, then number and status (the status never squeezes the name)
+                <li key={row.id}>
+                  <Link className="rw-rows__label" href={`/dashboard/anfragen/${row.request_id}#rechnung`}>{row.company_name}</Link>
+                  <span className="mono rw-rows__amount">{formatCurrency(row.total, row.currency)}</span>
+                  <span className="rw-sub mono">{row.invoice_number ?? row.request_number}</span>
+                  <InvoiceStatusChip status={invoiceDisplayStatus(row.status, row.payment_due_date, today)} />
                 </li>
               ))}
             </ul>
           </Card>
-        </div>
+        )}
+        <Card stripe={overdueTotal > 0 ? "attention" : "success"} title="Offene Forderungen" action={<span className="rw-card__aside"><span className="mono">{formatNumber(summary.counts.offen ?? 0)}</span> Rechnungen</span>}>
+          <div className="rw-figures">
+            <div><span className="rw-card__note">Offen gesamt (brutto)</span><span className="rw-figure mono">{formatCurrency(openTotal)}</span></div>
+            <div><span className="rw-card__note">davon überfällig</span><span className="rw-figure mono">{formatCurrency(overdueTotal)}</span></div>
+          </div>
+          <h4 className="rw-subhead">Überfällig nach Alter</h4>
+          <AgingBars buckets={aging} />
+        </Card>
       </div>
 
-      <section className="rw-zone" aria-labelledby="list-title">
+      <section className="rw-zone" id="rechnungsliste" aria-labelledby="list-title">
         <div className="rw-zone__header"><div className="rw-zone__titles"><h2 id="list-title">Alle Rechnungen</h2></div></div>
         <nav className="rw-views" aria-label="Ansichten">
           {INVOICE_TABS.map((key) => (

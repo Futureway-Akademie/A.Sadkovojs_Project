@@ -4,29 +4,31 @@ import { formatRange, neighbourAnchors, PERIOD_OPTIONS, periodQuery, periodTitle
 
 // Compact period control of the redesign (task-10-3): sits at the block it filters. Selected period
 // in lime (selection state), previous/next as 44px buttons; the range text belongs to the block note.
-export function PeriodControl({ basePath, period, window, hash = "" }: {
+export function PeriodControl({ basePath, period, window, hash = "", extraQuery = "" }: {
   basePath: string;
   period: PeriodParams;
   window: { is_complete: boolean; startDay: string; endDay: string };
   hash?: string;
+  /** Further parameters of the page kept on every link, e.g. "&status=alle" */
+  extraQuery?: string;
 }) {
   const { previous, next } = neighbourAnchors(window.startDay, window.endDay);
   return (
     <nav className="rw-period" aria-label="Zeitraum">
-      <Link className="rw-period__step" href={`${basePath}${periodQuery(period.param, previous)}${hash}`} aria-label="Vorheriger Zeitraum" scroll={false}>
+      <Link className="rw-period__step" href={`${basePath}${periodQuery(period.param, previous)}${extraQuery}${hash}`} aria-label="Vorheriger Zeitraum" scroll={false}>
         <Icon name="arrow-left" size={18} />
       </Link>
       <ul className="rw-period__kinds">
         {PERIOD_OPTIONS.map((option) => (
           <li key={option.param}>
-            <Link href={`${basePath}${periodQuery(option.param, period.anchor)}${hash}`} aria-current={option.kind === period.kind ? "page" : undefined} scroll={false}>{option.label}</Link>
+            <Link href={`${basePath}${periodQuery(option.param, period.anchor)}${extraQuery}${hash}`} aria-current={option.kind === period.kind ? "page" : undefined} scroll={false}>{option.label}</Link>
           </li>
         ))}
       </ul>
       {window.is_complete
-        ? <Link className="rw-period__step" href={`${basePath}${periodQuery(period.param, next)}${hash}`} aria-label="Nächster Zeitraum" scroll={false}><Icon name="arrow-right" size={18} /></Link>
+        ? <Link className="rw-period__step" href={`${basePath}${periodQuery(period.param, next)}${extraQuery}${hash}`} aria-label="Nächster Zeitraum" scroll={false}><Icon name="arrow-right" size={18} /></Link>
         : <span className="rw-period__step rw-period__step--disabled" aria-label="Nächster Zeitraum (liegt in der Zukunft)" role="img"><Icon name="arrow-right" size={18} /></span>}
-      {period.anchor && <Link className="rw-link-btn" href={`${basePath}${periodQuery(period.param, null)}${hash}`} scroll={false}>Aktueller Zeitraum</Link>}
+      {period.anchor && <Link className="rw-link-btn" href={`${basePath}${periodQuery(period.param, null)}${extraQuery}${hash}`} scroll={false}>Aktueller Zeitraum</Link>}
     </nav>
   );
 }

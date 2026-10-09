@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { AgingBars } from "@/components/dashboard/aging-bars";
 import { Card } from "@/components/dashboard/ui/card";
 import { DeltaChip, InfoToggle, KpiCompact, KpiMore, KpiTile } from "@/components/dashboard/ui/kpi-tile";
-import { EmptyState } from "@/components/dashboard/ui/states";
+import type { ExpandTile } from "@/components/dashboard/ui/expand-tiles";
+import { EmptyState, ErrorState } from "@/components/dashboard/ui/states";
 import { PriorityText } from "@/components/dashboard/ui/status-chip";
 import { Icon } from "@/components/ui";
 import { formatKpiChange, formatKpiValue, KPI_INFO, type KpiRow } from "@/lib/analytics";
 import { addDays } from "@/lib/berlin-time";
+import { invoiceDisplayStatus, overdueAging } from "@/lib/display-status";
 import { ATTENTION_LABELS, type AttentionItem, type NowData, type Overview, type PlanningItem, type TeamNow, type TeamRow, type TechnicianDay } from "@/lib/dashboard/overview";
 import { formatCalendarDate, formatCurrency, formatDateTime, formatElapsed, formatMinutes, formatNumber, formatTime, formatWeekdayDate } from "@/lib/format";
 import { queuePeakHint, smallBaseHint } from "@/lib/hints";
@@ -63,7 +66,7 @@ export function HazardCard({ items, checkedAt }: { items: AttentionItem[]; check
       description="Kritische Fälle – müssen durch einen Menschen geprüft werden. Älteste zuerst."
       action={<Link className="rw-link-btn" href="/dashboard/anfragen?gefahr=1&status=offen">Alle ansehen<Icon name="chevron-right" size={16} /></Link>}
     >
-      <table className="rw-table">
+      <table className="rw-table rw-table--stack rw-table--span2">
         <caption className="sr-only">Offene Anfragen mit Sicherheitsgefahr</caption>
         <thead><tr><th scope="col">Anfrage</th><th scope="col">Kunde</th><th scope="col">Offen seit</th><th scope="col">Gefahr</th></tr></thead>
         <tbody>
@@ -130,7 +133,7 @@ export function DeadlinesCard({ items, checkedAt }: { items: AttentionItem[]; ch
   const now = new Date(checkedAt).getTime();
   return (
     <Card stripe="attention" flush id="deadlines" title="Fristen und Wartezeiten" count={due.length >= 50 ? "50+" : due.length} description="Überschrittene Fristen und lange Wartezeiten, dringendste zuerst.">
-      <table className="rw-table">
+      <table className="rw-table rw-table--stack rw-table--lead">
         <caption className="sr-only">Überschrittene Fristen und lange Wartezeiten</caption>
         <thead><tr><th scope="col">Grund</th><th scope="col">Anfrage</th><th scope="col">Seit</th></tr></thead>
         <tbody>
@@ -163,22 +166,28 @@ export function QueuesCard({ now }: { now: NowData }) {
         {[...stats].sort((a, b) => b.count - a.count || a.step - b.step).map((queue) => (
           <li key={queue.key}>
             <Link href={queue.href}>
-              <span>{queue.label}{queue.peak && <span className="rw-flag">Engpass</span>}</span>
+              <span className="rw-bars__label">{queue.label}{queue.peak && <span className="rw-flag">Engpass</span>}</span>
               <span className="mono rw-bars__value">{queue.count}</span>
               <span className="rw-bars__track" aria-hidden="true"><span style={{ width: `${(queue.count / max) * 100}%` }} /></span>
             </Link>
           </li>
         ))}
       </ul>
-      {peaks.map((queue) => (
-        <p key={queue.key} className="rw-card__note">
-          {queue.label}: {queue.peak!.text} – heute <span className="mono">{queue.count}</span>, am {shortDate(queue.monthAgoDay)} <span className="mono">{queue.monthAgo}</span>.
+      {peaks.length > 0 && (
+        // One explanation for all flagged queues instead of a paragraph per queue
+        <p className="rw-card__note">
+          Engpass: {peaks[0].peak!.text}. Zum Vergleich am {shortDate(peaks[0].monthAgoDay)}:{" "}
+          {peaks.map((queue, index) => (
+            <span key={queue.key}>{index > 0 && ", "}{queue.label} <span className="mono">{queue.monthAgo}</span></span>
+          ))}.
         </p>
-      ))}
+      )}
     </Card>
   );
 }
 
+// Details of the tile "Überfällige Forderungen": the same figures as on the invoice page (age buckets) and
+// the oldest overdue invoices, each linked to its request
 export function OverdueCard({ now }: { now: NowData }) {
   const { overdue } = now;
   if (overdue.count === 0) {
@@ -188,13 +197,113 @@ export function OverdueCard({ now }: { now: NowData }) {
       </Card>
     );
   }
+  const shown = overdue.invoices.slice(0, 8);
   return (
-    <Card stripe="attention" id="overdue" icon={<Icon name="clock" size={20} />} title="Überfällige Forderungen">
-      <p className="rw-figure mono">{formatCurrency(overdue.total)}</p>
-      <p className="rw-card__note"><span className="mono">{formatNumber(overdue.count)}</span> {overdue.count === 1 ? "Rechnung" : "Rechnungen"} · älteste fällig seit <span className="mono">{formatCalendarDate(overdue.oldestDue)}</span></p>
-      <Link className="rw-link-btn" href="/dashboard/rechnungen?status=ueberfaellig">Überfällige ansehen<Icon name="chevron-right" size={16} /></Link>
+    <Card
+      stripe="attention"
+      id="overdue"
+      icon={<Icon name="clock" size={20} />}
+      title="Überfällige Forderungen"
+      count={overdue.count}
+      description={<><span className="mono">{formatCurrency(overdue.total)}</span> brutto · älteste fällig seit <span className="mono">{formatCalendarDate(overdue.oldestDue)}</span>. Ausgestellt ist nicht eingenommen.</>}
+      action={<Link className="rw-link-btn" href="/dashboard/rechnungen?status=ueberfaellig">Alle überfälligen ansehen<Icon name="chevron-right" size={16} /></Link>}
+    >
+      <div className="rw-overdue">
+        <section aria-labelledby="overdue-aging">
+          <h4 id="overdue-aging" className="rw-subhead">Überfällig nach Alter</h4>
+          <AgingBars buckets={overdueAging(overdue.invoices.map((row) => ({ status: row.status, payment_due_date: row.dueDate, total: row.total })), now.today)} />
+        </section>
+        <section aria-labelledby="overdue-oldest">
+          <h4 id="overdue-oldest" className="rw-subhead">Älteste überfällige Rechnungen</h4>
+          <table className="rw-table rw-table--stack rw-table--lead">
+            <caption className="sr-only">Älteste überfällige Rechnungen</caption>
+            <thead><tr><th scope="col">Rechnung</th><th scope="col">Überfällig</th><th scope="col" className="rw-num">Brutto</th></tr></thead>
+            <tbody>
+              {shown.map((row) => (
+                <tr key={row.id}>
+                  <td><Link className="mono" href={`/dashboard/anfragen/${row.requestId}#rechnung`}>{row.invoiceNumber ?? row.requestNumber}</Link><span className="rw-sub">{row.company}</span></td>
+                  <td><span className="mono rw-text-danger">{formatNumber(invoiceDisplayStatus(row.status, row.dueDate, now.today).overdueDays ?? 0)} Tage</span><span className="rw-sub mono">fällig {formatCalendarDate(row.dueDate)}</span></td>
+                  <td className="rw-num mono">{formatCurrency(row.total, row.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {overdue.count > shown.length && <p className="rw-card__note">Die {shown.length} ältesten von {formatNumber(overdue.count)} Rechnungen.</p>}
+        </section>
+      </div>
     </Card>
   );
+}
+
+// Summary tiles of "Handlungsbedarf" (admin): one figure each, the cards above become the details.
+// A source that failed to load marks its tiles; the other tiles stay usable.
+export function handlungsbedarfTiles(attention: Overview["attention"] | null, now: NowData | null): ExpandTile[] {
+  const failed = (title: string): Pick<ExpandTile, "stripe" | "value" | "note" | "panel"> => ({
+    stripe: "danger",
+    value: "–",
+    note: "Konnte nicht geladen werden",
+    panel: (
+      <Card stripe="danger" title={title}>
+        <ErrorState title={`${title}: Daten konnten nicht geladen werden.`} action={<Link className="rw-button-secondary" href="/dashboard/uebersicht">Erneut versuchen</Link>}>Die übrigen Bereiche der Seite sind aktuell.</ErrorState>
+      </Card>
+    ),
+  });
+  const count = (value: number) => (value >= 50 ? "50+" : formatNumber(value));
+  const tiles: ExpandTile[] = [];
+
+  if (attention) {
+    const checked = new Date(attention.checkedAt).getTime();
+    const elapsed = (since: string) => formatElapsed((checked - new Date(since).getTime()) / 60000);
+    const hazards = attention.items.filter((item) => item.reason === "safety");
+    const due = attention.items.filter((item) => (DEADLINE_REASONS as readonly string[]).includes(item.reason));
+    tiles.push(
+      {
+        key: "gefahr",
+        label: "Sicherheitsgefahr offen",
+        stripe: hazards.length ? "danger" : "success",
+        value: count(hazards.length),
+        note: hazards.length ? <>älteste seit <span className="mono">{elapsed(hazards[0].since)}</span></> : "Keine offenen Fälle",
+        panel: <HazardCard items={attention.items} checkedAt={attention.checkedAt} />,
+      },
+      {
+        key: "fristen",
+        label: "Fristen und Wartezeiten",
+        stripe: due.length ? "attention" : "success",
+        value: count(due.length),
+        note: due.length ? <>dringendste seit <span className="mono">{elapsed(due[0].since)}</span></> : "Alle Fristen eingehalten",
+        panel: <DeadlinesCard items={attention.items} checkedAt={attention.checkedAt} />,
+      },
+    );
+  } else {
+    tiles.push({ key: "gefahr", label: "Sicherheitsgefahr offen", ...failed("Sicherheitsgefahren") }, { key: "fristen", label: "Fristen und Wartezeiten", ...failed("Fristen und Wartezeiten") });
+  }
+
+  if (now) {
+    const stats = queueStats(now);
+    const peak = stats.filter((queue) => queue.peak).sort((a, b) => b.count - a.count)[0];
+    const biggest = peak ?? [...stats].sort((a, b) => b.count - a.count)[0];
+    tiles.push(
+      {
+        key: "warteschlangen",
+        label: "Warteschlangen",
+        stripe: peak ? "attention" : "neutral",
+        value: <>{formatNumber(now.openRequests)}<span className="rw-tile__unit"> offen</span></>,
+        note: biggest.count ? <>{peak ? "Engpass" : "größte"}: {biggest.label} <span className="mono">{biggest.count}</span></> : "Keine Anfragen in Warteschlangen",
+        panel: <QueuesCard now={now} />,
+      },
+      {
+        key: "forderungen",
+        label: "Überfällige Forderungen",
+        stripe: now.overdue.count ? "attention" : "success",
+        value: formatCurrency(now.overdue.total),
+        note: now.overdue.count ? <><span className="mono">{formatNumber(now.overdue.count)}</span> {now.overdue.count === 1 ? "Rechnung" : "Rechnungen"} · seit <span className="mono">{formatCalendarDate(now.overdue.oldestDue)}</span></> : "Keine überfälligen Rechnungen",
+        panel: <OverdueCard now={now} />,
+      },
+    );
+  } else {
+    tiles.push({ key: "warteschlangen", label: "Warteschlangen", ...failed("Warteschlangen") }, { key: "forderungen", label: "Überfällige Forderungen", ...failed("Überfällige Forderungen") });
+  }
+  return tiles;
 }
 
 // Manager: four queue steps with a 14-day history each (small multiples instead of one chart)
@@ -305,13 +414,24 @@ export function FinanceCard({ data }: { data: Overview }) {
 
 const plural = (count: number, one: string, many: string) => `${formatNumber(count)} ${count === 1 ? one : many}`;
 
-export function TeamTable({ rows, idle }: { rows: TeamRow[]; idle: number }) {
+// Deactivated employees with activity in the period are hidden by default (toggle via ?status=alle);
+// the footnote names how many are hidden so the team figures still add up.
+export function TeamTable({ rows: all, idle, showInactive = false, toggleHref }: { rows: TeamRow[]; idle: number; showInactive?: boolean; toggleHref?: string }) {
+  const inactive = all.filter((row) => !row.is_active).length;
+  const rows = showInactive ? all : all.filter((row) => row.is_active);
+  const toggle = inactive > 0 && toggleHref && (
+    <p className="rw-card__footnote">
+      {showInactive
+        ? <>Einschließlich {plural(inactive, "deaktivierter Person", "deaktivierter Mitarbeitender")}. <Link href={toggleHref} scroll={false}>Deaktivierte ausblenden</Link></>
+        : <>{plural(inactive, "deaktivierte Person", "deaktivierte Mitarbeitende")} mit Tätigkeit im Zeitraum ausgeblendet. <Link href={toggleHref} scroll={false}>Anzeigen</Link></>}
+    </p>
+  );
   if (rows.length === 0) {
-    return <Card stripe="meta"><EmptyState title="Keine Tätigkeit im Zeitraum">Niemand hat im gewählten Zeitraum Anfragen bearbeitet oder offen zugewiesen.</EmptyState></Card>;
+    return <Card stripe="meta"><EmptyState title="Keine Tätigkeit im Zeitraum">Niemand hat im gewählten Zeitraum Anfragen bearbeitet oder offen zugewiesen.</EmptyState>{toggle}</Card>;
   }
   const max = Math.max(1, ...rows.map((row) => row.open_requests));
   return (
-    <Card stripe="meta" flush>
+    <Card stripe="meta" flush className="rw-card--fill">
       <table className="rw-table">
         <caption className="sr-only">Team: Tätigkeit im Zeitraum und offen zugewiesene Anfragen</caption>
         <thead><tr><th scope="col">Name</th><th scope="col">Rolle</th><th scope="col">Im Zeitraum</th><th scope="col">Arbeitszeit</th><th scope="col">Offen zugewiesen</th></tr></thead>
@@ -328,6 +448,7 @@ export function TeamTable({ rows, idle }: { rows: TeamRow[]; idle: number }) {
         </tbody>
       </table>
       {idle > 0 && <p className="rw-card__footnote">{plural(idle, "weitere aktive Person", "weitere aktive Mitarbeitende")} ohne Tätigkeit und ohne offene Anfragen im Zeitraum.</p>}
+      {toggle}
     </Card>
   );
 }

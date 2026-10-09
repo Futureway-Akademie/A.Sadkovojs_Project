@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import { Fragment, Suspense, type ReactNode } from "react";
 import {
-  DeadlinesCard, FinanceCard, HazardBanner, HazardCard, OverdueCard, PerformanceKpis, QueuesCard, QueueStages,
+  DeadlinesCard, FinanceCard, handlungsbedarfTiles, HazardBanner, PerformanceKpis, QueueStages,
   ServiceDeskCard, TeamTable, TechniciansCard, ToPlanCard,
 } from "@/components/dashboard/overview";
+import { ACTIVE_FILTER_PARAM, showsInactive } from "@/components/dashboard/active-filter";
 import { PeriodControl, periodDescription } from "@/components/dashboard/period-bar";
 import { Card, Zone } from "@/components/dashboard/ui/card";
+import { ExpandTiles } from "@/components/dashboard/ui/expand-tiles";
 import { ErrorState, LoadingState } from "@/components/dashboard/ui/states";
 import { parsePeriodParams, periodQuery, type PeriodParams } from "@/lib/analytics";
 import { rolesFor } from "@/lib/auth/roles";
@@ -24,7 +26,8 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 // Admin and manager share the route with the layouts "Übersicht – Admin" and "– Manager".
 export default async function OverviewPage({ searchParams }: Props) {
   const employee = await requireRole(rolesFor("/dashboard/uebersicht"));
-  const period = parsePeriodParams(await searchParams);
+  const params = await searchParams;
+  const period = parsePeriodParams(params);
   const now = new Date();
   return (
     <div className="dash-page rw-page overview">
@@ -38,7 +41,7 @@ export default async function OverviewPage({ searchParams }: Props) {
           </p>
         </div>
       </header>
-      {employee.role === "manager" ? <ManagerOverview period={period} /> : <AdminOverview period={period} />}
+      {employee.role === "manager" ? <ManagerOverview period={period} /> : <AdminOverview period={period} allTeam={showsInactive(params)} />}
     </div>
   );
 }
@@ -68,42 +71,25 @@ const loadingCard = (title: string, shape: "kpi" | "table" | "rows" = "table") =
   <Card title={title} busy><LoadingState shape={shape} rows={3} label={`${title} wird geladen …`} /></Card>
 );
 
-function AdminOverview({ period }: { period: PeriodParams }) {
+function AdminOverview({ period, allTeam }: { period: PeriodParams; allTeam: boolean }) {
   return (
     <>
       <Zone id="z-now" title="Handlungsbedarf" note="Stand jetzt · unabhängig vom gewählten Zeitraum">
-        <div className="rw-split">
-          <div className="rw-split__main">
-            <Suspense fallback={loadingCard("Sicherheitsgefahr offen")}>
-              <Guard title="Sicherheitsgefahren" load={getAttentionNow}>
-                {(attention: Awaited<ReturnType<typeof getAttentionNow>>) => (
-                  <>
-                    <HazardCard items={attention.items} checkedAt={attention.checkedAt} />
-                    <DeadlinesCard items={attention.items} checkedAt={attention.checkedAt} />
-                  </>
-                )}
-              </Guard>
-            </Suspense>
-          </div>
-          <div className="rw-split__side">
-            <Suspense fallback={<>{loadingCard("Warteschlangen", "rows")}{loadingCard("Überfällige Forderungen", "kpi")}</>}>
-              <Guard title="Warteschlangen und Forderungen" load={getNow}>
-                {(now: Awaited<ReturnType<typeof getNow>>) => (
-                  <>
-                    <QueuesCard now={now} />
-                    <OverdueCard now={now} />
-                  </>
-                )}
-              </Guard>
-            </Suspense>
-          </div>
-        </div>
+        <Suspense fallback={<div className="rw-tiles">{["Sicherheitsgefahr offen", "Fristen und Wartezeiten", "Warteschlangen", "Überfällige Forderungen"].map((title) => <Fragment key={title}>{loadingCard(title, "kpi")}</Fragment>)}</div>}>
+          <NowTiles />
+        </Suspense>
       </Zone>
       <Suspense key={`${period.param}-${period.anchor ?? ""}`} fallback={<PeriodZonesLoading />}>
-        <PeriodZones period={period} withFinance />
+        <PeriodZones period={period} withFinance allTeam={allTeam} />
       </Suspense>
     </>
   );
+}
+
+// Both sources load in parallel; a failed source only marks its own tiles
+async function NowTiles() {
+  const [attention, now] = await Promise.allSettled([getAttentionNow(), getNow()]);
+  return <ExpandTiles label="Handlungsbedarf" tiles={handlungsbedarfTiles(attention.status === "fulfilled" ? attention.value : null, now.status === "fulfilled" ? now.value : null)} />;
 }
 
 function ManagerOverview({ period }: { period: PeriodParams }) {
@@ -123,7 +109,7 @@ function ManagerOverview({ period }: { period: PeriodParams }) {
               id="z-queues"
               title="Warteschlangen jetzt"
               note={<><span className="mono">{now.openRequests}</span> offene Anfragen · Verlauf der letzten 14 Tage</>}
-              controls={<Link className="rw-link-btn" href="/dashboard/auswertung#queues">90-Tage-Verlauf</Link>}
+              controls={<Link className="rw-link-btn" href="/dashboard/auswertung?bereich=warteschlangen">90-Tage-Verlauf</Link>}
             >
               <QueueStages now={now} />
             </Zone>
@@ -167,7 +153,7 @@ function PeriodZonesLoading({ title = "Leistung im Zeitraum" }: { title?: string
   );
 }
 
-async function PeriodZones({ period, title = "Leistung im Zeitraum", withFinance = false }: { period: PeriodParams; title?: string; withFinance?: boolean }) {
+async function PeriodZones({ period, title = "Leistung im Zeitraum", withFinance = false, allTeam = false }: { period: PeriodParams; title?: string; withFinance?: boolean; allTeam?: boolean }) {
   let data: Awaited<ReturnType<typeof getOverview>>;
   try {
     data = await getOverview(period);
@@ -182,7 +168,9 @@ async function PeriodZones({ period, title = "Leistung im Zeitraum", withFinance
       </Zone>
     );
   }
-  const control = <PeriodControl basePath={BASE} period={period} window={data.window} hash="#z-period" />;
+  const teamQuery = allTeam ? `&${ACTIVE_FILTER_PARAM}=alle` : "";
+  const control = <PeriodControl basePath={BASE} period={period} window={data.window} hash="#z-period" extraQuery={teamQuery} />;
+  const teamToggle = `${BASE}${periodQuery(period.param, period.anchor)}${allTeam ? "" : `&${ACTIVE_FILTER_PARAM}=alle`}#z-team`;
   return (
     <>
       <Zone id="z-period" title={title} note={periodDescription(period, data.window)} controls={control}>
@@ -197,7 +185,7 @@ async function PeriodZones({ period, title = "Leistung im Zeitraum", withFinance
           </div>
           <div className="rw-split__main">
             <Zone id="z-team" title="Team" note="Tätigkeit im gewählten Zeitraum · offen zugewiesen">
-              <TeamTable rows={data.team} idle={data.idleEmployees} />
+              <TeamTable rows={data.team} idle={data.idleEmployees} showInactive={allTeam} toggleHref={teamToggle} />
             </Zone>
           </div>
         </div>

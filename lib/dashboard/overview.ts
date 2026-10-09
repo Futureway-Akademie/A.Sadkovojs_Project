@@ -132,7 +132,9 @@ async function getAttention(): Promise<Overview["attention"]> {
 }
 
 // "Stand jetzt" of the redesigned overview (task-10-3): independent of the selected period.
-export type OverdueReceivables = { total: number; count: number; oldestDue: string | null };
+export type OverdueInvoice = { id: string; requestId: string; invoiceNumber: string | null; requestNumber: string; company: string; status: string; dueDate: string | null; total: number; currency: string };
+// All overdue invoices, oldest due date first (details of the tile "Überfällige Forderungen")
+export type OverdueReceivables = { total: number; count: number; oldestDue: string | null; invoices: OverdueInvoice[] };
 export type NowData = {
   checkedAt: string;
   today: string;
@@ -151,7 +153,7 @@ export const getNow = cache(async (): Promise<NowData> => {
     supabase.from("requests").select("id", { count: "exact", head: true })
       .not("intake_status", "in", "(rejected,cancelled)").not("work_status", "in", "(completed,cancelled)"),
     supabase.rpc("analytics_queue_history", { from_date: addDays(today, -89), to_date: today }),
-    supabase.from("invoices").select("total, payment_due_date")
+    supabase.from("invoices").select("id, request_id, invoice_number, status, total, currency, payment_due_date, requests(request_number, company_name)")
       .in("status", ["issued", "sent"]).is("paid_at", null).lt("payment_due_date", today).order("payment_due_date"),
   ]);
   if (open.error || history.error || invoices.error) throw new Error("Aktueller Stand konnte nicht geladen werden.");
@@ -165,6 +167,13 @@ export const getNow = cache(async (): Promise<NowData> => {
       total: Math.round(rows.reduce((sum, row) => sum + Number(row.total ?? 0), 0) * 100) / 100,
       count: rows.length,
       oldestDue: rows[0]?.payment_due_date ?? null,
+      invoices: rows.map((row) => {
+        const request = Array.isArray(row.requests) ? row.requests[0] : row.requests;
+        return {
+          id: row.id, requestId: row.request_id, invoiceNumber: row.invoice_number, status: row.status, dueDate: row.payment_due_date,
+          total: Number(row.total ?? 0), currency: row.currency, requestNumber: request?.request_number ?? "–", company: request?.company_name ?? "–",
+        };
+      }),
     },
   };
 });

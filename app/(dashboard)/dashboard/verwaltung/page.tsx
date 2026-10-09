@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createEmployee } from "@/app/(dashboard)/dashboard/verwaltung/actions";
+import { ActiveFilter, showsInactive } from "@/components/dashboard/active-filter";
 import { AdminNav } from "@/components/dashboard/admin-nav";
 import { DataTable, type Column } from "@/components/dashboard/ui/data-table";
 import { SaveForm, SelectField, TextField } from "@/components/dashboard/ui/save-form";
@@ -16,9 +17,10 @@ export const metadata: Metadata = { title: "Verwaltung" };
 const roleOptions = EMPLOYEE_ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
 
 // Employees (task-8-1). Accounts are created only here; there is no public registration.
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRole(rolesFor("/dashboard/verwaltung"));
-  const { rows, error } = await listEmployees();
+  const [{ rows, error }, all] = await Promise.all([listEmployees(), searchParams.then(showsInactive)]);
+  const activeCount = rows.filter((row) => row.is_active).length;
 
   const columns: Column<EmployeeListItem>[] = [
     { key: "name", header: "Name", cell: (row) => <>{row.display_name}<span className="cell-sub">{row.email ?? EMPTY}</span></>, mobile: "title" },
@@ -54,13 +56,14 @@ export default async function AdminPage() {
       ) : (
         <>
           {error && <p className="request-alert request-alert--info">Anmeldedaten (E-Mail, letzte Anmeldung) konnten nicht geladen werden.</p>}
+          {rows.length > 0 && <ActiveFilter basePath="/dashboard/verwaltung" all={all} active={activeCount} total={rows.length} label="Mitarbeitende anzeigen" />}
           <DataTable
             caption="Mitarbeitende"
             columns={columns}
-            rows={rows}
+            rows={all ? rows : rows.filter((row) => row.is_active)}
             rowKey={(row) => row.id}
             rowHref={(row) => `/dashboard/verwaltung/mitarbeitende/${row.id}`}
-            empty={<EmptyState title="Noch keine Mitarbeitenden." />}
+            empty={<EmptyState title={rows.length === 0 ? "Noch keine Mitarbeitenden." : "Keine aktiven Mitarbeitenden."} />}
           />
         </>
       )}

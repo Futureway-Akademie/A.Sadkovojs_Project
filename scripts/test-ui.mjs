@@ -149,7 +149,7 @@ try {
   ];
   const roles = [
     { email: "admin.demo@example.com", pages: ["/dashboard/bausteine", "/dashboard/verwaltung", "detail:/dashboard/verwaltung", "detail:/dashboard/verwaltung/arbeitszeiten", "/dashboard/verwaltung/arbeitszeiten", "/dashboard/verwaltung/tarife", "/dashboard/verwaltung/einstellungen", "/dashboard/uebersicht", "/dashboard/anfragen"] },
-    { email: "manager.demo@example.com", pages: ["/dashboard/uebersicht", "/dashboard/uebersicht?zeitraum=jahr", "/dashboard/rechnungen", "/dashboard/auswertung", "/dashboard/planung", "/dashboard/anfragen", "detail:/dashboard/anfragen?arbeit=completed", "detail:/dashboard/anfragen?erstbearbeitung=needs_review"] },
+    { email: "manager.demo@example.com", pages: ["/dashboard/uebersicht", "/dashboard/uebersicht?zeitraum=jahr", "/dashboard/rechnungen", "/dashboard/auswertung", "/dashboard/auswertung?bereich=warteschlangen", "/dashboard/auswertung?bereich=automatisierung", "/dashboard/planung", "/dashboard/anfragen", "detail:/dashboard/anfragen?arbeit=completed", "detail:/dashboard/anfragen?erstbearbeitung=needs_review"] },
     { email: "dispo3.demo@example.com", pages: ["/dashboard/erstbearbeitung", "/dashboard/erstbearbeitung?tab=planung", "/dashboard/erstbearbeitung?tab=alle"] },
     { email: "technik1.demo@example.com", pages: ["/dashboard/heute", "/dashboard/kalender", "/dashboard/anfragen", "detail:/dashboard/anfragen", "einsatz:/dashboard/heute"] },
   ];
@@ -216,10 +216,19 @@ try {
   {
     const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
     await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-    await page.open(`${BASE}/dashboard/auswertung`);
-    await page.until(`document.querySelectorAll(".figure .recharts-surface").length >= 10`, 10000);
-    const figures = await page.eval(`[...document.querySelectorAll("figure.figure")].map((f) => ({ id: f.dataset.chart, svg: !!f.querySelector(".recharts-surface"), marks: f.querySelectorAll(".recharts-line-curve, .recharts-bar-rectangle").length, table: f.querySelectorAll(".figure__table tbody tr").length }))`);
+    // One tab per area; only the selected area is rendered
+    const figures = [];
+    const tabs = { durchsatz: 3, warteschlangen: 4, finanzen: 1, automatisierung: 2 };
+    for (const [area, expected] of Object.entries(tabs)) {
+      await page.open(`${BASE}/dashboard/auswertung?bereich=${area}`);
+      await page.until(`document.querySelectorAll(".figure .recharts-surface").length >= ${expected}`, 10000);
+      const shown = await page.eval(`({ current: document.querySelector('.rw-views [aria-current="page"]')?.textContent, figures: [...document.querySelectorAll("figure.figure")].map((f) => ({ id: f.dataset.chart, svg: !!f.querySelector(".recharts-surface"), marks: f.querySelectorAll(".recharts-line-curve, .recharts-bar-rectangle").length, table: f.querySelectorAll(".figure__table tbody tr").length })) })`);
+      check(`  Reiter ${area}: nur ${expected} Diagramm(e) dieses Bereichs`, shown.figures.length === expected && shown.current?.toLowerCase() === area, JSON.stringify(shown));
+      figures.push(...shown.figures);
+    }
     check("10 Diagramme (4 Warteschlangen als Einzeldiagramme) mit Datentabelle gezeichnet", figures.length === 10 && figures.every((f) => f.svg && f.marks > 0 && f.table > 0), JSON.stringify(figures));
+    await page.open(`${BASE}/dashboard/auswertung`);
+    await page.until(`document.querySelectorAll(".figure .recharts-surface").length >= 3`, 10000);
     // Current month in the flow table equals a direct count in the database (Europe/Berlin)
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit" }).formatToParts(new Date()).map((p) => [p.type, p.value]));
     const offset = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", timeZoneName: "longOffset" }).formatToParts(new Date(`${parts.year}-${parts.month}-01T12:00:00Z`)).find((p) => p.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
@@ -228,12 +237,47 @@ try {
     const tableValue = await page.eval(`(() => { const rows = [...document.querySelectorAll("#flow-chart .figure__table tbody tr")]; const last = rows.at(-1); return last ? last.querySelectorAll("td")[1].textContent.replace(/\\D/g, "") : null; })()`);
     check(`  Eingänge des laufenden Monats: Tabelle ${tableValue} = Datenbank ${count}`, Number(tableValue) === count);
     // Tooltip of the time savings shows count and baseline
+    await page.open(`${BASE}/dashboard/auswertung?bereich=automatisierung`);
+    await page.until(`!!document.querySelector("#savings-chart .recharts-surface")`, 10000);
     const box = await page.eval(`(() => { const bars = [...document.querySelectorAll("#savings-chart .recharts-bar-rectangle path, #savings-chart .recharts-bar-rectangle")].map((b) => b.getBoundingClientRect()).filter((r) => r.height > 2); const r = bars.at(-2) ?? bars.at(-1); if (!r) return null; document.querySelector("#savings-chart").scrollIntoView({ block: "center", behavior: "instant" }); return null; })()`);
     await sleep(300);
     const target = await page.eval(`(() => { const bars = [...document.querySelectorAll("#savings-chart .recharts-bar-rectangle path")].map((b) => b.getBoundingClientRect()).filter((r) => r.height > 2); const r = bars.at(-2) ?? bars.at(-1); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; })()`);
     if (target) await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: target.x, y: target.y });
     const tip = target && await page.until(`!!document.querySelector("#savings-chart [data-savings-detail]")`, 3000) ? await page.eval(`document.querySelector("#savings-chart [data-savings-detail]").textContent`) : "";
     check("  Tooltip Zeitersparnis zeigt Anzahl und Basiswert", /\d+ Anfragen × Basiswert 15 min/.test(tip), `${tip} ${box ?? ""}`);
+  }
+
+  console.log("\nÜbersicht Admin: Handlungsbedarf als Kacheln mit aufklappbaren Details");
+  {
+    await page.send("Network.clearBrowserCookies");
+    await page.send("Network.setCookies", { cookies: await loginCookies("admin.demo@example.com") });
+    await page.open(`${BASE}/dashboard/uebersicht`);
+    await page.until(`document.querySelectorAll(".rw-tile").length === 4`, 10000);
+    const state = () => page.eval(`({ open: [...document.querySelectorAll(".rw-tiles__panel")].filter((p) => !p.hidden).map((p) => p.id), expanded: [...document.querySelectorAll(".rw-tile")].map((t) => t.getAttribute("aria-expanded")), heights: [...new Set([...document.querySelectorAll(".rw-tile")].map((t) => Math.round(t.getBoundingClientRect().height)))] })`);
+    let tiles = await state();
+    check("4 gleich hohe Kacheln, alle Details geschlossen", tiles.open.length === 0 && tiles.heights.length === 1, JSON.stringify(tiles));
+    await page.eval(`document.querySelectorAll(".rw-tile")[0].click()`);
+    await page.until(`document.querySelectorAll(".rw-tiles__panel:not([hidden])").length === 1`, 3000);
+    tiles = await state();
+    const panelId = await page.eval(`document.querySelectorAll(".rw-tile")[0].getAttribute("aria-controls")`);
+    check("  Klick öffnet nur die Details dieser Kachel", tiles.open.length === 1 && tiles.open[0] === panelId && tiles.expanded[0] === "true", JSON.stringify(tiles));
+    await page.eval(`document.querySelectorAll(".rw-tile")[2].click()`);
+    await page.until(`document.querySelectorAll(".rw-tile")[2].getAttribute("aria-expanded") === "true"`, 3000);
+    tiles = await state();
+    check("  andere Kachel wechselt die Details", tiles.open.length === 1 && tiles.expanded[0] === "false" && tiles.expanded[2] === "true", JSON.stringify(tiles));
+    await page.eval(`document.querySelectorAll(".rw-tile")[2].click()`);
+    await page.until(`document.querySelectorAll(".rw-tiles__panel:not([hidden])").length === 0`, 3000);
+    check("  zweiter Klick schließt", (await state()).open.length === 0);
+  }
+
+  console.log("\nRechnungen: „Alle“ in „Zu erledigen“ führt zur Liste");
+  {
+    await page.open(`${BASE}/dashboard/rechnungen`);
+    const link = `[...document.querySelectorAll(".rw-link-btn")].find((a) => a.textContent.trim().startsWith("Alle"))`;
+    const ready = await page.eval(`!!${link}`);
+    if (ready) await page.eval(`${link}.click()`);
+    const moved = ready && await page.until(`(() => { const r = document.getElementById("rechnungsliste").getBoundingClientRect(); return r.top >= 0 && r.top < 300; })()`, 5000);
+    check("Liste in Sicht, Reiter „Zu erledigen“ aktiv", moved && await page.eval(`document.querySelector('#rechnungsliste .rw-view[aria-current="page"]')?.textContent.startsWith("Zu erledigen")`));
   }
 
   console.log("\nEingaben bleiben bei fehlgeschlagenem Speichern erhalten");
@@ -670,6 +714,11 @@ try {
     await settled(rateForm, "save-status--success");
     const { data: changedRate } = await admin.from("service_rates").select("unit_price, is_active").eq("id", newRate?.id).maybeSingle();
     check("  Tarif geändert und deaktiviert", Number(changedRate?.unit_price) === 105 && changedRate?.is_active === false, JSON.stringify(changedRate));
+    await page.open(`${BASE}/dashboard/verwaltung/tarife`);
+    const rateListed = () => page.eval(`[...document.querySelectorAll(".rate-list summary")].some((summary) => summary.textContent.includes(${JSON.stringify(code)}))`);
+    check("  deaktivierter Tarif standardmäßig ausgeblendet", !(await rateListed()));
+    await page.open(`${BASE}/dashboard/verwaltung/tarife?status=alle`);
+    check("  unter „Alle“ sichtbar", await rateListed());
 
     // Settings: invalid value is rejected, a valid change is stored with author and then restored
     const { data: before } = await admin.from("settings").select("*").eq("id", 1).single();
@@ -697,6 +746,11 @@ try {
     }
     const { data: leftovers } = await admin.from("profiles").select("id").in("id", [created.technician, created.dispatcher]).eq("is_active", true);
     check("Testkonten ohne Zuweisungen direkt deaktiviert", leftovers.length === 0, JSON.stringify(leftovers));
+    const listed = () => page.eval(`[...document.querySelectorAll(".data-table tbody a")].some((link) => link.getAttribute("href").endsWith(${JSON.stringify(created.technician)}))`);
+    await page.open(`${BASE}/dashboard/verwaltung`);
+    check("  Mitarbeitende: Deaktivierte standardmäßig ausgeblendet", !(await listed()) && await page.eval(`document.querySelector('.rw-views [aria-current="page"]')?.textContent.startsWith("Aktive")`));
+    await page.open(`${BASE}/dashboard/verwaltung?status=alle`);
+    check("  unter „Alle“ sichtbar", await listed());
   }
 } catch (error) {
   console.error(error);

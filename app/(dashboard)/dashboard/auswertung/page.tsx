@@ -8,7 +8,7 @@ import { Legend, PeriodChip } from "@/components/dashboard/ui/legend";
 import { DataTable, type Column } from "@/components/dashboard/ui/data-table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/dashboard/ui/states";
 import { monthRecordHint, queuePeakHint, smallBaseHint } from "@/lib/hints";
-import { parsePeriodParams, periodTitle, type PeriodParams } from "@/lib/analytics";
+import { parsePeriodParams, PERIOD_OPTIONS, periodTitle, type PeriodParams } from "@/lib/analytics";
 import { rolesFor } from "@/lib/auth/roles";
 import { requireRole } from "@/lib/auth/session";
 import { CHART_COLORS } from "@/lib/chart-colors";
@@ -21,11 +21,39 @@ export const metadata: Metadata = { title: "Auswertung" };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-// Charts and automation area (task-7-3). Every chart reads database data through the analytics
-// functions; each figure has a text summary, a legend for two or more series and a data table.
+// Areas as tabs (?bereich=…); only the selected area is rendered. "Auf einen Blick" stays above all tabs.
+const AREAS = [
+  { key: "durchsatz", label: "Durchsatz" },
+  { key: "warteschlangen", label: "Warteschlangen" },
+  { key: "finanzen", label: "Finanzen" },
+  { key: "automatisierung", label: "Automatisierung" },
+] as const;
+type Area = (typeof AREAS)[number]["key"];
+
+const BASE = "/dashboard/auswertung";
+
+function parseArea(value: string | string[] | undefined): Area {
+  const single = Array.isArray(value) ? value[0] : value;
+  return AREAS.find((area) => area.key === single)?.key ?? "durchsatz";
+}
+
+// Link to an area that keeps the chosen period; default values stay out of the URL
+function areaHref(area: Area, period: PeriodParams) {
+  const params = new URLSearchParams();
+  if (area !== "durchsatz") params.set("bereich", area);
+  if (period.param !== PERIOD_OPTIONS[1].param || period.anchor) params.set("zeitraum", period.param);
+  if (period.anchor) params.set("datum", period.anchor);
+  const query = params.toString();
+  return query ? `${BASE}?${query}` : BASE;
+}
+
+// Charts and automation area (task-7-3, tabs since task-10-3). Every chart reads database data through the
+// analytics functions; each figure has a text summary, a legend for two or more series and a data table.
 export default async function InsightsPage({ searchParams }: Props) {
   await requireRole(rolesFor("/dashboard/auswertung"));
-  const period = parsePeriodParams(await searchParams);
+  const params = await searchParams;
+  const period = parsePeriodParams(params);
+  const area = parseArea(params.bereich);
   return (
     <div className="dash-page rw-page insights">
       <header className="dash-page-header">
@@ -34,11 +62,13 @@ export default async function InsightsPage({ searchParams }: Props) {
           <p className="rw-page__sub">Langfristige Entwicklung aus den Datenbankdaten. Jedes Diagramm nennt seinen eigenen Zeitraum.</p>
         </div>
         <nav className="rw-views" aria-label="Bereiche">
-          {[["durchsatz", "Durchsatz"], ["queues", "Warteschlangen"], ["finance", "Finanzen"], ["automation", "Automatisierung"]].map(([id, text]) => <a key={id} className="rw-view" href={`#${id}`}>{text}</a>)}
+          {AREAS.map((entry) => (
+            <Link key={entry.key} className="rw-view" href={areaHref(entry.key, period)} aria-current={entry.key === area ? "page" : undefined} scroll={false}>{entry.label}</Link>
+          ))}
         </nav>
       </header>
-      <Suspense key={`${period.param}-${period.anchor ?? ""}`} fallback={<div className="rw-kpi-grid">{[1, 2, 3, 4].map((index) => <Card key={index} busy><LoadingState shape="chart" label="Diagramme werden geladen …" /></Card>)}</div>}>
-        <InsightsContent period={period} />
+      <Suspense key={`${area}-${period.param}-${period.anchor ?? ""}`} fallback={<div className="rw-kpi-grid">{[1, 2, 3, 4].map((index) => <Card key={index} busy><LoadingState shape="chart" label="Diagramme werden geladen …" /></Card>)}</div>}>
+        <InsightsContent period={period} area={area} />
       </Suspense>
     </div>
   );
@@ -46,12 +76,12 @@ export default async function InsightsPage({ searchParams }: Props) {
 
 const slot = (index: number) => CHART_COLORS[index];
 
-async function InsightsContent({ period }: { period: PeriodParams }) {
+async function InsightsContent({ period, area }: { period: PeriodParams; area: Area }) {
   let data: Insights;
   try {
     data = await getInsights(period);
   } catch {
-    return <ErrorState title="Die Auswertung konnte nicht geladen werden." action={<Link className="rw-button-secondary" href="/dashboard/auswertung">Erneut versuchen</Link>}>Kennzahlen der Übersicht sind davon nicht betroffen.</ErrorState>;
+    return <ErrorState title="Die Auswertung konnte nicht geladen werden." action={<Link className="rw-button-secondary" href={areaHref(area, period)}>Erneut versuchen</Link>}>Kennzahlen der Übersicht sind davon nicht betroffen.</ErrorState>;
   }
   const { window: w } = data;
   const months = data.months.map((row) => ({ ...row, month: monthLabel(row.bucket_start) }));
@@ -122,11 +152,11 @@ async function InsightsContent({ period }: { period: PeriodParams }) {
   const paid12 = sum(last12.map((row) => row.payments_received));
   const glance = [
     peakQueue
-      ? { area: "Warteschlangen", value: formatNumber(peakQueue.today), text: `in „${peakQueue.label}“ – ${peakQueue.peak!.text}.`, href: "#queues", warn: true }
-      : { area: "Warteschlangen", value: formatNumber(biggestQueue.today), text: `in „${biggestQueue.label}“, größte Warteschlange heute; kein Höchststand.`, href: "#queues", warn: false },
-    lastMonth && { area: "Durchsatz", value: formatNumber(lastMonth.received), text: `Eingänge im ${lastMonth.month}${record ? ` – ${record.text}` : ""}.`, href: "#durchsatz", warn: false },
-    shareNow && shareNow.share !== null && { area: "Automatisierung", value: formatPercent(shareNow.share), text: `automatisch im ${shareNow.month}${smallBaseHint(shareNow.total) ? ` – ${smallBaseHint(shareNow.total)!.text}, Wert schwankt noch` : ""}.`, href: "#automation", warn: false },
-    { area: "Finanzen", value: formatCurrency(Math.abs(issued12 - paid12)), text: `${issued12 >= paid12 ? "mehr ausgestellt als eingegangen" : "mehr eingegangen als ausgestellt"} in den letzten 12 Monaten.`, href: "#finance", warn: false },
+      ? { area: "Warteschlangen", value: formatNumber(peakQueue.today), text: `in „${peakQueue.label}“ – ${peakQueue.peak!.text}.`, href: areaHref("warteschlangen", period), warn: true }
+      : { area: "Warteschlangen", value: formatNumber(biggestQueue.today), text: `in „${biggestQueue.label}“, größte Warteschlange heute; kein Höchststand.`, href: areaHref("warteschlangen", period), warn: false },
+    lastMonth && { area: "Durchsatz", value: formatNumber(lastMonth.received), text: `Eingänge im ${lastMonth.month}${record ? ` – ${record.text}` : ""}.`, href: areaHref("durchsatz", period), warn: false },
+    shareNow && shareNow.share !== null && { area: "Automatisierung", value: formatPercent(shareNow.share), text: `automatisch im ${shareNow.month}${smallBaseHint(shareNow.total) ? ` – ${smallBaseHint(shareNow.total)!.text}, Wert schwankt noch` : ""}.`, href: areaHref("automatisierung", period), warn: false },
+    { area: "Finanzen", value: formatCurrency(Math.abs(issued12 - paid12)), text: `${issued12 >= paid12 ? "mehr ausgestellt als eingegangen" : "mehr eingegangen als ausgestellt"} in den letzten 12 Monaten.`, href: areaHref("finanzen", period), warn: false },
   ].filter((item): item is { area: string; value: string; text: string; href: string; warn: boolean } => Boolean(item));
   const running = `${monthLabel(`${today.slice(0, 7)}-01`)} läuft noch (gestrichelt).`;
   const legend = (series: ChartSeries[]) => <Legend items={series.map((entry) => ({ label: entry.label, color: entry.color }))} />;
@@ -137,22 +167,22 @@ async function InsightsContent({ period }: { period: PeriodParams }) {
         <h2 id="glance">Auf einen Blick</h2>
         <div className="rw-kpi-grid">
           {glance.map((item) => (
-            <a key={item.area} href={item.href} className={`rw-card ${item.warn ? "rw-card--attention" : "rw-card--neutral"} rw-glance`}>
+            <Link key={item.area} href={item.href} scroll={false} className={`rw-card ${item.warn ? "rw-card--attention" : "rw-card--neutral"} rw-glance`}>
               <span className="rw-stage__step">{item.area}</span>
               <span className="rw-glance__value mono">{item.value}</span>
               <span className="rw-card__note">{item.text}</span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
 
-      <section className="rw-zone" aria-labelledby="durchsatz">
+      {area === "durchsatz" && <section className="rw-zone" aria-labelledby="durchsatz">
         <div className="rw-zone__header">
           <div className="rw-zone__titles">
             <h2 id="durchsatz">Durchsatz</h2>
             <span className="rw-zone__note">Letzte 12 Monate: <span className="mono">{formatNumber(sum(last12.map((row) => row.received)))}</span> Eingänge · <span className="mono">{formatNumber(sum(last12.map((row) => row.intake_completed)))}</span> Erstbearbeitungen · <span className="mono">{formatNumber(sum(last12.map((row) => row.completed)))}</span> technische Abschlüsse</span>
           </div>
-          <div className="rw-zone__controls"><span className="rw-card__note">Vergleich und Läufe:</span><PeriodControl basePath="/dashboard/auswertung" period={period} window={w} hash="#durchsatz" /></div>
+          <div className="rw-zone__controls"><span className="rw-card__note">Vergleich:</span><PeriodControl basePath={BASE} period={period} window={w} /></div>
         </div>
         <div className="rw-split">
           <div className="rw-split__main">
@@ -172,9 +202,9 @@ async function InsightsContent({ period }: { period: PeriodParams }) {
             <TimeChart kind="line" data={season.data} xKey="month" series={seasonSeries} format="count" label="Liniendiagramm: Eingänge je Kalendermonat und Jahr" />
           </Figure>
         </details>
-      </section>
+      </section>}
 
-      <section className="rw-zone" aria-labelledby="queues">
+      {area === "warteschlangen" && <section className="rw-zone" aria-labelledby="queues">
         <div className="rw-zone__header">
           <div className="rw-zone__titles">
             <h2 id="queues">Warteschlangen</h2>
@@ -196,9 +226,9 @@ async function InsightsContent({ period }: { period: PeriodParams }) {
             </Figure>
           ))}
         </div>
-      </section>
+      </section>}
 
-      <section className="rw-zone" aria-labelledby="finance">
+      {area === "finanzen" && <section className="rw-zone" aria-labelledby="finance">
         <div className="rw-zone__header">
           <div className="rw-zone__titles">
             <h2 id="finance">Finanzen</h2>
@@ -222,60 +252,59 @@ async function InsightsContent({ period }: { period: PeriodParams }) {
         >
           <TimeChart kind="bar" data={last12} xKey="month" series={financeSeries} format="eur" label="Säulendiagramm: ausgestellte Beträge und Zahlungseingänge je Monat" />
         </Figure>
-      </section>
+      </section>}
 
-      <section className="rw-zone" aria-labelledby="automation">
-        <h2 id="automation">Automatisierung</h2>
-        <div className="rw-split">
-          <div className="rw-split__main">
-            <Figure
-              id="share-chart"
-              title="Anteil automatischer Erstbearbeitung"
-              chip="24 Monate"
-              summary={`Später korrigierte automatische Ergebnisse zählen als automatisch. ${running}${shareNow ? ` ${shareNow.month}: ${formatNumber(shareNow.automatic)} von ${formatNumber(shareNow.total)} automatisch${smallBaseHint(shareNow.total) ? " – kleine Basis, Wert schwankt noch" : ""}.` : ""}`}
-              table={table(automation, "month", "Monat", [{ key: "share", label: "Anteil automatisch (%)", color: slot(0) }, { key: "automatic", label: "Automatisch", color: slot(0) }, { key: "corrected", label: "Davon korrigiert", color: slot(0) }, { key: "total", label: "Erstbearbeitungen", color: slot(0) }], "mixed")}
-            >
-              <TimeChart kind="line" data={automation} xKey="month" series={[{ key: "share", label: "Anteil automatisch", color: slot(0) }]} format="percent" variant="share" runningLast label="Liniendiagramm: Anteil automatischer Erstbearbeitung je Monat" />
-            </Figure>
-            <Figure
-              id="savings-chart"
-              title="Geschätzte Zeitersparnis"
-              chip="24 Monate"
-              summary={`${formatNumber(savedRequests)} automatisch und ohne Korrektur abgeschlossene Erstbearbeitungen × Basiswert der manuellen Bearbeitung. Schätzung, keine gemessene Zeit.`}
-              lead={<p className="rw-figure mono">{formatMinutes(savedTotal)}</p>}
-              table={table(automation, "month", "Monat", [{ key: "savedHours", label: "Stunden", color: slot(0) }, { key: "savedRequests", label: "Anfragen", color: slot(0) }, { key: "baseline", label: "Basiswert (min)", color: slot(0) }], "mixed")}
-            >
-              <TimeChart kind="bar" data={automation} xKey="month" series={[{ key: "savedHours", label: "Zeitersparnis", color: slot(0) }]} format="hours" variant="savings" label="Säulendiagramm: geschätzte Zeitersparnis je Monat" />
-            </Figure>
-          </div>
-          <div className="rw-split__side">
-            <section className="rw-card rw-card--meta" id="runs" aria-labelledby="runs-title">
-              <header className="rw-card__header">
-                <h3 id="runs-title" className="rw-card__title">Läufe {periodTitle(period.kind, w.startDay)}</h3>
-                <PeriodChip>Zeitraum</PeriodChip>
-              </header>
-              <p className="rw-figures">
-                <span><span className="rw-figure mono">{formatNumber(runTotals.all)}</span> <span className="rw-card__note">Läufe</span></span>
-                <span><span className="mono">{formatNumber(runTotals.failed)}</span> <span className="rw-card__note">fehlgeschlagen</span></span>
-                <span><span className="mono">{formatNumber(runTotals.corrected)}</span> <span className="rw-card__note">korrigiert</span></span>
-              </p>
-              <DataTable
-                caption="Automatisierungsläufe"
-                columns={[
-                  { key: "step", header: "Schritt", cell: (row) => label("automation_step", row.step), mobile: "title" },
-                  { key: "status", header: "Status", cell: (row) => statusInfo("automation_status", row.status).label },
-                  { key: "decision", header: "Entscheidung", cell: (row) => (row.decision ? label("automation_decision", row.decision) : "–") },
-                  { key: "runs", header: "Läufe", cell: (row) => formatNumber(row.runs), align: "end" },
-                  { key: "corrected", header: "Korrigiert", cell: (row) => formatNumber(row.corrected), align: "end" },
-                ]}
-                rows={runs}
-                rowKey={(row) => `${row.step}-${row.status}-${row.decision ?? ""}`}
-                empty={<EmptyState title="Keine Automatisierungsläufe im Zeitraum" />}
-              />
-            </section>
-          </div>
+      {area === "automatisierung" && <section className="rw-zone" aria-labelledby="automation">
+        <div className="rw-zone__header">
+          <div className="rw-zone__titles"><h2 id="automation">Automatisierung</h2></div>
+          <div className="rw-zone__controls"><span className="rw-card__note">Läufe:</span><PeriodControl basePath={BASE} period={period} window={w} extraQuery="&bereich=automatisierung" /></div>
         </div>
-      </section>
+        <div className="rw-pair">
+          <Figure
+            id="share-chart"
+            title="Anteil automatischer Erstbearbeitung"
+            chip="24 Monate"
+            summary={`Später korrigierte automatische Ergebnisse zählen als automatisch. ${running}${shareNow ? ` ${shareNow.month}: ${formatNumber(shareNow.automatic)} von ${formatNumber(shareNow.total)} automatisch${smallBaseHint(shareNow.total) ? " – kleine Basis, Wert schwankt noch" : ""}.` : ""}`}
+            table={table(automation, "month", "Monat", [{ key: "share", label: "Anteil automatisch (%)", color: slot(0) }, { key: "automatic", label: "Automatisch", color: slot(0) }, { key: "corrected", label: "Davon korrigiert", color: slot(0) }, { key: "total", label: "Erstbearbeitungen", color: slot(0) }], "mixed")}
+          >
+            <TimeChart kind="line" data={automation} xKey="month" series={[{ key: "share", label: "Anteil automatisch", color: slot(0) }]} format="percent" variant="share" runningLast label="Liniendiagramm: Anteil automatischer Erstbearbeitung je Monat" />
+          </Figure>
+          <Figure
+            id="savings-chart"
+            title="Geschätzte Zeitersparnis"
+            chip="24 Monate"
+            summary={`${formatNumber(savedRequests)} automatisch und ohne Korrektur abgeschlossene Erstbearbeitungen × Basiswert der manuellen Bearbeitung. Schätzung, keine gemessene Zeit.`}
+            lead={<p className="rw-figure mono">{formatMinutes(savedTotal)}</p>}
+            table={table(automation, "month", "Monat", [{ key: "savedHours", label: "Stunden", color: slot(0) }, { key: "savedRequests", label: "Anfragen", color: slot(0) }, { key: "baseline", label: "Basiswert (min)", color: slot(0) }], "mixed")}
+          >
+            <TimeChart kind="bar" data={automation} xKey="month" series={[{ key: "savedHours", label: "Zeitersparnis", color: slot(0) }]} format="hours" variant="savings" label="Säulendiagramm: geschätzte Zeitersparnis je Monat" />
+          </Figure>
+        </div>
+        <section className="rw-card rw-card--meta" id="runs" aria-labelledby="runs-title">
+          <header className="rw-card__header">
+            <h3 id="runs-title" className="rw-card__title">Läufe {periodTitle(period.kind, w.startDay)}</h3>
+            <PeriodChip>Zeitraum</PeriodChip>
+          </header>
+          <p className="rw-figures">
+            <span><span className="rw-figure mono">{formatNumber(runTotals.all)}</span> <span className="rw-card__note">Läufe</span></span>
+            <span><span className="mono">{formatNumber(runTotals.failed)}</span> <span className="rw-card__note">fehlgeschlagen</span></span>
+            <span><span className="mono">{formatNumber(runTotals.corrected)}</span> <span className="rw-card__note">korrigiert</span></span>
+          </p>
+          <DataTable
+            caption="Automatisierungsläufe"
+            columns={[
+              { key: "step", header: "Schritt", cell: (row) => label("automation_step", row.step), mobile: "title" },
+              { key: "status", header: "Status", cell: (row) => statusInfo("automation_status", row.status).label },
+              { key: "decision", header: "Entscheidung", cell: (row) => (row.decision ? label("automation_decision", row.decision) : "–") },
+              { key: "runs", header: "Läufe", cell: (row) => formatNumber(row.runs), align: "end" },
+              { key: "corrected", header: "Korrigiert", cell: (row) => formatNumber(row.corrected), align: "end" },
+            ]}
+            rows={runs}
+            rowKey={(row) => `${row.step}-${row.status}-${row.decision ?? ""}`}
+            empty={<EmptyState title="Keine Automatisierungsläufe im Zeitraum" />}
+          />
+        </section>
+      </section>}
     </>
   );
 }

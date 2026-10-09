@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { saveRate } from "@/app/(dashboard)/dashboard/verwaltung/actions";
+import { ActiveFilter, showsInactive } from "@/components/dashboard/active-filter";
 import { AdminNav } from "@/components/dashboard/admin-nav";
 import { CheckboxField, HiddenField, SaveForm, SelectField, TextField } from "@/components/dashboard/ui/save-form";
 import { EmptyState, ErrorState, PageHeader } from "@/components/dashboard/ui/states";
@@ -36,9 +37,9 @@ function RateFields({ rate }: { rate?: ServiceRate }) {
 
 // Service rates (task-8-1). Work entries copy price and tax rate when they are recorded and issued invoices keep
 // their items, so a change only affects later entries. Rates are deactivated, not deleted.
-export default async function RatesPage() {
+export default async function RatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRole(rolesFor("/dashboard/verwaltung"));
-  const rates = await listRates();
+  const [rates, all] = await Promise.all([listRates(), searchParams.then(showsInactive)]);
 
   return (
     <div className="dash-page">
@@ -57,25 +58,35 @@ export default async function RatesPage() {
       ) : rates.length === 0 ? (
         <EmptyState title="Noch keine Tarife." />
       ) : (
-        <ul className="rate-list" aria-label="Tarife">
-          {rates.map((rate) => (
-            <li key={rate.id}>
-              <details className="action">
-                <summary>
-                  <span className="rate-list__head">
-                    <span><span className="mono">{rate.code}</span> · {rate.display_name}</span>
-                    <span className="cell-sub cell-sub--inline">{label("service_kind", rate.service_kind)} · {BILLING_MODEL_LABELS[rate.billing_model]} · {formatCurrency(rate.unit_price)}{rate.billing_model === "hourly" ? " / Std." : ""} · {formatNumber(rate.tax_rate, 0)} % USt.</span>
-                  </span>
-                  <StatusBadge kind="profile_active" value={rate.is_active} />
-                </summary>
-                <SaveForm action={saveRate} submitLabel="Tarif speichern">
-                  <RateFields rate={rate} />
-                </SaveForm>
-              </details>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ActiveFilter basePath="/dashboard/verwaltung/tarife" all={all} active={rates.filter((rate) => rate.is_active).length} total={rates.length} label="Tarife anzeigen" />
+          <RateList rates={all ? rates : rates.filter((rate) => rate.is_active)} />
+        </>
       )}
     </div>
+  );
+}
+
+function RateList({ rates }: { rates: ServiceRate[] }) {
+  if (rates.length === 0) return <EmptyState title="Keine aktiven Tarife." />;
+  return (
+    <ul className="rate-list" aria-label="Tarife">
+      {rates.map((rate) => (
+        <li key={rate.id}>
+          <details className="action">
+            <summary>
+              <span className="rate-list__head">
+                <span><span className="mono">{rate.code}</span> · {rate.display_name}</span>
+                <span className="cell-sub cell-sub--inline">{label("service_kind", rate.service_kind)} · {BILLING_MODEL_LABELS[rate.billing_model]} · {formatCurrency(rate.unit_price)}{rate.billing_model === "hourly" ? " / Std." : ""} · {formatNumber(rate.tax_rate, 0)} % USt.</span>
+              </span>
+              <StatusBadge kind="profile_active" value={rate.is_active} />
+            </summary>
+            <SaveForm action={saveRate} submitLabel="Tarif speichern">
+              <RateFields rate={rate} />
+            </SaveForm>
+          </details>
+        </li>
+      ))}
+    </ul>
   );
 }
