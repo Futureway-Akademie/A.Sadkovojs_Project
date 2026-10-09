@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
+import { berlinToInstant, dayKeyOf, isDayKey } from "@/lib/berlin-time";
 import { databaseErrorMessage, formError, formSuccess, formValues, type FormState } from "@/lib/forms";
 import type { Database } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -179,4 +180,21 @@ export async function issueInvoice(_previous: FormState, formData: FormData): Pr
   const supabase = await createClient();
   return run(input.values, "Rechnung ausgestellt. Das PDF steht zum Download bereit.", () =>
     supabase.rpc("issue_invoice", { invoice_id: input.values.invoice_id, expected_version: input.version }));
+}
+
+// Payment of an issued invoice (task-10-3, user decision: on the request page and in the invoice list).
+// The payment date is a calendar day in Berlin: today means now, an earlier day its last minute.
+// The database checks the role (manager, admin), the state and that the date lies between issue and now.
+export async function recordPayment(_previous: FormState, formData: FormData): Promise<FormState> {
+  await requireRole(["manager", "admin"]);
+  const input = context(formData);
+  if (!input || !UUID.test(input.values.invoice_id ?? "")) return invalid(formValues(formData));
+  const day = input.values.paid_on ?? "";
+  if (!isDayKey(day)) return formError("Bitte das Zahlungsdatum angeben.", input.values, { paid_on: "Datum im Format TT.MM.JJJJ." });
+  const today = dayKeyOf(new Date());
+  if (day > today) return formError("Das Zahlungsdatum liegt in der Zukunft.", input.values, { paid_on: "Höchstens heute." });
+  const paidAt = day === today ? undefined : berlinToInstant(day, "23:59").toISOString();
+  const supabase = await createClient();
+  return run(input.values, "Zahlung erfasst.", () =>
+    supabase.rpc("record_payment", { invoice_id: input.values.invoice_id, expected_version: input.version, ...(paidAt ? { paid_at: paidAt } : {}) }));
 }

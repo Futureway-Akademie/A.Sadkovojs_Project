@@ -304,6 +304,8 @@ Eine Neuzuweisung entzieht dem bisherigen Dispatcher sofort den Zugriff, da `can
 
 `public.technician_busy_intervals(range_start, range_end)` (RPC, `security definer`) liefert für Dispatcher, Manager und Admins die belegten Intervalle aller aktiven Techniker: reservierende Einsätze (`scheduled`, `in_progress`) und Abwesenheiten. Rückgabe nur `technician_id`, `starts_at`, `ends_at`, `busy_kind` (`visit`/`absence`), ohne Anfrage, Kunde, Adresse oder Abwesenheitsgrund. Techniker erhalten keine Zeilen.
 
+`public.technician_experience(request_id)` (RPC, `security definer`, task-10-3) liefert für Planende (Dispatcher der Anfrage, Manager, Admins) je aktivem Techniker nur Zähler abgeschlossener Einsätze auf anderen Anfragen: `customer_visits` (gleiche Kundennummer, ohne Kundennummer gleicher Firmenname, jeweils ohne Groß-/Leerzeichen), `manufacturer_visits` (gleicher Hersteller und Anlagentyp) und `equipment_visits` (gleicher Anlagentyp). Keine Anfrage-, Kunden- oder Einsatzdetails; fremde Dispatcher und Techniker erhalten keine Zeilen. Grundlage der Einsatzvorschläge (`lib/slot-suggestions.ts`): zuerst, wer die Firma kennt; bei Neukunden Erfahrung mit Hersteller, dann Anlagentyp, dann geringere Auslastung, dann frühestes Fenster.
+
 ### Storage
 
 - Privater Bucket `dashboard` (10 MB je Datei, PDF/JPEG/PNG), angelegt per Migration.

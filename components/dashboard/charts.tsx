@@ -36,6 +36,8 @@ type TooltipProps = TooltipContentProps<number, string> & { series: ChartSeries[
 function ChartTooltip({ active, payload, label, series, format, variant }: TooltipProps) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload as Record<string, unknown>;
+  // Real values are kept under __all_<key> when the running period is split off as a dashed segment
+  const value = (key: string) => (`__all_${key}` in row ? row[`__all_${key}`] : row[key]);
   return (
     <div className="chart-tooltip" role="status">
       <p className="chart-tooltip__label">{String(label)}</p>
@@ -43,7 +45,7 @@ function ChartTooltip({ active, payload, label, series, format, variant }: Toolt
         {series.map((entry) => (
           <li key={entry.key}>
             <span className="chart-tooltip__key" style={{ background: entry.color }} aria-hidden="true" />
-            <strong>{formatValue(format, row[entry.key])}</strong>
+            <strong>{formatValue(format, value(entry.key))}</strong>
             <span>{entry.label}</span>
           </li>
         ))}
@@ -69,6 +71,7 @@ export function TimeChart({
   variant,
   height = 260,
   label,
+  runningLast = false,
 }: {
   kind: "line" | "bar";
   data: Array<Record<string, string | number | null>>;
@@ -78,9 +81,23 @@ export function TimeChart({
   variant?: "savings" | "share";
   height?: number;
   label: string;
+  // The last point belongs to the running period: drawn as a dashed last segment (specification 05)
+  runningLast?: boolean;
 }) {
+  const split = kind === "line" && runningLast && data.length >= 2;
+  const rows = split
+    ? data.map((row, index) => {
+        const next: Record<string, string | number | null> = { ...row };
+        for (const entry of series) {
+          next[`__all_${entry.key}`] = row[entry.key];
+          next[`__run_${entry.key}`] = index >= data.length - 2 ? row[entry.key] : null;
+          if (index === data.length - 1) next[entry.key] = null;
+        }
+        return next;
+      })
+    : data;
   const common = {
-    data,
+    data: rows,
     margin: { top: 8, right: 12, bottom: 4, left: 4 },
     accessibilityLayer: true,
   };
@@ -104,6 +121,9 @@ export function TimeChart({
             {axes}
             {series.map((entry) => (
               <Line key={entry.key} type="linear" dataKey={entry.key} name={entry.label} stroke={entry.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 4, stroke: SURFACE, strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
+            ))}
+            {split && series.map((entry) => (
+              <Line key={`run-${entry.key}`} type="linear" dataKey={`__run_${entry.key}`} name={`${entry.label} (laufend)`} stroke={entry.color} strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} legendType="none" />
             ))}
           </LineChart>
         ) : (

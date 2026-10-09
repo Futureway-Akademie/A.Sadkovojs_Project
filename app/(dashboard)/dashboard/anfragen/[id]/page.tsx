@@ -6,11 +6,15 @@ import { availableActions, DraftActions, RequestActions } from "@/components/das
 import { DataTable, type Column } from "@/components/dashboard/ui/data-table";
 import { EmptyState, ErrorState } from "@/components/dashboard/ui/states";
 import { StatusBadge } from "@/components/dashboard/ui/status-badge";
+import { PaymentForm } from "@/components/dashboard/payment-form";
+import { InvoiceStatusChip, PriorityText, StatusChip } from "@/components/dashboard/ui/status-chip";
+import { Icon } from "@/components/ui";
+import { invoiceDisplayStatus, requestDisplayStatus, requestProgress } from "@/lib/display-status";
 import { rolesFor } from "@/lib/auth/roles";
 import { requireRole } from "@/lib/auth/session";
 import { getEmployeeNames, getRequestDetail, sectionsFor, type RequestDetail, type SectionId } from "@/lib/dashboard/requests";
 import { describeEvent } from "@/lib/events";
-import { EMPTY, formatCalendarDate, formatCurrency, formatDateTime, formatMinutes, formatNumber, formatPercent, formatTimeRange } from "@/lib/format";
+import { berlinDayKey, EMPTY, formatCalendarDate, formatCurrency, formatDateTime, formatMinutes, formatNumber, formatPercent, formatTimeRange } from "@/lib/format";
 import { label, statusInfo } from "@/lib/status";
 
 type Props = { params: Promise<{ id: string }> };
@@ -33,7 +37,7 @@ export default async function RequestPage({ params }: Props) {
   const person = (personId: string | null | undefined, fallback = "Nicht zugewiesen") => (personId ? names.get(personId) ?? "Unbekannte Person" : fallback);
   const failed = (section: SectionId) => detail.failed.includes(section);
   const render: Record<SectionId, () => ReactNode> = {
-    zusammenfassung: () => <Summary detail={detail} person={person} />,
+    zusammenfassung: () => <Summary detail={detail} />,
     kontakt: () => <Contact detail={detail} />,
     anlage: () => <Equipment detail={detail} />,
     erstbearbeitung: () => <Intake detail={detail} person={person} />,
@@ -41,12 +45,35 @@ export default async function RequestPage({ params }: Props) {
     einsaetze: () => <Visits detail={detail} person={person} employee={employee} />,
     arbeit: () => <Work detail={detail} person={person} />,
     dokumente: () => <Documents detail={detail} person={person} />,
-    rechnung: () => <Invoice detail={detail} />,
+    rechnung: () => <Invoice detail={detail} canPay={employee.role === "manager" || employee.role === "admin"} />,
     verlauf: () => <History detail={detail} names={names} />,
   };
 
   const actions = availableActions(detail, employee);
   const hasActions = Object.values(actions).some(Boolean);
+  const progress = requestProgress(request.intake_status, request.work_status);
+  const status = requestDisplayStatus(request.intake_status, request.work_status);
+  const lastAnalysis = [...(detail.automationRuns ?? [])].reverse().find((run) => run.step === "intake_analysis" && run.confidence !== null);
+
+  // Sections without entries are summarized in one line (specification section 06); anchors stay
+  const empty: Partial<Record<SectionId, string>> = {
+    korrespondenz: detail.messages && detail.messages.length === 0 ? "keine Nachrichten" : undefined,
+    einsaetze: detail.visits.length === 0 ? "noch kein Einsatz geplant" : undefined,
+    arbeit: detail.workEntries.length === 0 && !request.completion_summary ? "keine Arbeitspositionen" : undefined,
+    dokumente: detail.attachments.length === 0 ? "keine Dokumente" : undefined,
+    rechnung: !detail.invoice ? "keine Rechnung" : undefined,
+  };
+  const side: readonly SectionId[] = ["kontakt"];
+  const main = sections.filter((section) => !side.includes(section.id) && !(empty[section.id] && !failed(section.id)));
+  const collapsed = sections.filter((section) => empty[section.id] && !failed(section.id));
+  const section = (id: SectionId, sectionLabel: string) => (
+    <section key={id} id={id} className="rw-card rw-card--neutral request-card" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>{sectionLabel}</h2>
+      {failed(id)
+        ? <ErrorState title="Dieser Abschnitt konnte nicht geladen werden." action={<Link className="rw-button-secondary" href={`/dashboard/anfragen/${request.id}#${id}`}>Erneut versuchen</Link>}>Die übrigen Abschnitte sind aktuell.</ErrorState>
+        : render[id]()}
+    </section>
+  );
 
   return (
     <div className="dash-page dash-request">
@@ -57,32 +84,70 @@ export default async function RequestPage({ params }: Props) {
         <div>
           <p className="mono request-head__number">{request.request_number}{request.is_demo && <span className="demo-tag">Demodaten</span>}</p>
           <h1>{request.company_name}</h1>
-          <p className="request-head__meta">{label("service_kind", request.service_kind)} · {label("equipment_kind", request.equipment_kind)} · {request.postal_code} {request.city}</p>
+          <p className="request-head__meta">
+            {label("service_kind", request.service_kind)} · {label("equipment_kind", request.equipment_kind)} · <span className="mono">{request.postal_code}</span> {request.city} · eingegangen <span className="mono">{formatDateTime(request.created_at)}</span>
+          </p>
         </div>
         <div className="badge-row">
-          <StatusBadge kind="intake_status" value={request.intake_status} />
-          <StatusBadge kind="work_status" value={request.work_status} />
-          {request.priority && <StatusBadge kind="request_priority" value={request.priority} />}
+          <StatusChip status={status} />
+          {request.priority && <PriorityText priority={request.priority} />}
         </div>
       </header>
 
-      <nav className="section-nav" aria-label="Abschnitte">
-        <ul>{hasActions && <li><a href="#aktionen">Aktionen</a></li>}{sections.map((section) => <li key={section.id}><a href={`#${section.id}`}>{section.label}</a></li>)}</ul>
-      </nav>
-
-      {hasActions && (
-        <section id="aktionen" className="request-section request-section--actions" aria-labelledby="aktionen-title">
-          <h2 id="aktionen-title">Aktionen</h2>
-          <RequestActions detail={detail} employee={employee} />
-        </section>
+      {progress && (
+        <ol className="rw-progress" aria-label="Status der Anfrage">
+          {progress.map((step) => (
+            <li key={step.label} className={`rw-progress__step rw-progress__step--${step.state}`} aria-current={step.state === "current" ? "step" : undefined}>
+              <span className="rw-progress__bar" aria-hidden="true" />
+              <span>{step.state === "done" && <span className="sr-only">Erledigt: </span>}{step.state === "current" && <span className="sr-only">Jetzt: </span>}{step.label}</span>
+            </li>
+          ))}
+        </ol>
       )}
 
-      {sections.map((section) => (
-        <section key={section.id} id={section.id} className="request-section" aria-labelledby={`${section.id}-title`}>
-          <h2 id={`${section.id}-title`}>{section.label}</h2>
-          {failed(section.id) ? <ErrorState title="Dieser Abschnitt konnte nicht geladen werden."><p>Bitte die Seite neu laden.</p></ErrorState> : render[section.id]()}
-        </section>
-      ))}
+      {request.safety_risk !== "none_known" && (
+        <div className="rw-banner rw-banner--danger" role="alert">
+          <Icon name="hazard" size={20} />
+          <p>
+            <strong>Sicherheitsgefahr: {label("safety_risk", request.safety_risk)}.</strong> Vor Arbeitsbeginn Sicherheitslage klären.
+            {request.human_review_required && <> Menschliche Prüfung erforderlich{lastAnalysis?.confidence != null ? <> – die automatische Analyse war unsicher (Konfidenz <span className="mono">{formatPercent(lastAnalysis.confidence * 100, 0)}</span>)</> : ""}.</>}
+          </p>
+        </div>
+      )}
+      {request.safety_risk === "none_known" && request.human_review_required && (
+        <p className="rw-banner rw-banner--info">Menschliche Prüfung erforderlich{lastAnalysis?.confidence != null ? <> – Konfidenz der automatischen Analyse <span className="mono">{formatPercent(lastAnalysis.confidence * 100, 0)}</span></> : ""}.</p>
+      )}
+
+      <div className="request-layout">
+        <div className="request-layout__main">
+          {main.map((item) => section(item.id, item.label))}
+          {collapsed.length > 0 && (
+            <div className="rw-collapsed" aria-label="Bereiche ohne Einträge">
+              {collapsed.map((item, index) => (
+                <section key={item.id} id={item.id} aria-labelledby={`${item.id}-title`}>
+                  <h2 id={`${item.id}-title`}>{item.label}</h2>: {empty[item.id]}{index < collapsed.length - 1 ? " · " : ""}
+                </section>
+              ))}
+              <span className="rw-collapsed__note"> Diese Bereiche erscheinen, sobald es Einträge gibt.</span>
+            </div>
+          )}
+        </div>
+
+        <aside className="request-layout__side">
+          {hasActions && (
+            <section id="aktionen" className="rw-card rw-card--action request-next" aria-labelledby="aktionen-title">
+              <p className="request-next__eyebrow">Nächster Schritt</p>
+              <h2 id="aktionen-title" className="sr-only">Aktionen</h2>
+              <RequestActions detail={detail} employee={employee} />
+            </section>
+          )}
+          {sections.some((item) => item.id === "kontakt") && section("kontakt", "Kontakt")}
+          <section className="rw-card rw-card--meta request-card" aria-labelledby="fristen-heading">
+            <h2 id="fristen-heading">Zuständigkeit und Fristen</h2>
+            <Responsibility detail={detail} person={person} />
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -101,22 +166,20 @@ function Facts({ items }: { items: Array<[string, ReactNode]> }) {
 
 const yesNo = (value: boolean | null | undefined, unknown = "Keine Angabe") => (value === null || value === undefined ? unknown : value ? "Ja" : "Nein");
 
-function Summary({ detail, person }: { detail: RequestDetail; person: PersonFn }) {
+const missing = <span className="rw-missing">nicht angegeben</span>;
+
+function Summary({ detail }: { detail: RequestDetail }) {
   const r = detail.request;
-  const risky = r.safety_risk !== "none_known";
   return (
     <>
-      {risky && <p className="request-alert" role="note"><strong>Sicherheitsgefahr: {label("safety_risk", r.safety_risk)}.</strong> Vor Arbeitsbeginn Sicherheitslage klären.</p>}
-      {r.human_review_required && <p className="request-alert request-alert--info">Menschliche Prüfung erforderlich.</p>}
+      <blockquote className="request-quote">
+        <p>{r.description}</p>
+        <footer>Beschreibung des Kunden</footer>
+      </blockquote>
       <Facts items={[
-        ["Eingang", formatDateTime(r.created_at)],
-        ["Wunschtermin", formatCalendarDate(r.requested_visit_date)],
         ["Dringlichkeit (Kunde)", label("customer_urgency", r.customer_urgency)],
-        ["Priorität", r.priority ? statusInfo("request_priority", r.priority).label : "Noch nicht bestimmt"],
-        ["Dispatcher", person(r.dispatcher_id)],
-        ["Techniker", person(r.technician_id)],
-        ["Antwortfrist", r.response_due_at ? formatDateTime(r.response_due_at) : "Nicht vereinbart"],
-        ["Servicefrist", r.service_due_at ? formatDateTime(r.service_due_at) : "Nicht vereinbart"],
+        ["Wunschtermin", r.requested_visit_date ? <span key="d" className="mono">{formatCalendarDate(r.requested_visit_date)}</span> : "Kein Wunschtermin"],
+        ["Standort", r.site_label || missing],
         ...(r.completed_at ? [["Abgeschlossen", formatDateTime(r.completed_at)] as [string, ReactNode]] : []),
         ...(r.cancelled_at ? [["Storniert", `${formatDateTime(r.cancelled_at)}${r.cancellation_reason ? ` – ${r.cancellation_reason}` : ""}`] as [string, ReactNode]] : []),
         ...(r.rejection_reason ? [["Ablehnungsgrund", r.rejection_reason] as [string, ReactNode]] : []),
@@ -125,40 +188,55 @@ function Summary({ detail, person }: { detail: RequestDetail; person: PersonFn }
   );
 }
 
-function Contact({ detail }: { detail: RequestDetail }) {
+function Responsibility({ detail, person }: { detail: RequestDetail; person: PersonFn }) {
   const r = detail.request;
   return (
     <Facts items={[
-      ["Firma", r.company_name],
-      ["Kundennummer", r.customer_number],
-      ["Ansprechperson", r.contact_name],
-      ["E-Mail", <a key="mail" href={`mailto:${r.business_email}`}>{r.business_email}</a>],
-      ["Telefon", <a key="tel" href={`tel:${r.phone_number.replace(/[^\d+]/g, "")}`}>{r.phone_number}</a>],
-      ["Adresse", `${r.street_house_number}, ${r.postal_code} ${r.city}`],
-      ["Standort", r.site_label],
+      ["Dispatcher", r.dispatcher_id ? person(r.dispatcher_id) : <span key="d" className="rw-missing">nicht zugewiesen</span>],
+      ["Techniker", r.technician_id ? person(r.technician_id) : <span key="t" className="rw-missing">nicht zugewiesen</span>],
+      ["Priorität", r.priority ? statusInfo("request_priority", r.priority).label : <span key="p" className="rw-missing">noch nicht bestimmt</span>],
+      ["Antwortfrist", r.response_due_at ? <span key="a" className="mono">{formatDateTime(r.response_due_at)}</span> : "nicht vereinbart"],
+      ["Servicefrist", r.service_due_at ? <span key="s" className="mono">{formatDateTime(r.service_due_at)}</span> : "nicht vereinbart"],
     ]} />
+  );
+}
+
+function Contact({ detail }: { detail: RequestDetail }) {
+  const r = detail.request;
+  return (
+    <>
+      <p className="request-contact">
+        <strong>{r.contact_name}</strong>
+        <span>{r.company_name}{r.customer_number && <> · <span className="mono">{r.customer_number}</span></>}</span>
+        <span>{r.street_house_number}, <span className="mono">{r.postal_code}</span> {r.city}</span>
+        {r.site_label && <span>Standort: {r.site_label}</span>}
+      </p>
+      <p className="request-contact__actions">
+        <a className="rw-button-secondary" href={`tel:${r.phone_number.replace(/[^\d+]/g, "")}`}><Icon name="phone" size={16} /><span className="mono">{r.phone_number}</span></a>
+        <a className="rw-button-secondary" href={`mailto:${r.business_email}`}><Icon name="mail" size={16} />E-Mail</a>
+      </p>
+      <p className="rw-card__note">{r.business_email}</p>
+    </>
   );
 }
 
 function Equipment({ detail }: { detail: RequestDetail }) {
   const r = detail.request;
+  const gaps = [r.manufacturer, r.model_type, r.machine_number].filter((value) => !value).length;
   return (
     <>
+      {gaps > 0 && <p className="rw-gaps"><Icon name="alert" size={16} />{gaps === 1 ? "1 Angabe fehlt" : `${gaps} Angaben fehlen`}</p>}
       <Facts items={[
         ["Anlagenart", label("equipment_kind", r.equipment_kind)],
         ["Leistungsart", label("service_kind", r.service_kind)],
-        ["Hersteller", r.manufacturer],
-        ["Modell / Typ", r.model_type],
-        ["Maschinennummer", r.machine_number ? <span key="m" className="mono">{r.machine_number}</span> : null],
+        ["Hersteller", r.manufacturer || missing],
+        ["Modell / Typ", r.model_type || missing],
+        ["Maschinennummer", r.machine_number ? <span key="m" className="mono">{r.machine_number}</span> : missing],
         ["Sicherheitsgefahr", label("safety_risk", r.safety_risk)],
-        ["SLA-Vertrag", r.sla_contract_number],
+        ["SLA-Vertrag", r.sla_contract_number ? <span key="sla" className="mono">{r.sla_contract_number}</span> : "Keiner"],
         ["24/7-Notfall-SLA angegeben", yesNo(r.emergency_sla_claimed)],
         ["SLA geprüft", yesNo(r.sla_verified)],
       ]} />
-      <div className="text-block">
-        <h3>Beschreibung des Kunden</h3>
-        <p>{r.description}</p>
-      </div>
     </>
   );
 }
@@ -283,9 +361,11 @@ function Documents({ detail, person }: { detail: RequestDetail; person: PersonFn
   return <DataTable caption="Dokumente" columns={columns} rows={detail.attachments} rowKey={(file) => file.id} empty={<EmptyState title="Keine Dokumente sichtbar." />} />;
 }
 
-function Invoice({ detail }: { detail: RequestDetail }) {
+function Invoice({ detail, canPay }: { detail: RequestDetail; canPay: boolean }) {
   const invoice = detail.invoice;
   if (!invoice) return <EmptyState title="Noch keine Rechnung." />;
+  const today = berlinDayKey(new Date());
+  const shown = invoiceDisplayStatus(invoice.status, invoice.payment_due_date, today);
   const columns: Column<RequestDetail["invoiceItems"][number]>[] = [
     { key: "position", header: "Pos.", cell: (item) => item.position, mobile: "hide" },
     { key: "description", header: "Beschreibung", cell: (item) => item.description, mobile: "title" },
@@ -304,7 +384,7 @@ function Invoice({ detail }: { detail: RequestDetail }) {
         </p>
       )}
       <Facts items={[
-        ["Status", <StatusBadge key="s" kind="invoice_status" value={invoice.status} />],
+        ["Status", <InvoiceStatusChip key="s" status={shown} />],
         ["Rechnungsnummer", invoice.invoice_number ? <span key="n" className="mono">{invoice.invoice_number}</span> : "Wird bei Ausstellung vergeben"],
         ["Rechnungsdatum", formatCalendarDate(invoice.issue_date)],
         ["Fällig am", formatCalendarDate(invoice.payment_due_date)],
@@ -318,6 +398,12 @@ function Invoice({ detail }: { detail: RequestDetail }) {
         <div className="totals__sum"><dt>Gesamt</dt><dd>{formatCurrency(invoice.total, invoice.currency)}</dd></div>
       </dl>
       <p className="section-note">Musterrechnung mit Demodaten, nicht rechtsverbindlich.</p>
+      {canPay && (invoice.status === "issued" || invoice.status === "sent") && (
+        <details className="action" id="zahlung">
+          <summary>Zahlung erfassen</summary>
+          <PaymentForm requestId={detail.request.id} version={detail.request.version} invoiceId={invoice.id} today={today} />
+        </details>
+      )}
     </>
   );
 }
@@ -326,24 +412,32 @@ const ACTOR_LABELS = { automation: "Automatisierung", system: "System" } as cons
 
 function History({ detail, names }: { detail: RequestDetail; names: Map<string, string> }) {
   if (detail.events.length === 0) return <EmptyState title="Keine Ereignisse sichtbar." />;
+  const item = (event: RequestDetail["events"][number]) => {
+    const { title, change } = describeEvent(event, names);
+    const actor = event.actor_type === "user" ? names.get(event.actor_id ?? "") ?? "Unbekannte Person" : ACTOR_LABELS[event.actor_type];
+    return (
+      <li key={event.id}>
+        <time className="mono" dateTime={event.occurred_at}>{formatDateTime(event.occurred_at)}</time>
+        <div>
+          <strong>{title}</strong>
+          {change && <span className="timeline__change">{change}</span>}
+          {event.note && <span className="timeline__note">{event.note}</span>}
+          <span className="timeline__actor">{actor}</span>
+        </div>
+      </li>
+    );
+  };
+  const first = detail.events.slice(0, 5);
+  const rest = detail.events.slice(5);
   return (
-    <ol className="timeline">
-      {detail.events.map((event) => {
-        const { title, change } = describeEvent(event, names);
-        const actor = event.actor_type === "user" ? names.get(event.actor_id ?? "") ?? "Unbekannte Person" : ACTOR_LABELS[event.actor_type];
-        return (
-          <li key={event.id}>
-            <time dateTime={event.occurred_at}>{formatDateTime(event.occurred_at)}</time>
-            <div>
-              <strong>{title}</strong>
-              {change && <span className="timeline__change">{change}</span>}
-              {event.note && <span className="timeline__note">{event.note}</span>}
-              <span className="timeline__actor">{actor}</span>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      <ol className="timeline">{first.map(item)}</ol>
+      {rest.length > 0 && (
+        <details className="rw-more">
+          <summary>Alle {detail.events.length} Einträge anzeigen</summary>
+          <ol className="timeline" start={6}>{rest.map(item)}</ol>
+        </details>
+      )}
+    </>
   );
 }
-

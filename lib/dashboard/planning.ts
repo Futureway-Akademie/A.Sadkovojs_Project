@@ -2,6 +2,7 @@ import "server-only";
 import { addDays, berlinToInstant, isDayKey, weekStart, dayKeyOf } from "@/lib/berlin-time";
 import type { Employee } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { nextWorkingDays, suggestSlots, type SlotBusy, type SlotSuggestion } from "@/lib/slot-suggestions";
 import type { QueueRow } from "./queues";
 
 // Data of the planning page. Occupancy of all technicians comes from technician_busy_intervals
@@ -101,5 +102,58 @@ export async function loadPlanning(employee: Employee, weekParam: string | undef
     selected,
     selectedPlanned,
     error: Boolean(technicians.error || hours.error || busy.error || queue.error),
+  };
+}
+
+// Suggestions and availability of the next working days for the selected request (task-10-3).
+// Occupancy comes from technician_busy_intervals, experience from technician_experience (counts only).
+export type Availability = {
+  days: string[];
+  now: string;
+  busy: SlotBusy[];
+  suggestions: SlotSuggestion[];
+  error: boolean;
+};
+
+export async function loadAvailability(requestId: string | null, technicians: Technician[], workingHours: WorkingHours[], durationMinutes: number): Promise<Availability> {
+  const supabase = await createClient();
+  const now = new Date();
+  const days = nextWorkingDays(dayKeyOf(now), 7);
+  const rangeStart = berlinToInstant(days[0], "00:00").toISOString();
+  const rangeEnd = berlinToInstant(addDays(days[days.length - 1], 1), "00:00").toISOString();
+  const [busy, experience] = await Promise.all([
+    supabase.rpc("technician_busy_intervals", { range_start: rangeStart, range_end: rangeEnd }),
+    requestId ? supabase.rpc("technician_experience", { request_id: requestId }) : Promise.resolve({ data: [], error: null }),
+  ]);
+  const blocks: SlotBusy[] = (busy.data ?? []).map((row) => ({ technicianId: row.technician_id, start: row.starts_at, end: row.ends_at, kind: row.busy_kind === "absence" ? "absence" : "visit" }));
+  const suggestions = requestId
+    ? suggestSlots({
+        technicians,
+        workingHours,
+        busy: blocks,
+        days,
+        now,
+        durationMinutes,
+        experience: Object.fromEntries((experience.data ?? []).map((row) => [row.technician_id, { customerVisits: row.customer_visits, manufacturerVisits: row.manufacturer_visits, equipmentVisits: row.equipment_visits }])),
+      })
+    : [];
+  return { days, now: now.toISOString(), busy: blocks, suggestions, error: Boolean(busy.error || experience.error) };
+}
+
+// Context of the selected request: earlier visits and ordered parts (readable via RLS)
+export type SelectedContext = {
+  visits: Array<{ start: string; technicianId: string; status: string }>;
+  orderedParts: Array<{ description: string; quantity: number; orderedAt: string }>;
+};
+
+export async function loadSelectedContext(requestId: string): Promise<SelectedContext> {
+  const supabase = await createClient();
+  const [visits, parts] = await Promise.all([
+    supabase.from("visits").select("scheduled_start, technician_id, status").eq("request_id", requestId).neq("status", "cancelled").order("scheduled_start"),
+    supabase.from("work_entries").select("description, quantity, created_at").eq("request_id", requestId).eq("item_status", "ordered").order("created_at"),
+  ]);
+  return {
+    visits: (visits.data ?? []).map((row) => ({ start: row.scheduled_start, technicianId: row.technician_id, status: row.status })),
+    orderedParts: (parts.data ?? []).map((row) => ({ description: row.description, quantity: Number(row.quantity), orderedAt: row.created_at })),
   };
 }

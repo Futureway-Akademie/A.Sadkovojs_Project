@@ -1,157 +1,207 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
-import { DataTable, type Column } from "@/components/dashboard/ui/data-table";
-import { EmptyState, ErrorState, LoadingState, PageHeader } from "@/components/dashboard/ui/states";
-import { PeriodBar } from "@/components/dashboard/period-bar";
-import { formatKpiChange, formatKpiValue, KPI_GROUPS, KPI_INFO, parsePeriodParams, type KpiRow, type PeriodParams } from "@/lib/analytics";
+import { Suspense, type ReactNode } from "react";
+import {
+  DeadlinesCard, FinanceCard, HazardBanner, HazardCard, OverdueCard, PerformanceKpis, QueuesCard, QueueStages,
+  ServiceDeskCard, TeamTable, TechniciansCard, ToPlanCard,
+} from "@/components/dashboard/overview";
+import { PeriodControl, periodDescription } from "@/components/dashboard/period-bar";
+import { Card, Zone } from "@/components/dashboard/ui/card";
+import { ErrorState, LoadingState } from "@/components/dashboard/ui/states";
+import { parsePeriodParams, periodQuery, type PeriodParams } from "@/lib/analytics";
 import { rolesFor } from "@/lib/auth/roles";
 import { requireRole } from "@/lib/auth/session";
-import { ATTENTION_LABELS, getOverview, type AttentionItem, type AttentionReason, type Overview, type TeamRow } from "@/lib/dashboard/overview";
-import { formatCalendarDate, formatDateTime, formatElapsed, formatMinutes, formatNumber } from "@/lib/format";
-import { label } from "@/lib/status";
+import { getAttentionNow, getNow, getOverview, getTeamNow } from "@/lib/dashboard/overview";
+import { berlinDayKey, formatDateTime, formatWeekdayDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Übersicht" };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-// Manager overview (task-7-2): KPIs of a period with comparison and list links, finances,
-// attention list and team. Data from the analytics functions (task-7-1) with the user's rights.
+// Overview (task-7-2, redesigned in task-10-3 after the Claude Design canvas). Order by urgency:
+// zone 1 "Handlungsbedarf" is the current state and never filtered by the period; zone 2 shows the
+// period with comparison, the period control sits at that block; zone 3 holds details.
+// Admin and manager share the route with the layouts "Übersicht – Admin" and "– Manager".
 export default async function OverviewPage({ searchParams }: Props) {
-  await requireRole(rolesFor("/dashboard/uebersicht"));
+  const employee = await requireRole(rolesFor("/dashboard/uebersicht"));
   const period = parsePeriodParams(await searchParams);
+  const now = new Date();
   return (
-    <div className="dash-page overview">
-      <PageHeader title="Übersicht" description="Kennzahlen des Zeitraums mit Vergleich, Finanzen, Aufmerksamkeitsliste und Team." />
-      <Suspense key={`${period.param}-${period.anchor ?? ""}`} fallback={<LoadingState label="Kennzahlen werden geladen …" rows={6} />}>
-        <OverviewContent period={period} />
-      </Suspense>
+    <div className="dash-page rw-page overview">
+      <header className="dash-page-header">
+        <div>
+          <h1>Übersicht</h1>
+          <p className="rw-page__sub">
+            {employee.role === "manager"
+              ? <>{formatWeekdayDate(now).replace(/^(\w+)\./, (day) => LONG_DAYS[day] ?? day)}, <span className="mono">{formatDateTime(now).slice(-5)}</span> · Team und Warteschlangen</>
+              : <>Stand <span className="mono">{formatDateTime(now)}</span> · Handlungsbedarf, Leistung im Zeitraum, Finanzen und Team</>}
+          </p>
+        </div>
+      </header>
+      {employee.role === "manager" ? <ManagerOverview period={period} /> : <AdminOverview period={period} />}
     </div>
   );
 }
 
-async function OverviewContent({ period }: { period: PeriodParams }) {
-  let data: Overview;
+const LONG_DAYS: Record<string, string> = { "Mo.": "Montag", "Di.": "Dienstag", "Mi.": "Mittwoch", "Do.": "Donnerstag", "Fr.": "Freitag", "Sa.": "Samstag", "So.": "Sonntag" };
+
+const BASE = "/dashboard/uebersicht";
+
+// Each block loads and fails on its own; the rest of the page stays usable
+async function Guard({ load, title, children }: { load: () => Promise<unknown>; title: string; children: (data: never) => ReactNode }) {
+  let data: unknown;
+  try {
+    data = await load();
+  } catch {
+    return (
+      <Card stripe="danger" title={title}>
+        <ErrorState title={`${title}: Daten konnten nicht geladen werden.`} action={<Link className="rw-button-secondary" href={BASE}>Erneut versuchen</Link>}>
+          Die übrigen Bereiche der Seite sind aktuell.
+        </ErrorState>
+      </Card>
+    );
+  }
+  return <>{children(data as never)}</>;
+}
+
+const loadingCard = (title: string, shape: "kpi" | "table" | "rows" = "table") => (
+  <Card title={title} busy><LoadingState shape={shape} rows={3} label={`${title} wird geladen …`} /></Card>
+);
+
+function AdminOverview({ period }: { period: PeriodParams }) {
+  return (
+    <>
+      <Zone id="z-now" title="Handlungsbedarf" note="Stand jetzt · unabhängig vom gewählten Zeitraum">
+        <div className="rw-split">
+          <div className="rw-split__main">
+            <Suspense fallback={loadingCard("Sicherheitsgefahr offen")}>
+              <Guard title="Sicherheitsgefahren" load={getAttentionNow}>
+                {(attention: Awaited<ReturnType<typeof getAttentionNow>>) => (
+                  <>
+                    <HazardCard items={attention.items} checkedAt={attention.checkedAt} />
+                    <DeadlinesCard items={attention.items} checkedAt={attention.checkedAt} />
+                  </>
+                )}
+              </Guard>
+            </Suspense>
+          </div>
+          <div className="rw-split__side">
+            <Suspense fallback={<>{loadingCard("Warteschlangen", "rows")}{loadingCard("Überfällige Forderungen", "kpi")}</>}>
+              <Guard title="Warteschlangen und Forderungen" load={getNow}>
+                {(now: Awaited<ReturnType<typeof getNow>>) => (
+                  <>
+                    <QueuesCard now={now} />
+                    <OverdueCard now={now} />
+                  </>
+                )}
+              </Guard>
+            </Suspense>
+          </div>
+        </div>
+      </Zone>
+      <Suspense key={`${period.param}-${period.anchor ?? ""}`} fallback={<PeriodZonesLoading />}>
+        <PeriodZones period={period} withFinance />
+      </Suspense>
+    </>
+  );
+}
+
+function ManagerOverview({ period }: { period: PeriodParams }) {
+  const today = berlinDayKey(new Date());
+  return (
+    <>
+      <Suspense fallback={<LoadingState rows={1} label="Sicherheitsgefahren werden geladen …" />}>
+        <Guard title="Sicherheitsgefahren" load={getAttentionNow}>
+          {(attention: Awaited<ReturnType<typeof getAttentionNow>>) => <HazardBanner items={attention.items} checkedAt={attention.checkedAt} />}
+        </Guard>
+      </Suspense>
+
+      <Suspense fallback={<Zone id="z-queues" title="Warteschlangen jetzt"><LoadingState rows={2} /></Zone>}>
+        <Guard title="Warteschlangen" load={getNow}>
+          {(now: Awaited<ReturnType<typeof getNow>>) => (
+            <Zone
+              id="z-queues"
+              title="Warteschlangen jetzt"
+              note={<><span className="mono">{now.openRequests}</span> offene Anfragen · Verlauf der letzten 14 Tage</>}
+              controls={<Link className="rw-link-btn" href="/dashboard/auswertung#queues">90-Tage-Verlauf</Link>}
+            >
+              <QueueStages now={now} />
+            </Zone>
+          )}
+        </Guard>
+      </Suspense>
+
+      <Suspense fallback={<Zone id="z-team" title="Team"><div className="rw-split">{loadingCard("Service Desk", "rows")}{loadingCard("Techniker")}</div></Zone>}>
+        <Guard title="Team" load={getTeamNow}>
+          {(team: Awaited<ReturnType<typeof getTeamNow>>) => (
+            <>
+              <Zone id="z-team" title="Team" note="Stand jetzt">
+                <div className="rw-split rw-split--team">
+                  <div className="rw-split__side"><ServiceDeskCard team={team} /></div>
+                  <div className="rw-split__main"><TechniciansCard team={team} today={today} /></div>
+                </div>
+              </Zone>
+              <Suspense fallback={null}>
+                <Guard title="Fristen" load={getAttentionNow}>
+                  {(attention: Awaited<ReturnType<typeof getAttentionNow>>) => <DeadlinesCard items={attention.items} checkedAt={attention.checkedAt} />}
+                </Guard>
+              </Suspense>
+              <ToPlanCard items={team.toPlan} />
+            </>
+          )}
+        </Guard>
+      </Suspense>
+
+      <Suspense key={`${period.param}-${period.anchor ?? ""}`} fallback={<PeriodZonesLoading title="Durchsatz im Zeitraum" />}>
+        <PeriodZones period={period} title="Durchsatz im Zeitraum" />
+      </Suspense>
+    </>
+  );
+}
+
+function PeriodZonesLoading({ title = "Leistung im Zeitraum" }: { title?: string }) {
+  return (
+    <Zone id="z-period" title={title}>
+      <div className="rw-kpi-grid">{[1, 2, 3, 4].map((index) => <Card key={index} busy><LoadingState shape="kpi" label="Kennzahl wird geladen …" /></Card>)}</div>
+    </Zone>
+  );
+}
+
+async function PeriodZones({ period, title = "Leistung im Zeitraum", withFinance = false }: { period: PeriodParams; title?: string; withFinance?: boolean }) {
+  let data: Awaited<ReturnType<typeof getOverview>>;
   try {
     data = await getOverview(period);
   } catch {
-    return <ErrorState><p>Bitte die Seite neu laden.</p></ErrorState>;
+    return (
+      <Zone id="z-period" title={title}>
+        <Card stripe="danger" title="Kennzahlen">
+          <ErrorState title="Kennzahlen konnten nicht geladen werden." action={<Link className="rw-button-secondary" href={`${BASE}${periodQuery(period.param, period.anchor)}`}>Erneut versuchen</Link>}>
+            Handlungsbedarf und Warteschlangen oben sind aktuell.
+          </ErrorState>
+        </Card>
+      </Zone>
+    );
   }
-  const { window: w } = data;
-  const byKey = new Map(data.kpis.map((row) => [row.key, row]));
-  const tiles = (keys: readonly string[]) => keys.map((key) => byKey.get(key)).filter((row): row is KpiRow => Boolean(row));
-
+  const control = <PeriodControl basePath={BASE} period={period} window={data.window} hash="#z-period" />;
   return (
     <>
-      <PeriodBar basePath="/dashboard/uebersicht" period={period} window={w} />
-
-      <section className="dash-section" aria-labelledby="kpi-events">
-        <h2 id="kpi-events">Ereignisse im Zeitraum</h2>
-        <p className="section-note">Gezählt nach dem jeweiligen Zeitpunkt: Eingang, Abschluss der Erstbearbeitung, technischer Abschluss. Vergleich mit dem gleich langen Abschnitt des Vorzeitraums.</p>
-        <KpiGrid rows={tiles(KPI_GROUPS.events)} window={w} />
-      </section>
-
-      <section className="dash-section" aria-labelledby="kpi-snapshots">
-        <h2 id="kpi-snapshots">Stand am Ende des Zeitraums</h2>
-        <p className="section-note">Momentaufnahmen zum {formatDateTime(w.current_end)}, verglichen mit dem {formatDateTime(w.previous_end)}. Die verknüpften Listen zeigen den aktuellen Stand.</p>
-        <KpiGrid rows={tiles(KPI_GROUPS.snapshots)} window={w} />
-      </section>
-
-      <section className="dash-section" aria-labelledby="kpi-finance">
-        <h2 id="kpi-finance">Finanzen</h2>
-        <p className="section-note"><strong>Ausgestellt ist nicht eingenommen.</strong> Ausgestellte Beträge und Zahlungseingänge sind getrennte Ereignisse; offene und überfällige Forderungen sind Momentaufnahmen. Musterrechnungen mit Demodaten.</p>
-        <KpiGrid rows={tiles(KPI_GROUPS.finance)} window={w} />
-      </section>
-
-      <section className="dash-section" aria-labelledby="attention">
-        <h2 id="attention">Aufmerksamkeit</h2>
-        <Attention items={data.attention.items} counts={data.attention.counts} checkedAt={data.attention.checkedAt} />
-      </section>
-
-      <section className="dash-section" aria-labelledby="team">
-        <h2 id="team">Team</h2>
-        <p className="section-note">Tätigkeit im Zeitraum; offene Anfragen sind aktuell zugewiesene, am Ende des Zeitraums offene Anfragen.</p>
-        <Team rows={data.team} />
-        {data.idleEmployees > 0 && <p className="section-note">{data.idleEmployees} weitere aktive Mitarbeitende ohne Tätigkeit und ohne offene Anfragen im Zeitraum.</p>}
-      </section>
+      <Zone id="z-period" title={title} note={periodDescription(period, data.window)} controls={control}>
+        <PerformanceKpis data={data} />
+      </Zone>
+      {withFinance && (
+        <div className="rw-split rw-split--details">
+          <div className="rw-split__side">
+            <Zone id="z-finance" title="Finanzen" note="im gewählten Zeitraum">
+              <FinanceCard data={data} />
+            </Zone>
+          </div>
+          <div className="rw-split__main">
+            <Zone id="z-team" title="Team" note="Tätigkeit im gewählten Zeitraum · offen zugewiesen">
+              <TeamTable rows={data.team} idle={data.idleEmployees} />
+            </Zone>
+          </div>
+        </div>
+      )}
     </>
   );
-}
-
-function KpiGrid({ rows, window }: { rows: KpiRow[]; window: Overview["window"] }) {
-  return (
-    <ul className="kpi-grid">
-      {rows.map((row) => {
-        const info = KPI_INFO[row.key];
-        const change = formatKpiChange(row);
-        const href = info?.href?.(window);
-        const saved = row.key === "time_saved_minutes" && row.detail ? row.detail : null;
-        return (
-          <li key={row.key} className="kpi" data-kpi={row.key} data-measure={row.measure}>
-            <p className="kpi__label">{row.label}<span className="kpi__measure">{row.measure === "event" ? "Ereignis" : "Momentaufnahme"}</span></p>
-            <p className="kpi__value" data-value={row.current_value ?? ""}>{formatKpiValue(row.unit, row.current_value)}</p>
-            <p className="kpi__change">
-              <span className={`kpi__delta kpi__delta--${change.tone}`}>{change.text}</span>
-              <span>Vorperiode {formatKpiValue(row.unit, row.previous_value)}</span>
-            </p>
-            {change.note && <p className="kpi__note">{change.note}</p>}
-            {saved && <p className="kpi__note">{formatNumber(Number(saved.requests ?? 0))} Anfragen × Basiswert {formatMinutes(Number(saved.baseline_max ?? 0))}</p>}
-            {info && <p className="kpi__definition">{info.definition}</p>}
-            {href && <Link className="kpi__link" href={href}>{row.measure === "snapshot" ? "Aktuelle Liste" : "Liste öffnen"}</Link>}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function Attention({ items, counts, checkedAt }: { items: AttentionItem[]; counts: Partial<Record<AttentionReason, number>>; checkedAt: string }) {
-  if (items.length === 0) return <EmptyState title="Keine Auffälligkeiten." />;
-  const now = new Date(checkedAt).getTime();
-  const columns: Column<AttentionItem>[] = [
-    { key: "reason", header: "Grund", cell: (item) => ATTENTION_LABELS[item.reason], mobile: "title" },
-    { key: "request", header: "Anfrage", cell: (item) => <><span className="mono">{item.requestNumber}</span><span className="cell-sub">{item.company}</span></> },
-    {
-      key: "since",
-      header: "Seit",
-      cell: (item) => (/^\d{4}-\d{2}-\d{2}$/.test(item.since)
-        ? `fällig ${formatCalendarDate(item.since)}`
-        : `${formatDateTime(item.since)} (${formatElapsed((now - new Date(item.since).getTime()) / 60000)})`),
-    },
-    { key: "detail", header: "Hinweis", cell: (item) => attentionDetail(item), mobile: "hide" },
-  ];
-  return (
-    <>
-      <ul className="attention-counts" aria-label="Anzahl je Grund">
-        {(Object.keys(ATTENTION_LABELS) as AttentionReason[]).filter((reason) => counts[reason]).map((reason) => (
-          <li key={reason}>{ATTENTION_LABELS[reason]}: <strong>{counts[reason]! >= 50 ? "50+" : counts[reason]}</strong></li>
-        ))}
-      </ul>
-      <DataTable caption="Aufmerksamkeitsliste" columns={columns} rows={items.slice(0, 25)} rowKey={(item) => `${item.reason}-${item.requestId}-${item.detail ?? ""}`} rowHref={(item) => `/dashboard/anfragen/${item.requestId}${item.reason === "invoice_overdue" ? "#rechnung" : ""}`} empty={null} />
-      {items.length > 25 && <p className="section-note">Die 25 dringendsten von {items.length} Einträgen.</p>}
-    </>
-  );
-}
-
-function attentionDetail(item: AttentionItem): string {
-  switch (item.reason) {
-    case "safety": return label("safety_risk", item.detail);
-    case "review_waiting": return item.detail === "reply_received" ? "Kundenantwort eingegangen" : "In Prüfung";
-    case "parts_waiting": return item.detail ?? "–";
-    case "invoice_overdue": return item.detail ?? "–";
-    default: return "–";
-  }
-}
-
-function Team({ rows }: { rows: TeamRow[] }) {
-  const columns: Column<TeamRow>[] = [
-    { key: "name", header: "Name", cell: (row) => <>{row.display_name}{!row.is_active && <span className="cell-sub">Deaktiviert</span>}</>, mobile: "title" },
-    { key: "role", header: "Rolle", cell: (row) => (row.role === "dispatcher" ? "Dispatcher" : "Techniker") },
-    { key: "intake", header: "Erstbearbeitungen", cell: (row) => (row.role === "dispatcher" ? formatNumber(row.intake_completed) : "–"), align: "end" },
-    { key: "visits", header: "Einsätze", cell: (row) => (row.role === "technician" ? formatNumber(row.visits_completed) : "–"), align: "end" },
-    { key: "minutes", header: "Arbeitszeit", cell: (row) => (row.role === "technician" ? formatMinutes(row.work_minutes) : "–"), align: "end" },
-    { key: "completed", header: "Abgeschlossen", cell: (row) => (row.role === "technician" ? formatNumber(row.requests_completed) : "–"), align: "end" },
-    { key: "open", header: "Offen zugewiesen", cell: (row) => formatNumber(row.open_requests), align: "end" },
-  ];
-  return <DataTable caption="Team" columns={columns} rows={rows} rowKey={(row) => row.employee_id} empty={<EmptyState title="Keine Mitarbeitenden." />} />;
 }

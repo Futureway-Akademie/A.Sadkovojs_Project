@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DataTable, CardList, type Column } from "@/components/dashboard/ui/data-table";
 import { CheckboxField, SaveForm, SelectField, TextAreaField, TextField } from "@/components/dashboard/ui/save-form";
-import { EmptyState, ErrorState, LoadingState, PageHeader } from "@/components/dashboard/ui/states";
+import { Card, Zone } from "@/components/dashboard/ui/card";
+import { KpiCompact, KpiMore, KpiTile } from "@/components/dashboard/ui/kpi-tile";
+import { Legend, PeriodChip } from "@/components/dashboard/ui/legend";
+import { EmptyState, ErrorState, LoadingState, NoticeState, PageHeader } from "@/components/dashboard/ui/states";
+import { HazardFlag, InvoiceStatusChip, PriorityText, StatusChip } from "@/components/dashboard/ui/status-chip";
+import { formatKpiChange } from "@/lib/analytics";
+import { CHART_COLORS } from "@/lib/chart-colors";
+import { invoiceDisplayStatus, REQUEST_DISPLAY_STATUSES } from "@/lib/display-status";
 import { StatusBadge } from "@/components/dashboard/ui/status-badge";
 import { requireRole } from "@/lib/auth/session";
 import { formatCalendarDate, formatCurrency, formatDate, formatDateTime, formatMinutes, formatPercent, formatTimeRange } from "@/lib/format";
@@ -30,6 +38,14 @@ const columns: Column<ExampleRow>[] = [
   { key: "total", header: "Betrag", cell: (row) => formatCurrency(row.total), align: "end" },
 ];
 
+// Example metrics: change and assessment are computed by the same functions as on the overview
+const kpiExamples = [
+  { key: "received", label: "Eingegangene Anfragen", value: "21", previous: "11", row: { unit: "count", current_value: 21, previous_value: 11, difference: 10, change_percent: 90.9 } },
+  { key: "completed", label: "Abgeschlossene Anfragen", value: "12", previous: "9", row: { unit: "count", current_value: 12, previous_value: 9, difference: 3, change_percent: 33.3 } },
+  { key: "lead_time_days", label: "Durchlaufzeit bis Abschluss", value: "12,5 Tage", previous: "7,7 Tage", row: { unit: "days", current_value: 12.5, previous_value: 7.7, difference: 4.8, change_percent: 62.3 } },
+  { key: "review_queue", label: "Prüfung", value: "5", previous: "0", row: { unit: "count", current_value: 5, previous_value: 0, difference: 5, change_percent: null } },
+] as const;
+
 const statusKinds: StatusKind[] = ["intake_status", "work_status", "visit_status", "invoice_status", "message_status", "request_priority"];
 
 export default async function ComponentsPage() {
@@ -37,6 +53,64 @@ export default async function ComponentsPage() {
   return (
     <div className="dash-page">
       <PageHeader title="UI-Bausteine" description="Interne Übersicht der gemeinsamen Dashboard-Komponenten mit Beispielwerten. Es werden keine Daten gelesen oder geändert." />
+
+      <Zone id="ui-design" title="Design 2026" note="Bausteine der Überarbeitung (task-10-3)">
+        <div className="rw-kpi-grid">
+          {(["danger", "attention", "action", "neutral", "meta", "success"] as const).map((stripe) => (
+            <Card key={stripe} stripe={stripe} title={`Strich: ${stripe}`} count={3} description="Die Linie oben klassifiziert den Inhalt.">
+              <p>Inhalt der Karte.</p>
+            </Card>
+          ))}
+        </div>
+        <div className="rw-kpi-grid">
+          {kpiExamples.map((kpi) => (
+            <KpiTile key={kpi.key} label={kpi.label} value={kpi.value} previous={kpi.previous} change={formatKpiChange({ key: kpi.key, ...kpi.row })} definition="Definitionstext aus dem Kennzahlen-Wörterbuch." href="/dashboard/bausteine" />
+          ))}
+        </div>
+        <KpiMore count={2}>
+          {kpiExamples.slice(0, 2).map((kpi) => (
+            <KpiCompact key={kpi.key} label={kpi.label} value={kpi.value} previous={kpi.previous} change={formatKpiChange({ key: kpi.key, ...kpi.row })} />
+          ))}
+        </KpiMore>
+        <Card stripe="meta" title="Status je Anfrage und Rechnung">
+          <div className="badge-row">{REQUEST_DISPLAY_STATUSES.map((status) => <StatusChip key={status.key} status={status} />)}</div>
+          <div className="badge-row">
+            {([["draft", null], ["issued", "2026-10-20"], ["sent", "2026-10-20"], ["sent", "2026-09-29"], ["paid", "2026-10-01"]] as const).map(([status, due]) => (
+              <InvoiceStatusChip key={`${status}${due}`} status={invoiceDisplayStatus(status, due, "2026-10-08")} />
+            ))}
+          </div>
+          <div className="badge-row">
+            <PriorityText priority="critical" /><PriorityText priority="high" /><PriorityText priority="normal" /><PriorityText priority="low" /><PriorityText priority={null} />
+            <HazardFlag risk="unclear" /><HazardFlag risk="known" />
+          </div>
+        </Card>
+        <Card stripe="meta" title="Legende" action={<PeriodChip>24 Monate</PeriodChip>}>
+          <Legend items={[{ label: "Eingang", color: CHART_COLORS[0] }, { label: "Erstbearbeitung abgeschlossen", color: CHART_COLORS[1] }, { label: "Technisch abgeschlossen", color: CHART_COLORS[2] }]} />
+        </Card>
+        <div className="rw-kpi-grid">
+          <Card stripe="success" title="Sicherheitsgefahr offen" count={0}>
+            <EmptyState tone="good" title="Keine offenen Sicherheitsgefahren">Neue Fälle erscheinen hier sofort.</EmptyState>
+          </Card>
+          <Card title="Wartet auf Kunde" count={0}>
+            <EmptyState title="Keine Anfragen in dieser Ansicht" action={<Link className="rw-button-secondary" href="/dashboard/bausteine">Suche zurücksetzen</Link>}>Suche „Moers“ · Ansicht „Wartet auf Kunde“</EmptyState>
+          </Card>
+          <Card title="Eingegangene Anfragen" busy>
+            <LoadingState shape="kpi" label="Kennzahl wird geladen …" />
+          </Card>
+          <Card title="Anfragen" busy>
+            <LoadingState shape="table" rows={3} label="Liste wird geladen …" />
+          </Card>
+          <Card title="Durchsatz je Monat" busy action={<PeriodChip>24 Monate</PeriodChip>}>
+            <LoadingState shape="chart" label="Diagramm wird geladen …" />
+          </Card>
+          <Card stripe="danger" title="Finanzen">
+            <ErrorState title="Finanzdaten konnten nicht geladen werden." action={<Link className="rw-button-secondary" href="/dashboard/bausteine">Erneut versuchen</Link>}>Die übrigen Kennzahlen sind aktuell.</ErrorState>
+          </Card>
+          <Card stripe="attention" title="Fotos" count="(2)">
+            <NoticeState title="Keine Verbindung.">1 Foto ist auf dem Gerät gespeichert und wird gesendet, sobald wieder Netz da ist.</NoticeState>
+          </Card>
+        </div>
+      </Zone>
 
       <section className="dash-section" aria-labelledby="ui-status">
         <h2 id="ui-status">Statusanzeigen</h2>

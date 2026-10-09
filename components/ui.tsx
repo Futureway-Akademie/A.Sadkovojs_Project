@@ -6,17 +6,22 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronRight,
+  CircleCheck,
   Clock3,
   FileText,
   Info,
+  LoaderCircle,
   Mail,
   MapPin,
   Pause,
   Phone,
   Play,
   ShieldCheck,
+  TriangleAlert,
   Upload,
+  WifiOff,
   Wrench,
   X,
 } from "lucide-react";
@@ -27,18 +32,24 @@ export type IconName =
   | "arrow-right"
   | "calendar"
   | "check"
+  | "check-circle"
+  | "chevron-down"
+  | "chevron-right"
   | "clock"
   | "compressor"
   | "document"
+  | "hazard"
   | "info"
   | "inspection"
   | "location"
   | "mail"
+  | "offline"
   | "pause"
   | "phone"
   | "play"
   | "pump"
   | "shield"
+  | "spinner"
   | "upload"
   | "ventilation"
   | "wrench"
@@ -52,16 +63,22 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     "arrow-right": ArrowRight,
     calendar: CalendarDays,
     check: Check,
+    "check-circle": CircleCheck,
+    "chevron-down": ChevronDown,
+    "chevron-right": ChevronRight,
     clock: Clock3,
     document: FileText,
+    hazard: TriangleAlert,
     info: Info,
     inspection: FileText,
     location: MapPin,
     mail: Mail,
+    offline: WifiOff,
     pause: Pause,
     phone: Phone,
     play: Play,
     shield: ShieldCheck,
+    spinner: LoaderCircle,
     upload: Upload,
     wrench: Wrench,
     x: X,

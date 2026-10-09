@@ -207,3 +207,15 @@ Nur Admin (`/dashboard/verwaltung`, Startseite der Rolle). Unternavigation `comp
 | `/dashboard/verwaltung/einstellungen` | Basiswert, Standard-Steuersatz, Zahlungsziel, Firmenangaben der Rechnung |
 
 Daten: `lib/dashboard/admin.ts` (Profile, Tarife, Verfügbarkeiten, Einstellungen mit Nutzerrechten; E-Mail und letzte Anmeldung aus Supabase Auth mit dem Admin-Client). Aktionen: `app/(dashboard)/dashboard/verwaltung/actions.ts` rufen die `admin_*`-Operationen mit den Rechten des Admins auf; nur Anlegen, Sperren und Freigeben des Logins nutzen den Secret Key. Das Passwort wird nie an den Browser zurückgegeben. Deaktivierung und Reaktivierung leiten mit dem Ergebnis in der URL auf die Personenseite (`?ergebnis=deaktiviert&anfragen=…&einsaetze=…`), weil der Formularabschnitt danach verschwindet. Reine Hilfen (Wochenformular, Zusammenfassung „Mo–Fr 07:00–16:00“, Abwesenheit als ganze Tage in Europe/Berlin, Firmenangaben zusammenführen) in `lib/admin.ts`.
+
+## Design-Überarbeitung (task-10-3)
+
+Vorlage ist der Claude-Design-Canvas „RheinWerk Übersicht Redesign“ (Spezifikation und Zustände als Regelwerk). Farben, Schrift und Abstände kommen ausschließlich aus den RheinWerk-Tokens (`_ds/…/tokens`).
+
+- **Logik als getestete Funktionen:** `lib/display-status.ts` (ein Anzeigestatus je Anfrage aus Erstbearbeitung × Arbeit, Rückfall auf die Erstbearbeitung; Rechnungsstatus mit „Überfällig · seit N Tagen“; Fortschritt; Alter überfälliger Forderungen), `kpiAssessment` in `lib/analytics.ts` (Wort „besser/schlechter/mehr/weniger“ je Richtung), `lib/hints.ts` (Höchststand 90 Tage, höchster Monatswert, kleine Basis < 20, bald fällig ≤ 7 Tage), `lib/slot-suggestions.ts` (frühestes freies Fenster je Techniker, Rangfolge siehe `docs/database.md`).
+- **Bausteine:** `components/dashboard/ui/card.tsx` (Karte mit 2-px-Zustandsstrich: danger, attention, action, neutral, meta, success; `Zone`), `kpi-tile.tsx` (Kachel mit Delta-Chip und Wort, Definition hinter „i“, höchstens 4 sichtbar, weitere in `KpiMore`), `status-chip.tsx`, `legend.tsx` (12-px-Quadrate, Zeitraum-Chip), `states.tsx` (leer/gut, laden in Inhaltsform, Fehler je Block). Vorschau unter `/dashboard/bausteine`.
+- **Lime** nur für die eine Hauptaktion je Screen und als Auswahlzustand (Zeitraum, Vorschlag, Slot).
+- **Übersicht:** gleiche Route für Admin und Manager mit eigenem Aufbau; Zone 1 „Handlungsbedarf“ ist Stand jetzt, die Zeitraumwahl steht am Leistungsblock. Jeder Block lädt und scheitert einzeln.
+- **Anfragen:** Schnellansichten (`ansicht=offen|meine|gefahr|pruefung|kunde|planen|alle`, ohne Filter „offen“), Statusfilter `anzeige`; Detailseite zweispaltig mit „Nächster Schritt“ (empfohlene Aktion, „Oder stattdessen“, Ablehnen zuletzt), leere Bereiche in einer Zeile.
+- **Rechnungen:** Reiter „Zu erledigen“ (Standard), „Bald fällig“, „Überfällig“, „Offen“, „Bezahlt“, „Alle“; „Zahlung erfassen“ (`record_payment`) in der Zeile und auf der Anfrageseite.
+- **Diagramme:** Serienfarben blue-500, warning-800, lime-700 (`lib/chart-colors.ts`); laufender Monat gestrichelt; Warteschlangen als Einzeldiagramme.

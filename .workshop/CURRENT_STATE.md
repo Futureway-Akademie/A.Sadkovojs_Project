@@ -2,7 +2,7 @@
 
 ## Projekt
 
-RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v2 mit 11 Phasen und 34 Tasks. Fortschritt 91,15 % (Gewicht 103 von 113, 31 von 34 Tasks).
+RheinWerk Service-Dashboard: geschützter Mitarbeiterbereich `/dashboard` in der RheinWerk-Website mit Supabase. Roadmap v3 mit 11 Phasen und 35 Tasks. Fortschritt 85,12 % (Gewicht 103 von 121, 31 von 35 Tasks).
 
 ## Aktive Phase
 
@@ -10,7 +10,9 @@ Phasen 0–8 sind abgeschlossen; in Phase 9 fehlt nur die Gesamtprüfung `task-9
 
 ## Aktive Aufgabe
 
-Keine.
+`task-10-3` (in Arbeit seit 08.10.2026, Umsetzung fertig, wartet auf Abnahme): Dashboard-Design nach Claude-Design-Canvas „RheinWerk Übersicht Redesign“ (https://claude.ai/artifact/G3RskvctFeRLgdwryWxjJz; Spezifikation und Zustände sind das Regelwerk). Umgesetzt und im Browser (Port 3100) je Rolle geprüft: Bausteine, Übersicht (Admin, Manager), Anfragen (Liste, Detail), Einsatzplanung mit Vorschlägen, Techniker mobil (Mein Tag, Einsatz), Rechnungen, Auswertung. Neue Migration `20261008170000_technician_experience.sql`. Verifikation: test:unit 58/58, test:db 532/532, test:auth und test:ui (170) bestanden, lint, typecheck, build erfolgreich. Nach Abnahme: Task abschließen, danach `task-9-2`. Details in `docs/architecture.md` (Abschnitt Design-Überarbeitung).
+
+`task-10-4` bleibt blockiert bis zur Gmail-OAuth-Anmeldung und Zustimmung zur externen Gemini-Analyse.
 
 ## Zuletzt abgeschlossen
 
@@ -18,17 +20,17 @@ Keine.
 
 ## Bereite nächste Aufgaben
 
-- `task-10-3`: Überarbeitung des Dashboard-Designs (Vorgaben des Nutzers).
 - `task-10-2`: Zahlungserinnerungen für offene Rechnungen.
 - Danach `task-9-2`: Gesamtprüfung (hängt von `task-10-3` ab).
 
 ## Blockiert
 
-Nichts.
+`task-10-4`: Credential „RheinWerk Gmail“ benötigt Anmeldung als rheinwerk.industrieservice@gmail.com; Diagnoselauf 5670 meldet fehlenden Access-Token. Die automatische Genehmigungsprüfung verlangt Zustimmung, bevor technische Antragstexte, E-Mail-Texte und PDF/Fotos an Google Gemini gehen. Gemini-Nodes und Analyse-Zeitplan deaktiviert; keine Analyseverbindung vom Formular, keine Aktivierung. Make bleibt bis zur vollständigen Prüfung aktiv.
 
 ## Wichtige Entscheidungen
 
-- n8n-Vertrag: n8n schreibt nur über RPC-Funktionen mit Idempotenzschlüsseln (`source_event_key`, `operation_key`, `(mailbox_key, gmail_message_id)`, `messages.id`) und `expected_version`; vorhanden ist nur `confirm_message_sent`, die übrigen Integrationsfunktionen sind als „zu bauen“ markiert. Team-Kennzahlen zählen nach aktueller Zuweisung.
+- Design-Überarbeitung (Nutzerentscheidungen 08.10.2026 zu den offenen Punkten der Spezifikation): Kennzahl-Richtungen bleiben wie in `KPI_INFO` (Automatisierungsanteil und Zeitersparnis „besser“ bei Anstieg; Warteschlangen, offene und überfällige Forderungen: niedriger ist besser). Einheitlicher Anzeigestatus aus Erstbearbeitung × Arbeit; nicht vorgesehene Kombinationen fallen auf die Erstbearbeitung zurück. „Zahlung erfassen“ (`record_payment`) in der Rechnungsliste und auf der Anfrageseite. Foto beim Einsatzabschluss nicht Pflicht. Einsatzvorschläge: zuerst Techniker mit abgeschlossenen Einsätzen bei derselben Firma (Kundennummer, sonst Firmenname); bei Neukunden Erfahrung mit Anlagentyp/Hersteller, dann geringere Auslastung, dann frühestes Fenster.
+- n8n-Vertrag: lokale Integrations-RPCs mit Idempotenz, `expected_version`, Audit und Versandfreigabe sind vorhanden. Sechs ungruppierte Entwürfe; aktuelle JSON-Graphen unter n8n/workflows/*.workflow.json. Unbekannte/mehrdeutige Modelle gehen an Menschen, nie automatisch ablehnen. Anhänge privat, Antwortanalyse erst nach abgeschlossener Registrierung. Unfertige Gmail-Eingänge werden erneut aufgenommen. Keine automatische Speicherlöschung (Genehmigungsprüfung abgewiesen); Rollenprüfung weiterhin strikt service_role. Test-JWTs für service_role korrigiert. Team-Kennzahlen zählen nach aktueller Zuweisung.
 - Verwaltung: Mitarbeitende werden deaktiviert, nie gelöscht; aktive Zuweisungen gehen dabei in einer Transaktion an eine Vertretung derselben Rolle, der Login wird gesperrt. Rollenwechsel nur ohne aktive Zuweisungen, eigenes Konto weder Rollenwechsel noch Deaktivierung. Öffentliche Registrierung aus (`[auth] enable_signup = false`; `[auth.email]` bleibt an, sonst ist die E-Mail-Anmeldung lokal aus). Einstellungen wirken nur auf spätere Vorgänge.
 - Diagramme: Recharts, Farben `lib/chart-colors.ts` (Dataviz-validiert, feste Reihenfolge), je Abbildung Datentabelle; nur helle Darstellung.
 - Manager-Übersicht verlinkt jede Kennzahl auf Anfrage- oder Rechnungsliste (`feld`/`von`/`bis`, `modus`, `status`); Definitionen in `lib/analytics.ts`.
@@ -38,7 +40,7 @@ Nichts.
 - Website-Code wird aus `05_Export/RheinWerk Industrieservice Website` übernommen; das Dashboard entsteht im selben Next.js-Projekt.
 - Quelle der Website: `FuzzCube/rheinwerk-industrieservice`, Commit `39d9936`, ohne Git-Historie übernommen.
 - Markenname RheinWerk statt „Rheinberg“ aus der Spezifikation.
-- Der Formularpfad zu Make bleibt unverändert; der künftige n8n-Vertrag wird nur dokumentiert.
+- Nutzerentscheidung 08.10.2026: Make durch lokales n8n ersetzen; Supabase ebenfalls lokal auf dem Mac. Gmail: rheinwerk.industrieservice@gmail.com. Unbekannte Modelle gehen an Menschen, keine automatische Ablehnung. Katalog: docs/equipment/RheinWerk_Anlagenkatalog_DE.md.
 - Entwicklung gegen lokales Supabase (`supabase start`); Schemaänderungen nur als Migrationen unter `supabase/migrations/`, spätere Übernahme in die Cloud per `supabase db push`.
 - `proxy.ts` erneuert nur die Sitzung (nur `/dashboard`, `/login`, `/auth/*`) und setzt `Cache-Control: private, no-store`; Zugriffsschutz in jeder Dashboard-Seite (`lib/auth/session.ts`) und über RLS.
 - Einsatzfotos: Server lädt in den privaten Bucket (`visits/<request>/<visit>/`), `add_visit_photo` registriert mit Nutzerrechten; bei Fehler wird die Datei gelöscht. Limit 11 MB für Server Actions und Proxy.
@@ -71,6 +73,10 @@ Nichts.
 - Port 3000 kann lokal von einem anderen Projekt belegt sein; App dann z. B. mit `npx next start -p 3100` und `APP_URL=http://127.0.0.1:3100` für `test:auth`/`test:ui` starten.
 - Lokale Entwicklung setzt laufendes Docker und `supabase start` voraus; `.env.local` mit Werten aus `supabase status`.
 
+## Prüfung der n8n-Integration
+
+Echte lokale Webhook-Annahme RIS-2026-00267, genau eine Anfrage/ein Ereignis bei Wiederholung; ungültige Einwilligung abgewiesen. SQL-Integrationstests zurückgerollt; test:db 521/521, test:unit 40/40, lint/typecheck/build erfolgreich. Gmail- und Modellzweige sowie PNG-Dateisignatur und Wiederaufnahme mit simulierten externen Antworten geprüft. Kein echtes Gmail-Senden und keine Gemini-Abfrage. Vollständiger Echtlauf, Website-Dateitransfer, PDF-/Bildanalyse und OAuth-Zustellung offen. DB-Reset sowie API/Auth/UI-Regression nicht ausgeführt. Kein Push oder Deployment.
+
 ## Empfohlener nächster Schritt
 
-`task-8-1` (Verwaltung: Benutzer, Tarife, Arbeitszeiten, Einstellungen); danach `task-9-1` und die Gesamtprüfung `task-9-2`.
+Ausstehende Nutzereingaben zu Gmail und Gemini abwarten; anschließend task-10-4 wieder aufnehmen, Konto verifizieren, reale Analyse und freigegebenen Versand prüfen und erst dann Make ersetzen. task-10-2 und task-10-3 sind weiterhin ready; nicht automatisch starten.

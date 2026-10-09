@@ -1,6 +1,9 @@
 import "server-only";
+import { cache } from "react";
 import type { KpiRow, PeriodParams } from "@/lib/analytics";
+import { addDays, berlinToInstant } from "@/lib/berlin-time";
 import { berlinDayKey } from "@/lib/format";
+import type { QueueRow as QueueHistoryRow } from "@/lib/insights";
 import { createClient } from "@/lib/supabase/server";
 
 // Data of the manager overview (task-7-2). KPIs, period and team come from the analytics functions
@@ -127,3 +130,124 @@ async function getAttention(): Promise<Overview["attention"]> {
   items.sort((a, b) => SEVERITY.indexOf(a.reason) - SEVERITY.indexOf(b.reason) || a.since.localeCompare(b.since));
   return { items, counts, checkedAt: now.toISOString() };
 }
+
+// "Stand jetzt" of the redesigned overview (task-10-3): independent of the selected period.
+export type OverdueReceivables = { total: number; count: number; oldestDue: string | null };
+export type NowData = {
+  checkedAt: string;
+  today: string;
+  openRequests: number;
+  // Queue lengths per day over the last 90 days (today = current state)
+  queueHistory: QueueHistoryRow[];
+  overdue: OverdueReceivables;
+};
+
+// Memoized per request: several blocks of one page read the same state
+export const getNow = cache(async (): Promise<NowData> => {
+  const supabase = await createClient();
+  const now = new Date();
+  const today = berlinDayKey(now);
+  const [open, history, invoices] = await Promise.all([
+    supabase.from("requests").select("id", { count: "exact", head: true })
+      .not("intake_status", "in", "(rejected,cancelled)").not("work_status", "in", "(completed,cancelled)"),
+    supabase.rpc("analytics_queue_history", { from_date: addDays(today, -89), to_date: today }),
+    supabase.from("invoices").select("total, payment_due_date")
+      .in("status", ["issued", "sent"]).is("paid_at", null).lt("payment_due_date", today).order("payment_due_date"),
+  ]);
+  if (open.error || history.error || invoices.error) throw new Error("Aktueller Stand konnte nicht geladen werden.");
+  const rows = invoices.data ?? [];
+  return {
+    checkedAt: now.toISOString(),
+    today,
+    openRequests: open.count ?? 0,
+    queueHistory: (history.data ?? []) as QueueHistoryRow[],
+    overdue: {
+      total: Math.round(rows.reduce((sum, row) => sum + Number(row.total ?? 0), 0) * 100) / 100,
+      count: rows.length,
+      oldestDue: rows[0]?.payment_due_date ?? null,
+    },
+  };
+});
+
+export const getAttentionNow = cache((): Promise<Overview["attention"]> => getAttention());
+
+// Manager view: team of the current month, technicians today and tomorrow, requests to plan
+export type TechnicianDay = { visits: Array<{ requestId: string; requestNumber: string; start: string; end: string }>; absent: boolean };
+export type TechnicianNow = { id: string; name: string; today: TechnicianDay; tomorrow: TechnicianDay; visitsCompleted: number; workMinutes: number; open: number };
+export type PlanningItem = {
+  id: string;
+  requestNumber: string;
+  company: string;
+  city: string | null;
+  serviceKind: string | null;
+  priority: string | null;
+  // Follow-up visit (an earlier visit exists) or waiting for parts
+  note: "follow_up" | "waiting_parts" | null;
+};
+export type TeamNow = { month: TeamRow[]; monthStart: string; technicians: TechnicianNow[]; toPlan: PlanningItem[]; tomorrow: string };
+
+export const getTeamNow = cache(async (): Promise<TeamNow> => {
+  const supabase = await createClient();
+  const now = new Date();
+  const today = berlinDayKey(now);
+  const tomorrow = addDays(today, 1);
+  const from = berlinToInstant(today, "00:00").toISOString();
+  const to = berlinToInstant(addDays(today, 2), "00:00").toISOString();
+  const [team, technicians, visits, busy, planning] = await Promise.all([
+    supabase.rpc("analytics_team", { kind: "month" }),
+    supabase.from("profiles").select("id, display_name").eq("role", "technician").eq("is_active", true).order("display_name"),
+    supabase.from("visits").select("request_id, technician_id, scheduled_start, scheduled_end, status, requests(request_number)")
+      .in("status", ["scheduled", "in_progress", "completed", "waiting_parts"]).lt("scheduled_start", to).gt("scheduled_end", from).order("scheduled_start"),
+    supabase.rpc("technician_busy_intervals", { range_start: from, range_end: to }),
+    supabase.from("dispatcher_queue").select("id, request_number, company_name, city, service_kind, priority, work_status")
+      .eq("queue", "planning").order("priority_rank").order("due_at", { ascending: true, nullsFirst: false }).order("waiting_since").order("id"),
+  ]);
+  for (const result of [team, technicians, visits, busy, planning]) {
+    if (result.error) throw new Error("Team konnte nicht geladen werden.");
+  }
+  const planRows = planning.data ?? [];
+  const planIds = planRows.map((row) => row.id!).filter(Boolean);
+  const earlier = planIds.length
+    ? await supabase.from("visits").select("request_id").in("request_id", planIds).neq("status", "cancelled")
+    : { data: [], error: null };
+  if (earlier.error) throw new Error("Team konnte nicht geladen werden.");
+  const withVisit = new Set((earlier.data ?? []).map((row) => row.request_id));
+
+  const monthRows = (team.data ?? []) as TeamRow[];
+  const byEmployee = new Map(monthRows.map((row) => [row.employee_id, row]));
+  const related = (value: unknown) => (Array.isArray(value) ? value[0] : value) as { request_number: string } | null;
+  const dayOf = (technicianId: string, day: string): TechnicianDay => ({
+    visits: (visits.data ?? [])
+      .filter((visit) => visit.technician_id === technicianId && berlinDayKey(visit.scheduled_start) === day)
+      .map((visit) => ({ requestId: visit.request_id, requestNumber: related(visit.requests)?.request_number ?? "–", start: visit.scheduled_start, end: visit.scheduled_end })),
+    absent: (busy.data ?? []).some((block) => block.technician_id === technicianId && block.busy_kind === "absence"
+      && berlinDayKey(block.starts_at) <= day && berlinDayKey(new Date(new Date(block.ends_at).getTime() - 1)) >= day),
+  });
+
+  return {
+    month: monthRows,
+    monthStart: `${today.slice(0, 7)}-01`,
+    tomorrow,
+    technicians: (technicians.data ?? []).map((tech) => {
+      const row = byEmployee.get(tech.id);
+      return {
+        id: tech.id,
+        name: tech.display_name,
+        today: dayOf(tech.id, today),
+        tomorrow: dayOf(tech.id, tomorrow),
+        visitsCompleted: row?.visits_completed ?? 0,
+        workMinutes: row?.work_minutes ?? 0,
+        open: row?.open_requests ?? 0,
+      };
+    }),
+    toPlan: planRows.map((row) => ({
+      id: row.id!,
+      requestNumber: row.request_number!,
+      company: row.company_name!,
+      city: row.city,
+      serviceKind: row.service_kind,
+      priority: row.priority,
+      note: row.work_status === "waiting_parts" ? "waiting_parts" : withVisit.has(row.id!) ? "follow_up" : null,
+    })),
+  };
+});

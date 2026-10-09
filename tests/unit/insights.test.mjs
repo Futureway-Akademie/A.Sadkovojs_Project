@@ -51,5 +51,5 @@ test("Warteschlangen je Tag in breiter Form", () => {
 });
 
 test("Diagrammfarben: feste Reihenfolge, Markenblau zuerst", () => {
-  assert.deepEqual([...CHART_COLORS], ["#2F80C9", "#EB6834", "#4A3AA7", "#008300"]);
+  assert.deepEqual([...CHART_COLORS], ["#2F80C9", "#B45F09", "#8FAE24"]);
 });

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "roadmapVersion": 2,
+  "roadmapVersion": 3,
   "status": "active",
   "phases": [
     {
@@ -1180,8 +1180,8 @@
       "title": "Erweiterungen",
       "description": "Nachträge nach Rücksprache: Bereinigung der Testkonten, Zahlungserinnerungen und Überarbeitung des Designs.",
       "order": 11,
-      "weight": 7,
-      "status": "ready",
+      "weight": 15,
+      "status": "blocked",
       "tasks": [
         {
           "id": "task-10-1",
@@ -1245,10 +1245,10 @@
         {
           "id": "task-10-3",
           "title": "Überarbeitung des Dashboard-Designs",
-          "description": "Gestalterische Überarbeitung des Mitarbeiterbereichs nach Vorgaben des Nutzers (z. B. Entwurf aus Claude Design unter docs/design/): Layout, Navigation, Listen, Kacheln, Formulare und Diagramme im RheinWerk-Design. Funktion, Rechte und Datenflüsse bleiben unverändert; test:ui sichert jeden Schritt ab.",
+          "description": "Gestalterische Überarbeitung des Mitarbeiterbereichs nach Vorgaben des Nutzers (z. B. Entwurf aus Claude Design unter docs/design/): Layout, Navigation, Listen, Kacheln, Formulare und Diagramme im RheinWerk-Design. Funktion, Rechte und Datenflüsse bleiben unverändert; test:ui sichert jeden Schritt ab. Vorlage: Claude-Design-Canvas „RheinWerk Übersicht Redesign“ (Spezifikation und Zustände als Regelwerk); Logik (einheitlicher Status, Kennzahl-Richtung, Hinweise, Einsatzvorschläge) als getestete Funktionen.",
           "order": 3,
           "weight": 3,
-          "status": "ready",
+          "status": "in_progress",
           "dependsOn": [
             "task-7-3",
             "task-8-1"
@@ -1259,13 +1259,52 @@
             "Kontraste und Tastaturbedienung erhalten",
             "test:ui, test:auth, lint, typecheck und build erfolgreich"
           ],
-          "startedAt": null,
+          "startedAt": "2026-10-08T14:39:26Z",
           "completedAt": null,
           "verification": {
             "status": "not_run",
             "summary": null,
             "commands": [],
             "checkedAt": null
+          }
+        },
+        {
+          "id": "task-10-4",
+          "title": "Lokale n8n-Integration für Serviceanfragen",
+          "description": "Vom Nutzer am 08.10.2026 beauftragt: lokales n8n und Supabase auf dem Mac; Make ersetzen; Gmail rheinwerk.industrieservice@gmail.com; Formular und Anhänge analysieren; Hersteller/Modell gegen docs/equipment/RheinWerk_Anlagenkatalog_DE.md prüfen; unbekannte Modelle nur menschlich prüfen; Rückfragen als freizugebende Entwürfe; Kundenantworten mit der ursprünglichen Anfrage verbinden.",
+          "order": 4,
+          "weight": 8,
+          "status": "blocked",
+          "dependsOn": [
+            "task-9-1",
+            "task-1-5"
+          ],
+          "definitionOfDone": [
+            "RPC-Integration mit Idempotenz, Versionsschutz und Audit geprüft",
+            "Workflow über lokalen MCP erstellt und mit sicheren Daten getestet",
+            "Formular speichert in Supabase und liefert den erwarteten Antwortvertrag",
+            "PDF- und Bildanalyse sowie Katalogabgleich geprüft",
+            "Gmail-Konto verifiziert; Antwortzuordnung und freigegebener Versand geprüft oder benötigte OAuth-Anmeldung ausdrücklich benannt",
+            "Keine automatische Ablehnung, keine Verarbeitung oder Versand von Demo-Anfragen",
+            "Zentraler Projektzustand und Integrationsvertrag aktualisiert"
+          ],
+          "startedAt": "2026-10-08T13:29:54Z",
+          "completedAt": null,
+          "verification": {
+            "status": "partial",
+            "summary": "Sechs lokale n8n-Entwürfe per MCP, ohne Gruppen; eigene Supabase- und Gmail-Credentials. RPCs mit Idempotenz, Versionsschutz, Audit, Freigabe und Eingangs-Stage vorhanden. Echte Formularannahme 5653 (RIS-2026-00267), Wiederholung 5657 mit genau einer Anfrage/einem Ereignis, ungültige Einwilligung 5658. SQL-Smoke-Test mit ROLLBACK: Analyse, unbekanntes Modell, Freigabe, bestätigter Status, Thread-/Sender-Abgrenzung, Anhänge, Versions-/JWT-Schutz und Wiederaufnahme. test:db 521/521; test:unit 40/40; lint, typecheck und build erfolgreich. MCP-Tests mit simulierten externen Antworten: Gmail Eingang 5660, Versand 5659, bereits gesendet 5661, Backoff 5662, Katalog gelistet 5663/Serie unbekannt 5665, PNG-Dateisignatur 5666, Wiederaufnahme 5669. Kein echtes Senden und keine Gemini-Datenübertragung. Blockiert: Anmeldung RheinWerk Gmail (5670: kein Access-Token) und ausdrückliche Zustimmung zu Google Gemini. Genehmigungsprüfung hat die externe Analyseverbindung sowie automatische Speicherlöschung abgewiesen; Gemini/Analyse-Zeitplan deaktiviert, keine Löschroutine. Rollenprüfungsänderung verworfen, nur Test-JWTs korrigiert. Formularroute für N8N_WEBHOOK_URL vorbereitet; aktive Umgebung/Make unverändert. Echte PDF-/Bildanalyse, Dateiübertragung aus der Website, OAuth-/Zustellnachweis, kompletter Echtlauf, API/Auth/UI-Regression und DB-Neuanwendung mit Reset noch nicht ausgeführt. Keine Veröffentlichung, kein Push.",
+            "commands": [
+              "npm run lint",
+              "npm run typecheck",
+              "npm run build",
+              "npm run test:unit",
+              "npm run test:db",
+              "supabase migration up --local",
+              "supabase gen types typescript --local",
+              "docker exec -i supabase_db_A.Sadkovojs_Project psql -U postgres -v ON_ERROR_STOP=1 < n8n/test_integration.sql",
+              "n8n MCP validate_node_config / validate_workflow / test_workflow / execute_workflow / get_workflow_execution"
+            ],
+            "checkedAt": "2026-10-08T14:26:27Z"
           }
         }
       ]

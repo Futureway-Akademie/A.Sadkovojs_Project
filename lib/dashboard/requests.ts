@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import type { EmployeeRole } from "@/lib/auth/roles";
+import { REQUEST_DISPLAY_STATUSES, requestStatusFilter } from "@/lib/display-status";
 
 // Reads for the request list and the request page. All queries run with the signed-in user's rights,
 // so RLS decides which requests, messages, events and documents are returned.
@@ -23,8 +24,44 @@ export type RequestFilters = {
   to: string;
   mode: Enums["intake_mode"] | "";
   open: boolean;
+  // Known or unclear safety risk (link from the overview)
+  hazard: boolean;
+  // Quick view (task-10-3) and displayed status from "Weitere Filter"
+  view: RequestView;
+  display: string;
   page: number;
 };
+
+// Quick views of the list (canvas "Anfragen – Liste"). Without any filter the list opens with "offen".
+export const REQUEST_VIEWS = [
+  { key: "offen", label: "Offen" },
+  { key: "meine", label: "Meine offenen", roles: ["dispatcher"] },
+  { key: "gefahr", label: "Sicherheitsgefahr", hazard: true },
+  { key: "pruefung", label: "Prüfung" },
+  { key: "kunde", label: "Wartet auf Kunde" },
+  { key: "planen", label: "Zu planen" },
+  { key: "alle", label: "Alle" },
+] as const satisfies ReadonlyArray<{ key: string; label: string; roles?: readonly EmployeeRole[]; hazard?: boolean }>;
+export type RequestView = (typeof REQUEST_VIEWS)[number]["key"];
+
+const OPEN = "intake_status.not.in.(rejected,cancelled),work_status.not.in.(completed,cancelled)";
+
+// PostgREST "or" expression of a view; null = no restriction
+export function viewFilter(view: RequestView, userId: string): string | null {
+  switch (view) {
+    case "offen": return `and(${OPEN})`;
+    case "meine": return `and(${OPEN},dispatcher_id.eq.${userId})`;
+    case "gefahr": return `and(${OPEN},safety_risk.in.(known,unclear))`;
+    case "pruefung": return requestStatusFilter("pruefung");
+    case "kunde": return requestStatusFilter("wartet_kunde");
+    case "planen": return requestStatusFilter("zu_planen");
+    case "alle": return null;
+  }
+}
+
+export function viewsFor(role: EmployeeRole) {
+  return REQUEST_VIEWS.filter((view) => !("roles" in view) || (view.roles as readonly EmployeeRole[]).includes(role));
+}
 
 export const DATE_FIELDS = {
   eingang: { column: "created_at", label: "Eingang" },
@@ -54,6 +91,10 @@ export function parseRequestFilters(params: Record<string, string | string[] | u
   const to = isoInstant(single(params.bis));
   const mode = single(params.modus);
   const ranged = field in DATE_FIELDS && from && to;
+  const view = single(params.ansicht);
+  const display = single(params.anzeige);
+  // Links with filters (overview, queues) show all matches; a plain visit opens the open requests
+  const anyFilter = ["suche", "erstbearbeitung", "arbeit", "prioritaet", "feld", "modus", "status", "gefahr", "anzeige"].some((key) => single(params[key]));
   return {
     q: single(params.suche).slice(0, 100),
     intake: INTAKE.includes(intake) ? (intake as Enums["intake_status"]) : "",
@@ -64,6 +105,9 @@ export function parseRequestFilters(params: Record<string, string | string[] | u
     to: ranged ? to : "",
     mode: MODES.includes(mode) ? (mode as Enums["intake_mode"]) : "",
     open: single(params.status) === "offen",
+    hazard: single(params.gefahr) === "1",
+    view: REQUEST_VIEWS.some((entry) => entry.key === view) ? (view as RequestView) : anyFilter ? "alle" : "offen",
+    display: REQUEST_DISPLAY_STATUSES.some((status) => status.key === display) ? display : "",
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
 }
@@ -89,6 +133,9 @@ export function filterQuery(filters: RequestFilters, overrides: Partial<RequestF
   }
   if (merged.mode) params.set("modus", merged.mode);
   if (merged.open) params.set("status", "offen");
+  if (merged.hazard) params.set("gefahr", "1");
+  if (merged.display) params.set("anzeige", merged.display);
+  params.set("ansicht", merged.view);
   if (merged.page > 1) params.set("seite", String(merged.page));
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -97,7 +144,7 @@ export function filterQuery(filters: RequestFilters, overrides: Partial<RequestF
 const LIST_COLUMNS = "id, request_number, company_name, city, service_kind, equipment_kind, intake_status, work_status, priority, created_at, dispatcher_id, technician_id, is_demo, safety_risk";
 export type RequestListItem = Pick<RequestRow, "id" | "request_number" | "company_name" | "city" | "service_kind" | "equipment_kind" | "intake_status" | "work_status" | "priority" | "created_at" | "dispatcher_id" | "technician_id" | "is_demo" | "safety_risk">;
 
-export async function listRequests(filters: RequestFilters): Promise<{ rows: RequestListItem[]; total: number; error: boolean }> {
+export async function listRequests(filters: RequestFilters, userId: string): Promise<{ rows: RequestListItem[]; total: number; error: boolean }> {
   const supabase = await createClient();
   const from = (filters.page - 1) * PAGE_SIZE;
   let query = supabase.from("requests").select(LIST_COLUMNS, { count: "exact" }).order("created_at", { ascending: false }).order("id").range(from, from + PAGE_SIZE - 1);
@@ -107,6 +154,11 @@ export async function listRequests(filters: RequestFilters): Promise<{ rows: Req
   if (filters.field) query = query.gte(DATE_FIELDS[filters.field].column, filters.from).lt(DATE_FIELDS[filters.field].column, filters.to);
   if (filters.mode) query = query.eq("intake_mode", filters.mode);
   if (filters.open) query = query.not("intake_status", "in", "(rejected,cancelled)").not("work_status", "in", "(completed,cancelled)");
+  if (filters.hazard) query = query.in("safety_risk", ["known", "unclear"]);
+  const view = viewFilter(filters.view, userId);
+  if (view) query = query.or(view);
+  const display = filters.display ? requestStatusFilter(filters.display) : null;
+  if (display) query = query.or(display);
   if (filters.q) {
     // Characters with meaning in PostgREST filter syntax or LIKE patterns are removed
     const term = filters.q.replace(/[,()*%_\\:"']/g, " ").replace(/\s+/g, " ").trim();
@@ -116,6 +168,18 @@ export async function listRequests(filters: RequestFilters): Promise<{ rows: Req
   // A page beyond the end (e.g. after narrowing a filter) is answered with 416 by PostgREST
   if (error && error.code !== "PGRST103") return { rows: [], total: 0, error: true };
   return { rows: data ?? [], total: count ?? 0, error: false };
+}
+
+// Number of requests per quick view (without search and further filters), with the user's rights
+export async function countViews(role: EmployeeRole, userId: string): Promise<Partial<Record<RequestView, number>>> {
+  const supabase = await createClient();
+  const views = viewsFor(role);
+  const results = await Promise.all(views.map((view) => {
+    const query = supabase.from("requests").select("id", { count: "exact", head: true });
+    const filter = viewFilter(view.key, userId);
+    return filter ? query.or(filter) : query;
+  }));
+  return Object.fromEntries(views.map((view, index) => [view.key, results[index].error ? undefined : results[index].count ?? 0]));
 }
 
 // Names of all employees for display (profiles are readable for every active employee)
@@ -128,7 +192,7 @@ export const getEmployeeNames = cache(async (): Promise<Map<string, string>> => 
 // Sections of the request page per role. Messages and automation runs are not readable for
 // technicians anyway (RLS); the page neither queries nor shows them.
 export const REQUEST_SECTIONS = [
-  { id: "zusammenfassung", label: "Zusammenfassung", roles: ["admin", "manager", "dispatcher", "technician"] },
+  { id: "zusammenfassung", label: "Anliegen", roles: ["admin", "manager", "dispatcher", "technician"] },
   { id: "kontakt", label: "Kontakt", roles: ["admin", "manager", "dispatcher", "technician"] },
   { id: "anlage", label: "Anlage", roles: ["admin", "manager", "dispatcher", "technician"] },
   { id: "erstbearbeitung", label: "Erstbearbeitung", roles: ["admin", "manager", "dispatcher"] },

@@ -125,7 +125,7 @@ const countOf = async (build) => { const { count } = await build(admin.from("req
 const shownTotal = (html) => Number((/<p class="result-count"[^>]*>([\d.]+) Anfrage/.exec(html.replaceAll("<!-- -->", ""))?.[1] ?? "-1").replaceAll(".", ""));
 // Content sections only; the "Aktionen" block depends on the request state (task-5-2)
 const sectionTitles = (html) => [...html.matchAll(/<h2 id="[a-z]+-title">([^<]+)<\/h2>/g)].map((match) => match[1]).filter((title) => title !== "Aktionen");
-const ALL_SECTIONS = ["Zusammenfassung", "Kontakt", "Anlage", "Erstbearbeitung", "Korrespondenz", "Einsätze", "Arbeit", "Dokumente", "Rechnung", "Verlauf"];
+const ALL_SECTIONS = ["Anliegen", "Kontakt", "Anlage", "Erstbearbeitung", "Korrespondenz", "Einsätze", "Arbeit", "Dokumente", "Rechnung", "Verlauf"];
 
 const managerJar = (await login("manager.demo@example.com", pw)).jar;
 const dispoJar = (await login("dispo1.demo@example.com", pw)).jar;
@@ -134,27 +134,32 @@ const dispo1 = userId("dispo1.demo@example.com");
 const tech1 = userId("technik1.demo@example.com");
 
 const allCount = await countOf((query) => query);
-const managerList = await get(managerJar, "/dashboard/anfragen");
+const managerList = await get(managerJar, "/dashboard/anfragen?ansicht=alle");
 check(`Manager sieht alle Anfragen (${allCount})`, shownTotal(managerList.html) === allCount, String(shownTotal(managerList.html)));
 const dispoCount = await countOf((query) => query.eq("dispatcher_id", dispo1));
-check(`Dispatcher sieht nur eigene (${dispoCount})`, shownTotal((await get(dispoJar, "/dashboard/anfragen")).html) === dispoCount);
+check(`Dispatcher sieht nur eigene (${dispoCount})`, shownTotal((await get(dispoJar, "/dashboard/anfragen?ansicht=alle")).html) === dispoCount);
 const { data: ownVisits } = await admin.from("visits").select("request_id").eq("technician_id", tech1);
 const techIds = new Set(ownVisits.map((visit) => visit.request_id));
 const { data: allRequests } = await admin.from("requests").select("id, technician_id").range(0, 9999);
 const techVisible = (request) => request.technician_id === tech1 || techIds.has(request.id);
 const techCount = allRequests.filter(techVisible).length;
-check(`Techniker sieht zugewiesene und eigene Einsätze (${techCount})`, shownTotal((await get(techJar, "/dashboard/anfragen")).html) === techCount);
+check(`Techniker sieht zugewiesene und eigene Einsätze (${techCount})`, shownTotal((await get(techJar, "/dashboard/anfragen?ansicht=alle")).html) === techCount);
+// Without parameters the list opens with the open requests (task-10-3)
+const openCount = await countOf((query) => query.not("intake_status", "in", "(rejected,cancelled)").not("work_status", "in", "(completed,cancelled)"));
+check(`Ohne Filter: Ansicht „Offen“ (${openCount})`, shownTotal((await get(managerJar, "/dashboard/anfragen")).html) === openCount);
 const reviewCount = await countOf((query) => query.eq("intake_status", "needs_review"));
 check(`Filter Erstbearbeitung = Prüfung erforderlich (${reviewCount})`, shownTotal((await get(managerJar, "/dashboard/anfragen?erstbearbeitung=needs_review")).html) === reviewCount);
 const { data: sample } = await admin.from("requests").select("id, request_number, dispatcher_id").eq("dispatcher_id", dispo1).limit(1).single();
 check("Suche nach Anfragenummer", shownTotal((await get(managerJar, `/dashboard/anfragen?suche=${sample.request_number}`)).html) === 1);
 check("Unbekannter Filterwert wird ignoriert", shownTotal((await get(managerJar, "/dashboard/anfragen?arbeit=%27%3Bdrop")).html) === allCount);
 const lastPage = Math.ceil(allCount / 25);
-const pageLast = await get(managerJar, `/dashboard/anfragen?seite=${lastPage}`);
-check("Letzte Seite erreichbar", pageLast.status === 200 && pageLast.html.replaceAll("<!-- -->", "").includes(`Seite ${lastPage} von ${lastPage}`));
+const pageLast = await get(managerJar, `/dashboard/anfragen?ansicht=alle&seite=${lastPage}`);
+check("Letzte Seite erreichbar", pageLast.status === 200 && pageLast.html.replace(/<[^>]+>/g, "").includes(`Seite ${lastPage} von ${lastPage}`));
 
 const managerDetail = await get(managerJar, `/dashboard/anfragen/${sample.id}`);
-check("Manager: alle 10 Abschnitte", JSON.stringify(sectionTitles(managerDetail.html)) === JSON.stringify(ALL_SECTIONS), sectionTitles(managerDetail.html).join(","));
+// Two-column layout (task-10-3): sections are compared as a set, their order follows the layout
+const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+check("Manager: alle 10 Abschnitte", sameSet(sectionTitles(managerDetail.html), ALL_SECTIONS), sectionTitles(managerDetail.html).join(","));
 check("  Anfrageseite privat, no-store", /no-store/.test(managerDetail.cc ?? ""), managerDetail.cc);
 const dispoDetail = await get(dispoJar, `/dashboard/anfragen/${sample.id}`);
 check("Dispatcher: eigene Anfrage mit allen 10 Abschnitten", dispoDetail.status === 200 && sectionTitles(dispoDetail.html).length === 10);
@@ -165,7 +170,7 @@ check("Ungültige ID → 404", (await get(managerJar, "/dashboard/anfragen/keine
 const { data: techRequest } = await admin.from("requests").select("id").eq("technician_id", tech1).limit(1).single();
 const techDetail = await get(techJar, `/dashboard/anfragen/${techRequest.id}`);
 const techSections = sectionTitles(techDetail.html);
-check("Techniker: 8 Abschnitte ohne Erstbearbeitung und Korrespondenz", JSON.stringify(techSections) === JSON.stringify(ALL_SECTIONS.filter((title) => title !== "Erstbearbeitung" && title !== "Korrespondenz")), techSections.join(","));
+check("Techniker: 8 Abschnitte ohne Erstbearbeitung und Korrespondenz", sameSet(techSections, ALL_SECTIONS.filter((title) => title !== "Erstbearbeitung" && title !== "Korrespondenz")), techSections.join(","));
 const { data: techMessages } = await admin.from("messages").select("subject").eq("request_id", techRequest.id);
 check("  keine Prüfaktionen für Techniker", !techDetail.html.includes('id="aktionen"'));
 const { data: reviewRequest } = await admin.from("requests").select("id").eq("intake_status", "needs_review").eq("is_demo", true).limit(1).single();
@@ -227,7 +232,7 @@ const planningOf = async (dispatcher) => {
   if (dispatcher) query = query.eq("dispatcher_id", dispatcher);
   return (await query).data.map((row) => row.request_number).sort();
 };
-const queueNumbers = (html) => [...html.matchAll(/class="plan-queue__item"[^>]*><span class="mono">(RIS-\d{4}-\d{5})<\/span>/g)].map((match) => match[1]).sort();
+const queueNumbers = (html) => [...html.matchAll(/class="plan2__item"[^>]*><span class="plan2__item-head"><span class="mono">(RIS-\d{4}-\d{5})<\/span>/g)].map((match) => match[1]).sort();
 const dispoPlan = await get(dispoJar, "/dashboard/planung");
 check("Dispatcher: Liste „Zu planen“ = eigene Planungs-Warteschlange", JSON.stringify(queueNumbers(dispoPlan.html)) === JSON.stringify(await planningOf(dispo1)), queueNumbers(dispoPlan.html).join(","));
 const managerPlan = await get(managerJar, "/dashboard/planung");
@@ -263,8 +268,10 @@ for (const email of ["technik1.demo@example.com", "technik2.demo@example.com", "
   const upcoming = (await admin.from("visits").select("requests!inner(request_number)").eq("technician_id", me).eq("status", "scheduled").gt("scheduled_end", nowIso).order("scheduled_start").limit(1)).data;
   const expectedNext = (running[0] ?? upcoming[0])?.requests.request_number ?? null;
   const today = await get(jar, "/dashboard/heute");
-  const nextSection = today.html.slice(today.html.indexOf('id="next-title"'), today.html.indexOf('id="today-title"'));
-  check(`${short}: nächster Einsatz = ${expectedNext ?? "keiner"}`, today.status === 200 && (expectedNext ? nextSection.includes(expectedNext) : nextSection.includes("Kein Einsatz geplant")));
+  // "Jetzt"/"Als Nächstes" card only when there is a running or next visit (task-10-3)
+  const nowStart = today.html.indexOf('id="now-title"');
+  const nextSection = nowStart < 0 ? "" : today.html.slice(nowStart, today.html.indexOf('id="today-title"'));
+  check(`${short}: nächster Einsatz = ${expectedNext ?? "keiner"}`, today.status === 200 && (expectedNext ? nextSection.includes(expectedNext) : nowStart < 0));
   const { data: ordered } = await admin.from("work_entries").select("description, requests!inner(request_number, technician_id)").eq("kind", "part").eq("item_status", "ordered").eq("requests.technician_id", me);
   check(`${short}: ausstehende Teile (${ordered.length}) aufgeführt`, ordered.every((entry) => today.html.includes(entry.requests.request_number) && today.html.includes(entry.description)));
 

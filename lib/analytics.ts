@@ -107,23 +107,33 @@ export function formatKpiValue(unit: KpiRow["unit"], value: number | null | unde
   }
 }
 
-export type KpiChange = { text: string; tone: "good" | "bad" | "neutral"; note: string | null };
+export type KpiTone = "good" | "bad" | "neutral";
+export type KpiChange = { text: string; tone: KpiTone; word: string | null; note: string | null };
+
+// Assessment of a change (specification section 03): green and red mean better and worse, not more
+// and less. Metrics without direction say "mehr"/"weniger" in grey. The word is always shown,
+// so the color is never the only cue.
+export function kpiAssessment(key: string, difference: number): { tone: KpiTone; word: string } {
+  if (difference === 0) return { tone: "neutral", word: "unverändert" };
+  const better = KPI_INFO[key]?.better ?? null;
+  if (better === null) return { tone: "neutral", word: difference > 0 ? "mehr" : "weniger" };
+  return (difference > 0) === (better === "up") ? { tone: "good", word: "besser" } : { tone: "bad", word: "schlechter" };
+}
 
 // Change against the comparison period: percent for amounts, points for percentages,
 // never a percentage on a zero or missing base
 export function formatKpiChange(row: Pick<KpiRow, "key" | "unit" | "current_value" | "previous_value" | "difference" | "change_percent">): KpiChange {
   const { unit, current_value: current, previous_value: previous, difference } = row;
-  if (current === null || previous === null || difference === null) return { text: "–", tone: "neutral", note: "Kein Vergleichswert" };
-  const better = KPI_INFO[row.key]?.better ?? null;
-  const tone: KpiChange["tone"] = difference === 0 || better === null ? "neutral" : (difference > 0) === (better === "up") ? "good" : "bad";
+  if (current === null || previous === null || difference === null) return { text: "–", tone: "neutral", word: null, note: "Kein Vergleichswert" };
+  const { tone, word } = kpiAssessment(row.key, difference);
   const sign = difference > 0 ? "+" : difference < 0 ? "−" : "±";
-  if (unit === "percent") return { text: `${sign}${formatNumber(Math.abs(difference), 1)} Pkt.`, tone, note: null };
+  if (unit === "percent") return { text: `${sign}${formatNumber(Math.abs(difference), 1)} Pkt.`, tone, word, note: null };
   if (previous === 0) {
     const absolute = unit === "eur" ? formatCurrency(Math.abs(difference)) : unit === "minutes" ? formatMinutes(Math.abs(difference)) : formatNumber(Math.abs(difference), unit === "days" ? 1 : 0);
-    return { text: `${sign}${absolute}`, tone, note: "Vorperiode 0 – kein Prozentwert" };
+    return { text: `${sign}${absolute}`, tone, word, note: "Vorperiode 0 – kein Prozentwert" };
   }
-  if (row.change_percent === null) return { text: "–", tone: "neutral", note: "Kein Vergleichswert" };
-  return { text: `${sign}${formatNumber(Math.abs(row.change_percent), 1)} %`, tone, note: null };
+  if (row.change_percent === null) return { text: "–", tone: "neutral", word: null, note: "Kein Vergleichswert" };
+  return { text: `${sign}${formatNumber(Math.abs(row.change_percent), 1)} %`, tone, word, note: null };
 }
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];

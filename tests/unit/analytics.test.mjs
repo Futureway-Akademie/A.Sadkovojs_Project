@@ -3,7 +3,7 @@
 // Run with: npm run test:unit
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatKpiChange, formatKpiValue, formatRange, KPI_GROUPS, KPI_INFO, neighbourAnchors, parsePeriodParams, periodQuery, periodTitle } from "../../lib/analytics.ts";
+import { formatKpiChange, kpiAssessment, formatKpiValue, formatRange, KPI_GROUPS, KPI_INFO, neighbourAnchors, parsePeriodParams, periodQuery, periodTitle } from "../../lib/analytics.ts";
 
 const nbsp = (text) => text.replace(/[  ]/g, " ");
 
@@ -39,12 +39,31 @@ test("Werte je Einheit", () => {
 });
 
 test("Änderung: Prozent, Punkte, Null-Basis ohne Prozentwert, Richtung", () => {
-  assert.deepEqual(formatKpiChange({ key: "completed", unit: "count", current_value: 16, previous_value: 6, difference: 10, change_percent: 166.7 }), { text: "+166,7 %", tone: "good", note: null });
-  assert.deepEqual(formatKpiChange({ key: "lead_time_days", unit: "days", current_value: 13.7, previous_value: 11.6, difference: 2.1, change_percent: 18.1 }), { text: "+18,1 %", tone: "bad", note: null });
-  assert.deepEqual(formatKpiChange({ key: "automatic_share", unit: "percent", current_value: 63.6, previous_value: 41.7, difference: 21.9, change_percent: null }), { text: "+21,9 Pkt.", tone: "good", note: null });
-  assert.deepEqual(formatKpiChange({ key: "review_queue", unit: "count", current_value: 5, previous_value: 0, difference: 5, change_percent: null }), { text: "+5", tone: "bad", note: "Vorperiode 0 – kein Prozentwert" });
-  assert.deepEqual(formatKpiChange({ key: "received", unit: "count", current_value: 8, previous_value: 10, difference: -2, change_percent: -20 }), { text: "−20,0 %", tone: "neutral", note: null });
-  assert.deepEqual(formatKpiChange({ key: "response_on_time", unit: "percent", current_value: null, previous_value: 50, difference: null, change_percent: null }), { text: "–", tone: "neutral", note: "Kein Vergleichswert" });
+  assert.deepEqual(formatKpiChange({ key: "completed", unit: "count", current_value: 16, previous_value: 6, difference: 10, change_percent: 166.7 }), { text: "+166,7 %", tone: "good", word: "besser", note: null });
+  assert.deepEqual(formatKpiChange({ key: "lead_time_days", unit: "days", current_value: 13.7, previous_value: 11.6, difference: 2.1, change_percent: 18.1 }), { text: "+18,1 %", tone: "bad", word: "schlechter", note: null });
+  assert.deepEqual(formatKpiChange({ key: "automatic_share", unit: "percent", current_value: 63.6, previous_value: 41.7, difference: 21.9, change_percent: null }), { text: "+21,9 Pkt.", tone: "good", word: "besser", note: null });
+  assert.deepEqual(formatKpiChange({ key: "review_queue", unit: "count", current_value: 5, previous_value: 0, difference: 5, change_percent: null }), { text: "+5", tone: "bad", word: "schlechter", note: "Vorperiode 0 – kein Prozentwert" });
+  assert.deepEqual(formatKpiChange({ key: "received", unit: "count", current_value: 8, previous_value: 10, difference: -2, change_percent: -20 }), { text: "−20,0 %", tone: "neutral", word: "weniger", note: null });
+  assert.deepEqual(formatKpiChange({ key: "response_on_time", unit: "percent", current_value: null, previous_value: 50, difference: null, change_percent: null }), { text: "–", tone: "neutral", word: null, note: "Kein Vergleichswert" });
+});
+
+test("Bewertung nach Richtung: besser/schlechter statt mehr/weniger (Nutzerentscheidung 08.10.2026)", () => {
+  // higher is better
+  for (const key of ["completed", "response_on_time", "service_on_time", "automatic_share", "time_saved_minutes", "payments_received"]) {
+    assert.deepEqual(kpiAssessment(key, 3), { tone: "good", word: "besser" }, key);
+    assert.deepEqual(kpiAssessment(key, -3), { tone: "bad", word: "schlechter" }, key);
+  }
+  // lower is better
+  for (const key of ["lead_time_days", "review_queue", "planning_queue", "open_receivables", "overdue_receivables"]) {
+    assert.deepEqual(kpiAssessment(key, 3), { tone: "bad", word: "schlechter" }, key);
+    assert.deepEqual(kpiAssessment(key, -3), { tone: "good", word: "besser" }, key);
+  }
+  // neutral: volume only
+  for (const key of ["received", "intake_completed", "open_requests", "invoiced_gross", "unbekannt"]) {
+    assert.deepEqual(kpiAssessment(key, 3), { tone: "neutral", word: "mehr" }, key);
+    assert.deepEqual(kpiAssessment(key, -3), { tone: "neutral", word: "weniger" }, key);
+  }
+  assert.deepEqual(kpiAssessment("completed", 0), { tone: "neutral", word: "unverändert" });
 });
 
 test("jede Kennzahl der Übersicht hat Definition und Listen-Link", () => {

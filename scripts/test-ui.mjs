@@ -181,16 +181,16 @@ try {
     }
   }
 
-  console.log("\nManager-Übersicht: Kennzahlen führen zu passenden Listen");
+  console.log("\nÜbersicht (Admin): Kennzahlen führen zu passenden Listen");
   {
     await page.send("Network.clearBrowserCookies");
-    await page.send("Network.setCookies", { cookies: await loginCookies("manager.demo@example.com") });
+    await page.send("Network.setCookies", { cookies: await loginCookies("admin.demo@example.com") });
     await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
     const overview = `${BASE}/dashboard/uebersicht?zeitraum=monat`;
     await page.open(overview);
-    const tiles = await page.eval(`Object.fromEntries([...document.querySelectorAll(".kpi")].map((tile) => [tile.dataset.kpi, { value: tile.querySelector(".kpi__value").dataset.value, measure: tile.dataset.measure, href: tile.querySelector(".kpi__link")?.getAttribute("href") ?? null }]))`);
+    const tiles = await page.eval(`Object.fromEntries([...document.querySelectorAll("[data-kpi]")].map((tile) => [tile.dataset.kpi, { value: tile.dataset.value, href: tile.querySelector(".rw-kpi__link")?.getAttribute("href") ?? null }]))`);
     check("16 Kennzahlen, jede mit Listen-Link", Object.keys(tiles).length === 16 && Object.values(tiles).every((tile) => tile.href), Object.keys(tiles).join(","));
-    check("Ereignis- und Momentaufnahme-Kennzahlen gekennzeichnet", tiles.received?.measure === "event" && tiles.open_requests?.measure === "snapshot" && tiles.open_receivables?.measure === "snapshot");
+    check("Höchstens 4 Kacheln sichtbar, weitere hinter „Weitere Kennzahlen anzeigen“", await page.eval(`document.querySelectorAll("[data-kpis=main] [data-kpi]").length === 4 && !!document.querySelector(".rw-kpi-more")`));
     const listCount = async (href) => {
       await page.open(`${BASE}${href}`);
       return page.eval(`(() => { const sum = document.querySelector("[data-sum=gross]"); if (sum) return sum.textContent.replace(/[^0-9,]/g, "").replace(",", "."); const text = document.querySelector(".result-count")?.textContent ?? ""; return (text.match(/^[\\d.]+/) ?? ["0"])[0].replace(/\\./g, ""); })()`);
@@ -202,11 +202,14 @@ try {
       check(`  ${key}: Liste ${listed} = Kennzahl ${tile?.value}`, tile && Number(listed) === Number(tile.value), tile?.href);
     }
     await page.open(overview);
-    const title = await page.eval(`document.querySelector(".period-bar__step strong").textContent`);
-    await page.eval(`document.querySelector('.period-bar__step a[aria-label="Vorheriger Zeitraum"]').click()`);
-    const moved = await page.until(`location.search.includes("datum=") && !!document.querySelector(".period-bar__step strong") && document.querySelector(".period-bar__step strong").textContent !== ${JSON.stringify(title)}`);
+    // Period control sits at the block it filters (task-10-3)
+    const note = `document.querySelector("section[aria-labelledby=z-period] .rw-zone__note")?.textContent ?? ""`;
+    const title = (await page.eval(note)).split(" · ")[0];
+    await page.eval(`document.querySelector('.rw-period a[aria-label="Vorheriger Zeitraum"]').click()`);
+    // The note is empty while the period block loads, so wait for the new period's text
+    const moved = await page.until(`location.search.includes("datum=") && (${note}) !== "" && !(${note}).startsWith(${JSON.stringify(title)})`);
     check(`Zeitraum zurück: ${title} → vorheriger Monat`, moved, await page.eval(`location.search`));
-    check("  vergangener Monat ist vollständig, Weiter-Pfeil vorhanden", await page.eval(`!!document.querySelector('.period-bar__step a[aria-label="Nächster Zeitraum"]') && !document.querySelector(".period-bar__step span").textContent.includes("laufend")`));
+    check("  vergangener Monat ist vollständig, Weiter-Pfeil vorhanden", await page.eval(`!!document.querySelector('.rw-period a[aria-label="Nächster Zeitraum"]') && !(${note}).includes("laufend")`));
   }
 
   console.log("\nAuswertung: Diagramme aus Datenbankdaten");
@@ -214,9 +217,9 @@ try {
     const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
     await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
     await page.open(`${BASE}/dashboard/auswertung`);
-    await page.until(`document.querySelectorAll(".figure .recharts-surface").length >= 7`, 10000);
+    await page.until(`document.querySelectorAll(".figure .recharts-surface").length >= 10`, 10000);
     const figures = await page.eval(`[...document.querySelectorAll("figure.figure")].map((f) => ({ id: f.dataset.chart, svg: !!f.querySelector(".recharts-surface"), marks: f.querySelectorAll(".recharts-line-curve, .recharts-bar-rectangle").length, table: f.querySelectorAll(".figure__table tbody tr").length }))`);
-    check("7 Diagramme mit Datentabelle gezeichnet", figures.length === 7 && figures.every((f) => f.svg && f.marks > 0 && f.table > 0), JSON.stringify(figures));
+    check("10 Diagramme (4 Warteschlangen als Einzeldiagramme) mit Datentabelle gezeichnet", figures.length === 10 && figures.every((f) => f.svg && f.marks > 0 && f.table > 0), JSON.stringify(figures));
     // Current month in the flow table equals a direct count in the database (Europe/Berlin)
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit" }).formatToParts(new Date()).map((p) => [p.type, p.value]));
     const offset = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", timeZoneName: "longOffset" }).formatToParts(new Date(`${parts.year}-${parts.month}-01T12:00:00Z`)).find((p) => p.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
@@ -391,10 +394,10 @@ try {
   const week = weekDate.toISOString().slice(0, 10);
   const utcOffsetHours = new Date(`${week}T12:00:00Z`).toLocaleString("en-US", { timeZone: "Europe/Berlin", hour: "2-digit", hourCycle: "h23" }) - 12;
   const visitsOf = async (requestId) => (await admin.from("visits").select("technician_id, scheduled_start, scheduled_end, status").eq("request_id", requestId)).data;
-  const bookingForm = `document.querySelector("#booking form")`;
+  const bookingForm = `document.querySelector("#auswahl form")`;
   await page.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await page.open(`${BASE}/dashboard/planung?woche=${week}&anfrage=${planA.id}`);
-  check("Anfrage in „Zu planen“ ausgewählt", await page.eval(`document.querySelector('.plan-queue__item[aria-current="true"]')?.textContent.includes(${JSON.stringify(planA.request_number)})`));
+  check("Anfrage in „Zu planen“ ausgewählt", await page.eval(`document.querySelector('.plan2__item[aria-current="true"]')?.textContent.includes(${JSON.stringify(planA.request_number)})`));
   // Click at 09:00 in Tobias' lane on Monday
   await page.eval(`(() => {
     const day = document.querySelector(".plan-day");
@@ -414,7 +417,7 @@ try {
   check(`Einsatz über schedule_visit gebucht (${week} 09:00–11:00 Berlin)`, booked && new Date(visitA.scheduled_start).toISOString() === expectedStart && new Date(visitA.scheduled_end).toISOString() === expectedEnd && visitA.status === "scheduled", JSON.stringify(visitA));
   await page.open(`${BASE}/dashboard/planung?woche=${week}`);
   check("  im Kalender als eigene Anfrage sichtbar", await page.eval(`[...document.querySelectorAll(".plan-block--own")].some((b) => b.textContent.includes(${JSON.stringify(planA.request_number)}))`));
-  check("  Anfrage verlässt „Zu planen“", await page.eval(`![...document.querySelectorAll(".plan-queue__item")].some((i) => i.textContent.includes(${JSON.stringify(planA.request_number)}))`));
+  check("  Anfrage verlässt „Zu planen“", await page.eval(`![...document.querySelectorAll(".plan2__item")].some((i) => i.textContent.includes(${JSON.stringify(planA.request_number)}))`));
 
   // Conflict: same technician and slot for request B → RW410, inputs kept, nothing booked
   await page.open(`${BASE}/dashboard/planung?woche=${week}&anfrage=${planB.id}`);

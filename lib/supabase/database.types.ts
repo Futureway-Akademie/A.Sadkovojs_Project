@@ -695,6 +695,62 @@ isOneToOne: false
               "current_end": string,"current_start": string,"is_complete": boolean,"period_end": string,"period_kind": string,"previous_end": string,"previous_start": string,"time_zone": string
             }[]
                            },
+"apply_analysis_result":
+{ Args: { "expected_version": number,"request_id": string,"result": Json,"run_id": string }; Returns: {
+              "business_email": string,
+"cancellation_reason": string | null,
+"cancelled_at": string | null,
+"city": string,
+"company_name": string,
+"completed_at": string | null,
+"completion_summary": string | null,
+"contact_name": string,
+"created_at": string,
+"customer_number": string | null,
+"customer_urgency": Database["public"]['Enums']["customer_urgency"],
+"description": string,
+"dispatcher_id": string | null,
+"emergency_sla_claimed": boolean | null,
+"equipment_kind": Database["public"]['Enums']["equipment_kind"],
+"first_substantive_response_at": string | null,
+"human_review_required": boolean,
+"id": string,
+"intake_completed_at": string | null,
+"intake_mode": Database["public"]['Enums']["intake_mode"] | null,
+"intake_status": Database["public"]['Enums']["intake_status"],
+"is_demo": boolean,
+"machine_number": string | null,
+"manual_minutes_baseline": number | null,
+"manufacturer": string | null,
+"model_type": string | null,
+"phone_number": string,
+"postal_code": string,
+"priority": Database["public"]['Enums']["request_priority"] | null,
+"raw_payload": NonNullable<Json>,
+"rejection_reason": string | null,
+"request_number": string,
+"requested_visit_date": string,
+"response_due_at": string | null,
+"safety_risk": Database["public"]['Enums']["safety_risk"],
+"service_due_at": string | null,
+"service_kind": Database["public"]['Enums']["service_kind"],
+"site_label": string | null,
+"sla_contract_number": string | null,
+"sla_verified": boolean,
+"source": string,
+"source_event_key": string,
+"street_house_number": string,
+"technician_id": string | null,
+"updated_at": string,
+"version": number,
+"work_status": Database["public"]['Enums']["work_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "requests"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "assign_dispatcher":
 { Args: { "dispatcher_id": string,"expected_version": number,"request_id": string }; Returns: {
               "business_email": string,
@@ -887,6 +943,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"claim_queued_messages":
+{ Args: { "batch_limit"?: number,"lease_seconds"?: number }; Returns: Json[]
+                           },
 "close_request":
 { Args: { "completion_summary": string,"expected_version": number,"request_id": string }; Returns: {
               "business_email": string,
@@ -943,6 +1002,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"complete_incoming_message":
+{ Args: { "message_id": string,"warnings"?: Json }; Returns: Json
+                           },
 "complete_intake":
 { Args: { "expected_version": number,"note"?: string,"priority"?: Database["public"]['Enums']["request_priority"],"request_id": string }; Returns: {
               "business_email": string,
@@ -1024,6 +1086,41 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "confirm_message_sent":
+{ Args: { "gmail_message_id"?: string,"gmail_thread_id"?: string,"mailbox_key"?: string,"message_id": string,"mime_message_id"?: string,"sent_at"?: string }; Returns: {
+              "approved_at": string | null,
+"approved_by": string | null,
+"author_id": string | null,
+"body_text": string,
+"created_at": string,
+"direction": Database["public"]['Enums']["message_direction"],
+"error_text": string | null,
+"from_address": string | null,
+"gmail_message_id": string | null,
+"gmail_thread_id": string | null,
+"handled_at": string | null,
+"id": string,
+"in_reply_to": string | null,
+"inbox_dispatcher_id": string | null,
+"invoice_id": string | null,
+"kind": Database["public"]['Enums']["message_kind"],
+"mailbox_key": string | null,
+"mime_message_id": string | null,
+"received_at": string | null,
+"references_header": (string)[] | null,
+"request_id": string | null,
+"sent_at": string | null,
+"status": Database["public"]['Enums']["message_status"],
+"subject": string,
+"to_address": string | null,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "messages"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"confirm_message_sent_base":
 { Args: { "gmail_message_id"?: string,"gmail_thread_id"?: string,"mailbox_key"?: string,"message_id": string,"mime_message_id"?: string,"sent_at"?: string }; Returns: {
               "approved_at": string | null,
 "approved_by": string | null,
@@ -1184,6 +1281,97 @@ isOneToOne: false
 "demo_seed_purge":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"find_submission":
+{ Args: { "submission_id": string }; Returns: Json
+                           },
+"finish_automation_run":
+{ Args: { "confidence"?: number,"decision"?: Database["public"]['Enums']["automation_decision"],"error_code"?: string,"error_text"?: string,"result"?: Json,"run_id": string,"status": Database["public"]['Enums']["automation_status"],"workflow_execution_id"?: string }; Returns: {
+              "confidence": number | null,
+"corrected_at": string | null,
+"corrected_by": string | null,
+"correction_reason": string | null,
+"created_at": string,
+"decision": Database["public"]['Enums']["automation_decision"] | null,
+"error_code": string | null,
+"error_text": string | null,
+"finished_at": string | null,
+"id": string,
+"input_version": number | null,
+"message_id": string | null,
+"operation_key": string,
+"request_id": string | null,
+"result": Json | null,
+"started_at": string,
+"status": Database["public"]['Enums']["automation_status"],
+"step": Database["public"]['Enums']["automation_step"],
+"updated_at": string,
+"workflow_execution_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "automation_runs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"get_analysis_context":
+{ Args: { "message_id"?: string,"request_id": string }; Returns: Json
+                           },
+"ingest_submission":
+{ Args: { "payload": Json }; Returns: {
+              "business_email": string,
+"cancellation_reason": string | null,
+"cancelled_at": string | null,
+"city": string,
+"company_name": string,
+"completed_at": string | null,
+"completion_summary": string | null,
+"contact_name": string,
+"created_at": string,
+"customer_number": string | null,
+"customer_urgency": Database["public"]['Enums']["customer_urgency"],
+"description": string,
+"dispatcher_id": string | null,
+"emergency_sla_claimed": boolean | null,
+"equipment_kind": Database["public"]['Enums']["equipment_kind"],
+"first_substantive_response_at": string | null,
+"human_review_required": boolean,
+"id": string,
+"intake_completed_at": string | null,
+"intake_mode": Database["public"]['Enums']["intake_mode"] | null,
+"intake_status": Database["public"]['Enums']["intake_status"],
+"is_demo": boolean,
+"machine_number": string | null,
+"manual_minutes_baseline": number | null,
+"manufacturer": string | null,
+"model_type": string | null,
+"phone_number": string,
+"postal_code": string,
+"priority": Database["public"]['Enums']["request_priority"] | null,
+"raw_payload": NonNullable<Json>,
+"rejection_reason": string | null,
+"request_number": string,
+"requested_visit_date": string,
+"response_due_at": string | null,
+"safety_risk": Database["public"]['Enums']["safety_risk"],
+"service_due_at": string | null,
+"service_kind": Database["public"]['Enums']["service_kind"],
+"site_label": string | null,
+"sla_contract_number": string | null,
+"sla_verified": boolean,
+"source": string,
+"source_event_key": string,
+"street_house_number": string,
+"technician_id": string | null,
+"updated_at": string,
+"version": number,
+"work_status": Database["public"]['Enums']["work_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "requests"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "issue_invoice":
 { Args: { "expected_version": number,"invoice_id": string }; Returns: {
               "created_at": string,
@@ -1248,6 +1436,15 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"list_incomplete_incoming":
+{ Args: { "batch_limit"?: number }; Returns: Json[]
+                           },
+"list_orphaned_integration_files":
+{ Args: Record<PropertyKey, never>; Returns: Json[]
+                           },
+"list_pending_analyses":
+{ Args: { "batch_limit"?: number }; Returns: Json[]
+                           },
 "mark_awaiting_customer":
 { Args: { "expected_version": number,"note"?: string,"request_id": string }; Returns: {
               "business_email": string,
@@ -1301,6 +1498,41 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "requests"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"mark_message_failed":
+{ Args: { "error_text": string,"message_id": string,"permanent"?: boolean }; Returns: {
+              "approved_at": string | null,
+"approved_by": string | null,
+"author_id": string | null,
+"body_text": string,
+"created_at": string,
+"direction": Database["public"]['Enums']["message_direction"],
+"error_text": string | null,
+"from_address": string | null,
+"gmail_message_id": string | null,
+"gmail_thread_id": string | null,
+"handled_at": string | null,
+"id": string,
+"in_reply_to": string | null,
+"inbox_dispatcher_id": string | null,
+"invoice_id": string | null,
+"kind": Database["public"]['Enums']["message_kind"],
+"mailbox_key": string | null,
+"mime_message_id": string | null,
+"received_at": string | null,
+"references_header": (string)[] | null,
+"request_id": string | null,
+"sent_at": string | null,
+"status": Database["public"]['Enums']["message_status"],
+"subject": string,
+"to_address": string | null,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "messages"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1395,6 +1627,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"record_incoming_message":
+{ Args: { "payload": Json }; Returns: Json
+                           },
 "record_payment":
 { Args: { "expected_version": number,"invoice_id": string,"paid_at"?: string }; Returns: {
               "created_at": string,
@@ -1421,6 +1656,28 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "invoices"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"register_incoming_attachment":
+{ Args: { "file_name": string,"message_id": string,"mime_type": string,"size_bytes": number,"storage_path": string }; Returns: {
+              "bucket": string,
+"created_at": string,
+"file_name": string,
+"id": string,
+"invoice_id": string | null,
+"message_id": string | null,
+"mime_type": string,
+"request_id": string | null,
+"size_bytes": number,
+"storage_path": string,
+"uploaded_by": string | null,
+"visibility": Database["public"]['Enums']["visibility_level"],
+"visit_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "attachments"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1690,6 +1947,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"start_automation_run":
+{ Args: { "input_version"?: number,"message_id"?: string,"operation_key": string,"request_id"?: string,"step": Database["public"]['Enums']["automation_step"],"workflow_execution_id"?: string }; Returns: Json
+                           },
 "start_visit":
 { Args: { "expected_version": number,"visit_id": string }; Returns: {
               "actual_end": string | null,
@@ -1717,6 +1977,11 @@ isOneToOne: false
 "technician_busy_intervals":
 { Args: { "range_end": string,"range_start": string }; Returns: {
               "busy_kind": string,"ends_at": string,"starts_at": string,"technician_id": string
+            }[]
+                           },
+"technician_experience":
+{ Args: { "request_id": string }; Returns: {
+              "customer_visits": number,"equipment_visits": number,"manufacturer_visits": number,"technician_id": string
             }[]
                            },
 "update_message_draft":

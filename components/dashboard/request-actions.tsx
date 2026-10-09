@@ -1,4 +1,5 @@
 import { closeRequest, completeIntake, correctAnalysis, createDraft, createInvoice, issueInvoice, markAwaitingCustomer, queueDraft, rejectRequest, updateDraft } from "@/app/(dashboard)/dashboard/anfragen/[id]/actions";
+import type { ReactNode } from "react";
 import { HiddenField, SaveForm, SelectField, TextAreaField, TextField } from "@/components/dashboard/ui/save-form";
 import type { Employee } from "@/lib/auth/session";
 import type { RequestDetail } from "@/lib/dashboard/requests";
@@ -40,125 +41,150 @@ function Context({ detail }: { detail: RequestDetail }) {
   );
 }
 
+// Order of recommendation (specification section 06): the first possible action is the next step,
+// the others follow under "Oder stattdessen", rejecting comes last in red.
+const PRIMARY_ORDER = ["complete", "close", "createInvoice", "issueInvoice"] as const;
+const ALTERNATIVE_ORDER = ["complete", "close", "createInvoice", "issueInvoice", "email", "await", "correct", "reject"] as const;
+type ActionKey = (typeof ALTERNATIVE_ORDER)[number];
+
+export function nextStepOf(can: ReturnType<typeof availableActions>): { primary: ActionKey | null; alternatives: ActionKey[] } {
+  const primary = PRIMARY_ORDER.find((key) => can[key]) ?? null;
+  return { primary, alternatives: ALTERNATIVE_ORDER.filter((key) => can[key] && key !== primary) };
+}
+
 export function RequestActions({ detail, employee }: { detail: RequestDetail; employee: Employee }) {
   const r = detail.request;
   const can = availableActions(detail, employee);
+  const { primary, alternatives } = nextStepOf(can);
   const openVisits = detail.visits.filter((visit) => OPEN_VISITS.includes(visit.status)).length;
   const lastRun = [...(detail.automationRuns ?? [])].reverse().find((run) => run.status === "succeeded" && !run.corrected_at && ["intake_analysis", "reply_analysis"].includes(run.step));
   const subject = `Rückfrage zu Ihrer Serviceanfrage ${r.request_number}`;
   const body = `Guten Tag ${r.contact_name},\n\nvielen Dank für Ihre Anfrage ${r.request_number}. Für die Planung des Einsatzes benötigen wir noch folgende Angaben:\n\n- \n\nMit freundlichen Grüßen\n${employee.displayName}\nRheinWerk Industrieservice`;
+  // Only the next step has the primary (lime) button
+  const variant = (key: ActionKey) => (key === primary ? "primary" : "secondary");
+  const className = (key: ActionKey) => `action${key === primary ? " action--primary" : ""}${key === "reject" ? " action--danger" : ""}`;
+
+  const render: Record<ActionKey, () => ReactNode> = {
+    complete: () => (
+      <details key="complete" className={className("complete")} open={primary === "complete" || undefined}>
+        <summary>Prüfen und freigeben</summary>
+        <p className="section-note">Schließt die Erstbearbeitung ab. Die Anfrage geht danach in die Einsatzplanung.</p>
+        <SaveForm action={completeIntake} submitLabel="Erstbearbeitung abschließen" submitVariant={variant("complete")}>
+          <Context detail={detail} />
+          <div className="form-grid">
+            <SelectField name="priority" label="Priorität" required defaultValue={r.priority ?? ""} options={priorityOptions} />
+          </div>
+          <TextAreaField name="note" label="Notiz für den Verlauf" rows={2} />
+        </SaveForm>
+      </details>
+    ),
+    correct: () => (
+      <details key="correct" className={className("correct")}>
+        <summary>Analyse korrigieren</summary>
+        <p className="section-note">
+          Für falsche automatische oder frühere Einstufungen. Die Korrektur wird im Verlauf festgehalten
+          {lastRun ? " und der letzte Automatisierungslauf als korrigiert markiert (zählt nicht als Zeitersparnis)" : ""}.
+        </p>
+        <SaveForm action={correctAnalysis} submitLabel="Korrektur speichern" submitVariant="secondary">
+          <Context detail={detail} />
+          <HiddenField name="current_priority" value={r.priority ?? ""} />
+          <HiddenField name="current_service_kind" value={r.service_kind} />
+          {lastRun && <HiddenField name="automation_run_id" value={lastRun.id} />}
+          <div className="form-grid">
+            <SelectField name="priority" label={`Priorität (aktuell: ${r.priority ? statusInfo("request_priority", r.priority).label : "nicht bestimmt"})`} defaultValue={r.priority ?? ""} options={priorityOptions} />
+            <SelectField name="service_kind" label="Leistungsart" required defaultValue={r.service_kind} options={serviceOptions} />
+          </div>
+          <TextAreaField name="reason" label="Grund der Korrektur" required rows={2} />
+        </SaveForm>
+      </details>
+    ),
+    email: () => (
+      <details key="email" className={className("email")}>
+        <summary>E-Mail an Kunden vorbereiten</summary>
+        <p className="section-note">Erstellt einen Entwurf. Versendet wird nichts: Erst nach „In Warteschlange stellen“ unter Korrespondenz übernimmt die spätere Integration den Versand.</p>
+        <SaveForm action={createDraft} submitLabel="Als Entwurf speichern" submitVariant="secondary">
+          <Context detail={detail} />
+          <div className="form-grid">
+            <SelectField name="kind" label="Art" required defaultValue="clarification" options={[{ value: "clarification", label: "Rückfrage" }, { value: "other", label: "Sonstige Nachricht" }]} />
+            <TextField name="to_address" label="Empfänger" type="email" required defaultValue={r.business_email} />
+          </div>
+          <TextField name="subject" label="Betreff" required defaultValue={subject} />
+          <TextAreaField name="body_text" label="Text" required rows={8} defaultValue={body} />
+        </SaveForm>
+      </details>
+    ),
+    await: () => (
+      <details key="await" className={className("await")}>
+        <summary>Auf Kundenantwort warten</summary>
+        <p className="section-note">Setzt die Erstbearbeitung auf „Wartet auf Kunde“, z. B. nachdem eine Rückfrage in die Warteschlange gestellt wurde.</p>
+        <SaveForm action={markAwaitingCustomer} submitLabel="Status setzen" submitVariant="secondary">
+          <Context detail={detail} />
+          <TextAreaField name="note" label="Notiz für den Verlauf" rows={2} />
+        </SaveForm>
+      </details>
+    ),
+    close: () => (
+      <details key="close" className={className("close")} open={primary === "close" || undefined}>
+        <summary>Anfrage abschließen</summary>
+        {openVisits > 0 ? (
+          <p className="rw-blocked">Noch offen: {openVisits === 1 ? "ein Einsatz" : `${openVisits} Einsätze`}. Abschließen ist erst möglich, wenn alle Einsätze beendet oder storniert sind.</p>
+        ) : (
+          <>
+            <p className="section-note">Schließt die Arbeit an dieser Anfrage technisch ab; eine Freigabe durch die Leitung ist nicht nötig. Danach kann die Rechnung erstellt werden. Arbeitspositionen bleiben bis zur Ausstellung der Rechnung korrigierbar.</p>
+            <SaveForm action={closeRequest} submitLabel="Anfrage abschließen" submitVariant={variant("close")}>
+              <Context detail={detail} />
+              <TextAreaField name="completion_summary" label="Abschlussbericht" required rows={4} defaultValue={[...detail.visits].reverse().find((visit) => visit.status === "completed")?.summary ?? ""} />
+            </SaveForm>
+          </>
+        )}
+      </details>
+    ),
+    createInvoice: () => (
+      <details key="createInvoice" className={className("createInvoice")} open={primary === "createInvoice" || undefined}>
+        <summary>Rechnung erstellen</summary>
+        <p className="section-note">Legt einen Rechnungsentwurf aus den abrechenbaren Positionen an (geleistete Arbeit und Pauschalen, verbaute Teile). Der Entwurf ist eine Vorschau und hat noch keine Rechnungsnummer.</p>
+        <SaveForm action={createInvoice} submitLabel="Rechnungsentwurf erstellen" submitVariant={variant("createInvoice")}>
+          <Context detail={detail} />
+        </SaveForm>
+      </details>
+    ),
+    issueInvoice: () => detail.invoice && (
+      <details key="issueInvoice" className={className("issueInvoice")} open={primary === "issueInvoice" || undefined}>
+        <summary>Rechnung ausstellen</summary>
+        {detail.invoiceItems.length === 0 ? (
+          <p className="rw-blocked">Noch offen: abrechenbare Positionen. Bitte unter „Arbeit“ geleistete Arbeit oder verbaute Teile erfassen.</p>
+        ) : (
+          <p className="section-note">
+            Vergibt die Rechnungsnummer und übernimmt den aktuellen Stand der Arbeitspositionen (Vorschau: {formatCurrency(detail.invoice.total, detail.invoice.currency)} brutto).
+            Danach sind Rechnung und Positionen unveränderlich, und das PDF (Musterrechnung / Demodaten) steht bereit. Versendet wird nichts.
+          </p>
+        )}
+        <SaveForm action={issueInvoice} submitLabel="Rechnung ausstellen" submitVariant={variant("issueInvoice")}>
+          <Context detail={detail} />
+          <HiddenField name="invoice_id" value={detail.invoice.id} />
+        </SaveForm>
+      </details>
+    ),
+    reject: () => (
+      <details key="reject" className={className("reject")}>
+        <summary>Anfrage ablehnen</summary>
+        <p className="section-note">Nur vor Arbeitsbeginn möglich. Geplante Einsätze werden storniert. Der Kunde wird nicht automatisch benachrichtigt.</p>
+        <SaveForm action={rejectRequest} submitLabel="Anfrage ablehnen" submitVariant="danger">
+          <Context detail={detail} />
+          <TextAreaField name="reason" label="Ablehnungsgrund" required rows={3} />
+        </SaveForm>
+      </details>
+    ),
+  };
 
   return (
     <div className="action-list">
-      {can.complete && (
-        <details className="action" open={r.intake_status === "needs_review"}>
-          <summary>Prüfen und freigeben</summary>
-          <p className="section-note">Schließt die Erstbearbeitung ab. Die Anfrage erscheint danach unter „Einsatzplanung erforderlich“.</p>
-          <SaveForm action={completeIntake} submitLabel="Erstbearbeitung abschließen">
-            <Context detail={detail} />
-            <div className="form-grid">
-              <SelectField name="priority" label="Priorität" required defaultValue={r.priority ?? ""} options={priorityOptions} />
-            </div>
-            <TextAreaField name="note" label="Notiz für den Verlauf" rows={2} />
-          </SaveForm>
-        </details>
-      )}
-      {can.correct && (
-        <details className="action">
-          <summary>Analyse korrigieren</summary>
-          <p className="section-note">
-            Für falsche automatische oder frühere Einstufungen. Die Korrektur wird im Verlauf festgehalten
-            {lastRun ? " und der letzte Automatisierungslauf als korrigiert markiert (zählt nicht als Zeitersparnis)" : ""}.
-          </p>
-          <SaveForm action={correctAnalysis} submitLabel="Korrektur speichern">
-            <Context detail={detail} />
-            <HiddenField name="current_priority" value={r.priority ?? ""} />
-            <HiddenField name="current_service_kind" value={r.service_kind} />
-            {lastRun && <HiddenField name="automation_run_id" value={lastRun.id} />}
-            <div className="form-grid">
-              <SelectField name="priority" label={`Priorität (aktuell: ${r.priority ? statusInfo("request_priority", r.priority).label : "offen"})`} defaultValue={r.priority ?? ""} options={priorityOptions} />
-              <SelectField name="service_kind" label="Leistungsart" required defaultValue={r.service_kind} options={serviceOptions} />
-            </div>
-            <TextAreaField name="reason" label="Grund der Korrektur" required rows={2} />
-          </SaveForm>
-        </details>
-      )}
-      {can.email && (
-        <details className="action">
-          <summary>E-Mail an Kunden vorbereiten</summary>
-          <p className="section-note">Erstellt einen Entwurf. Versendet wird nichts: Erst nach „In Warteschlange stellen“ unter Korrespondenz übernimmt die spätere Integration den Versand.</p>
-          <SaveForm action={createDraft} submitLabel="Als Entwurf speichern">
-            <Context detail={detail} />
-            <div className="form-grid">
-              <SelectField name="kind" label="Art" required defaultValue="clarification" options={[{ value: "clarification", label: "Rückfrage" }, { value: "other", label: "Sonstige Nachricht" }]} />
-              <TextField name="to_address" label="Empfänger" type="email" required defaultValue={r.business_email} />
-            </div>
-            <TextField name="subject" label="Betreff" required defaultValue={subject} />
-            <TextAreaField name="body_text" label="Text" required rows={8} defaultValue={body} />
-          </SaveForm>
-        </details>
-      )}
-      {can.await && (
-        <details className="action">
-          <summary>Auf Kundenantwort warten</summary>
-          <p className="section-note">Setzt die Erstbearbeitung auf „Wartet auf Kunde“, z. B. nachdem eine Rückfrage in die Warteschlange gestellt wurde.</p>
-          <SaveForm action={markAwaitingCustomer} submitLabel="Status setzen" submitVariant="secondary">
-            <Context detail={detail} />
-            <TextAreaField name="note" label="Notiz für den Verlauf" rows={2} />
-          </SaveForm>
-        </details>
-      )}
-      {can.close && (
-        <details className="action" open>
-          <summary>Anfrage abschließen</summary>
-          {openVisits > 0 ? (
-            <p className="section-note">Noch {openVisits === 1 ? "ein offener Einsatz" : `${openVisits} offene Einsätze`}. Abschließen ist erst möglich, wenn alle Einsätze beendet oder storniert sind.</p>
-          ) : (
-            <>
-              <p className="section-note">Schließt die Arbeit an dieser Anfrage technisch ab; eine Freigabe durch die Leitung ist nicht nötig. Danach kann die Rechnung erstellt werden. Arbeitspositionen bleiben bis zur Ausstellung der Rechnung korrigierbar.</p>
-              <SaveForm action={closeRequest} submitLabel="Anfrage abschließen">
-                <Context detail={detail} />
-                <TextAreaField name="completion_summary" label="Abschlussbericht" required rows={4} defaultValue={[...detail.visits].reverse().find((visit) => visit.status === "completed")?.summary ?? ""} />
-              </SaveForm>
-            </>
-          )}
-        </details>
-      )}
-      {can.createInvoice && (
-        <details className="action" open>
-          <summary>Rechnung erstellen</summary>
-          <p className="section-note">Legt einen Rechnungsentwurf aus den abrechenbaren Positionen an (geleistete Arbeit und Pauschalen, verbaute Teile). Der Entwurf ist eine Vorschau und hat noch keine Rechnungsnummer.</p>
-          <SaveForm action={createInvoice} submitLabel="Rechnungsentwurf erstellen">
-            <Context detail={detail} />
-          </SaveForm>
-        </details>
-      )}
-      {can.issueInvoice && detail.invoice && (
-        <details className="action" open>
-          <summary>Rechnung ausstellen</summary>
-          {detail.invoiceItems.length === 0 ? (
-            <p className="section-note">Der Entwurf enthält keine abrechenbaren Positionen. Bitte unter „Arbeit“ geleistete Arbeit oder verbaute Teile erfassen.</p>
-          ) : (
-            <p className="section-note">
-              Vergibt die Rechnungsnummer und übernimmt den aktuellen Stand der Arbeitspositionen (Vorschau: {formatCurrency(detail.invoice.total, detail.invoice.currency)} brutto).
-              Danach sind Rechnung und Positionen unveränderlich, und das PDF (Musterrechnung / Demodaten) steht bereit. Versendet wird nichts.
-            </p>
-          )}
-          <SaveForm action={issueInvoice} submitLabel="Rechnung ausstellen">
-            <Context detail={detail} />
-            <HiddenField name="invoice_id" value={detail.invoice.id} />
-          </SaveForm>
-        </details>
-      )}
-      {can.reject && (
-        <details className="action action--danger">
-          <summary>Anfrage ablehnen</summary>
-          <p className="section-note">Nur vor Arbeitsbeginn möglich. Geplante Einsätze werden storniert. Der Kunde wird nicht automatisch benachrichtigt.</p>
-          <SaveForm action={rejectRequest} submitLabel="Anfrage ablehnen" submitVariant="danger">
-            <Context detail={detail} />
-            <TextAreaField name="reason" label="Ablehnungsgrund" required rows={3} />
-          </SaveForm>
-        </details>
+      {primary && render[primary]()}
+      {alternatives.length > 0 && (
+        <div className="rw-alternatives">
+          <p className="rw-alternatives__label">{primary ? "Oder stattdessen" : "Mögliche Aktionen"}</p>
+          {alternatives.map((key) => render[key]())}
+        </div>
       )}
     </div>
   );

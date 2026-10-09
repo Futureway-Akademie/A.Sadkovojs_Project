@@ -60,7 +60,7 @@ export function PlanningCalendar({ days, technicians, workingHours, busy, canPic
     setField("date", day);
     setField("start", toTime(start));
     setField("end", toTime(Math.min(start + duration, 23 * 60 + 30)));
-    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("auswahl")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanningCalendar } from "@/components/dashboard/planning-calendar";
-import { VisitCard } from "@/components/dashboard/visit-card";
+import { VisitRow } from "@/components/dashboard/visit-card";
 import { EmptyState, ErrorState, PageHeader } from "@/components/dashboard/ui/states";
 import { addDays, dayKeyOf, isoWeek } from "@/lib/berlin-time";
 import { rolesFor } from "@/lib/auth/roles";
@@ -47,7 +47,7 @@ export default async function CalendarPage({ searchParams }: Props) {
       </section>
       <section className="dash-section" aria-labelledby="list-title">
         <h2 id="list-title">Einsätze dieser Woche ({data.visits.length})</h2>
-        {data.visits.length === 0 ? <EmptyState title="Keine Einsätze in dieser Woche." /> : <div className="visit-list">{data.visits.map((visit) => <VisitCard key={visit.id} visit={visit} />)}</div>}
+        {data.visits.length === 0 ? <EmptyState title="Keine Einsätze in dieser Woche." /> : <ul className="rw-card rw-card--neutral tech-rows">{data.visits.map((visit) => <VisitRow key={visit.id} visit={visit} showDate />)}</ul>}
       </section>
     </div>
   );

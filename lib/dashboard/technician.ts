@@ -20,13 +20,23 @@ export async function loadToday(technicianId: string) {
   const dayStart = berlinToInstant(today, "00:00").toISOString();
   const dayEnd = berlinToInstant(addDays(today, 1), "00:00").toISOString();
 
-  const [running, upcoming, todays, parts, waiting] = await Promise.all([
+  const tomorrowEnd = berlinToInstant(addDays(today, 2), "00:00").toISOString();
+  const weekday = ((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+  const [running, upcoming, todays, parts, waiting, tomorrow, later, hours] = await Promise.all([
     supabase.from("visits").select(VISIT_COLUMNS).eq("technician_id", technicianId).eq("status", "in_progress").order("scheduled_start").limit(1),
     supabase.from("visits").select(VISIT_COLUMNS).eq("technician_id", technicianId).eq("status", "scheduled").gt("scheduled_end", now.toISOString()).order("scheduled_start").limit(1),
     supabase.from("visits").select(VISIT_COLUMNS).eq("technician_id", technicianId).neq("status", "cancelled").lt("scheduled_start", dayEnd).gt("scheduled_end", dayStart).order("scheduled_start"),
     supabase.from("work_entries").select(`id, description, quantity, ordered_at, request:requests!inner(${REQUEST_COLUMNS}, technician_id)`).eq("kind", "part").eq("item_status", "ordered").eq("request.technician_id", technicianId).order("ordered_at"),
     supabase.from("visits").select(VISIT_COLUMNS).eq("technician_id", technicianId).eq("status", "waiting_parts").order("scheduled_start"),
+    supabase.from("visits").select(VISIT_COLUMNS).eq("technician_id", technicianId).neq("status", "cancelled").gte("scheduled_start", dayEnd).lt("scheduled_start", tomorrowEnd).order("scheduled_start"),
+    supabase.from("visits").select(VISIT_COLUMNS).eq("technician_id", technicianId).eq("status", "scheduled").gte("scheduled_start", dayEnd).order("scheduled_start").limit(1),
+    supabase.from("employee_availability").select("local_start, local_end, valid_from, valid_to").eq("employee_id", technicianId).eq("kind", "working_hours").eq("weekday", weekday),
   ]);
+  // Working hours of today (redesign task-10-3: shown in the header and after the last visit)
+  const todayHours = (hours.data ?? [])
+    .filter((row) => row.local_start && row.local_end && (!row.valid_from || row.valid_from <= today) && (!row.valid_to || row.valid_to >= today))
+    .map((row) => ({ start: (row.local_start as string).slice(0, 5), end: (row.local_end as string).slice(0, 5) }))
+    .sort((a, b) => a.start.localeCompare(b.start));
 
   // Requests waiting for parts: ordered parts of own current requests plus visits paused for parts
   const pending = new Map<string, PendingParts>();
@@ -50,7 +60,11 @@ export async function loadToday(technicianId: string) {
     next: ((running.data?.[0] ?? upcoming.data?.[0]) ?? null) as TechnicianVisit | null,
     todays: (todays.data ?? []) as TechnicianVisit[],
     pending: [...pending.values()],
-    error: Boolean(running.error || upcoming.error || todays.error || parts.error || waiting.error),
+    tomorrow: (tomorrow.data ?? []) as TechnicianVisit[],
+    tomorrowDay: addDays(today, 1),
+    nextLater: (later.data?.[0] ?? null) as TechnicianVisit | null,
+    hours: todayHours,
+    error: Boolean(running.error || upcoming.error || todays.error || parts.error || waiting.error || tomorrow.error || later.error || hours.error),
   };
 }
 
